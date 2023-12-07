@@ -1,8 +1,5 @@
 # Doppelcheck: Customized Press Reviews at the Touch of a Button
 
-![GitHub Repo stars](https://img.shields.io/github/stars/doppelcheck/main)
-![license](https://img.shields.io/badge/license-MIT-green)
-
 ## Overview
 
 Doppelcheck is a cutting-edge, browser-based AI assistance system, specifically designed for journalists and media professionals. Our tool automates research and analyzes text content to detect biases and verify information. With Doppelcheck, you get customized press reviews at the touch of a button, helping you to identify strategic disinformation effortlessly.
