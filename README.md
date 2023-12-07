@@ -36,4 +36,6 @@ Doppelcheck is licensed under the MIT License. See the [LICENSE](LICENSE) file f
 
 Special thanks to our contributors and supporters, particularly Media Tech Lab, for their invaluable assistance in this project.
 
-![Media Tech Lab](https://www.media-lab.de/files/assets/images/ML_Logo.webp)
+<a href="https://www.media-lab.de/en/programs/media-tech-lab">
+    <img src="https://raw.githubusercontent.com/media-tech-lab/.github/main/assets/mtl-powered-by.png" width="240" title="Media Tech Lab powered by logo">
+</a>
