@@ -1,8 +1,7 @@
 # Doppelcheck: Customized Press Reviews at the Touch of a Button
 
-![GitHub Repo stars](https://img.shields.io/github/stars/doppelcheck/ai-assistant)
+![GitHub Repo stars](https://img.shields.io/github/stars/doppelcheck/main)
 ![license](https://img.shields.io/badge/license-MIT-green)
-![Docs](https://img.shields.io/badge/docs-doppelcheck.eu%2Fdocs-blue)
 
 ## Overview
 
