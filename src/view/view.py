@@ -77,3 +77,14 @@ class View:
             else:
                 ui.label("URL")
                 ui.label(value)
+                # https://chat.openai.com/share/10ef04b0-d709-4edf-b918-57ba1fbc28f3
+                """
+                with ui.html(
+                        f"<iframe src=\"{value}\"></iframe>"
+                ) as iframe:
+                    pass
+
+                with ui.element("iframe") as iframe:
+                    # iframe.style("width: 100%; height: 100%;")
+                    iframe.props(f"src = \"{value}\"")
+                """
