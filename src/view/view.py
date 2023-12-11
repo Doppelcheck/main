@@ -34,9 +34,40 @@ class View:
     def setup_routes(self) -> None:
         @ui.page("/")
         async def index_page(client: Client) -> None:
-            ui.link("🧐 Doppelcheck", target=self.bookmarklet_target)
-            # dummy_content = DummyContent(client, self.callbacks)
-            # await dummy_content.create_content()
+            with ui.element("div") as container:
+                container.style(
+                    "width: 800px;"
+                    "margin: 0 auto;"
+                )
+
+                logo = ui.image("assets/images/logo_big.svg")
+
+                ui.element("div").style("height: 100px;")
+
+                with ui.row() as row:
+                    row.style(
+                        "display: flex;"
+                        "flex-direction: row;"
+                        "justify-content: space-between;"
+                    )
+                    with ui.element("div") as non_local:
+                        ui.markdown("**Kein** lokaler *Doppelcheck* Server:")
+                        ui.markdown("Zieh diesen Link in deine Lesezeichenleiste:")
+                        local_bookmarklet = ui.link("🧐 Doppelcheck", target=self.bookmarklet_target)
+                        local_bookmarklet.style("font-size: 1.5em;")
+
+                    # ui.element("div").style("height: 100px;")
+
+                    with ui.element("div") as local:
+                        ui.markdown("Lokaler *Doppelcheck* Server:")
+                        local_server_input = ui.input("http://localhost/")
+                        ui.markdown("Zieh diesen Link in deine Lesezeichenleiste:")
+                        local_bookmarklet = ui.link("🧐 Doppelcheck", target="")
+                        local_bookmarklet.style("font-size: 1.5em;")
+                        local_bookmarklet.props("disabled")
+
+                # dummy_content = DummyContent(client, self.callbacks)
+                # await dummy_content.create_content()
 
         @ui.page("/api/{source}")
         async def process(source: str, value: str = "") -> None:
