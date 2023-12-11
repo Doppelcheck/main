@@ -23,7 +23,8 @@ class Source(BaseModel):
 
 
 class View:
-    def __init__(self):
+    def __init__(self, bookmarklet_target: str) -> None:
+        self.bookmarklet_target = bookmarklet_target
         self.callbacks: ViewCallbacks | None = None
         app.add_static_files(url_path="/assets", local_directory="assets")
 
@@ -31,21 +32,11 @@ class View:
         self.callbacks = callback
 
     def setup_routes(self) -> None:
-
-        """
-        @ui.page("/{command}")
-        async def hand_in_invitation(client: Client, command: str, value: str) -> None:
-            dummy_content = DummyContent(client, self.callbacks)
-            if command == "command_name":
-                command_argument = value
-
-            await dummy_content.create_content()
-        """
-
         @ui.page("/")
         async def index_page(client: Client) -> None:
-            dummy_content = DummyContent(client, self.callbacks)
-            await dummy_content.create_content()
+            ui.link("🧐 Doppelcheck", target=self.bookmarklet_target)
+            # dummy_content = DummyContent(client, self.callbacks)
+            # await dummy_content.create_content()
 
         @ui.page("/api/{source}")
         async def process(source: str, value: str = "") -> None:
