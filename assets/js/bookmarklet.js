@@ -1,4 +1,5 @@
-const endpoint = "http://localhost:8000/pass_source/";
+const server = "http://localhost:8000/";
+const endpoint = `${server}pass_source/`;
 let payload = {
     url: window.location.href
 };
@@ -11,7 +12,7 @@ if (sel !== null) {
     }
 }
 
-console.log(JSON.stringify(payload))
+console.log("sending: ", JSON.stringify(payload))
 
 fetch(`${endpoint}`, {
     method: 'POST', // or 'PUT', depending on your API
@@ -24,8 +25,9 @@ fetch(`${endpoint}`, {
 .then(json_data => {
     console.log('Success:', json_data);
     if (json_data && "redirect_to" in json_data) {
-        console.log("Opening redirect_to");
-        window.open(json_data.redirect_to, '_blank');
+        const targetURL= `${server}${json_data.redirect_to}`;
+        console.log("Opening redirect_to " + targetURL + " in new tab");
+        window.open(targetURL, '_blank');
     }
 })
 .catch((error) => {
