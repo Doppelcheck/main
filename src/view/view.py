@@ -69,7 +69,8 @@ class View:
         @app.post("/pass_source/")
         async def pass_source(source: Source) -> Response:
             self._source = source
-            return JSONResponse(content={"redirect_to": "/process"})
+            target_url = "process"
+            return JSONResponse(content={"redirect_to": target_url})
 
         @ui.page("/process")
         async def test_page(client: Client) -> None:
