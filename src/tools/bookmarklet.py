@@ -1,14 +1,16 @@
 import urllib.parse as parse
 
 
-def compile_bookmarklet() -> str:
+def get_bookmarklet_template() -> str:
     input_file = "assets/js/bookmarklet.js"
 
     with open(input_file, mode="r") as f:
-        data = f.read()
-        encoded_data = parse.quote(data)
+        return f.read()
 
-    # 🧐 👁️‍🗨️ 👁 ⚆
-    # f.write("<a href=\"javascript:void%20function(){" + encoded_data + "}();\"> 🧐 Doppelcheck</a>")
-    return "javascript:void%20function(){" + encoded_data + "}();"
 
+def insert_server_address(js_template: str, server_address: str) -> str:
+    return js_template.replace("http://localhost:8000/", server_address.removesuffix("/") + "/")
+
+
+def compile_bookmarklet(js: str) -> str:
+    return "javascript:void%20function(){" + parse.quote(js) + "}();"
