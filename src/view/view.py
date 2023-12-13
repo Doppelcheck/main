@@ -38,6 +38,24 @@ class View:
     def setup_routes(self) -> None:
         @ui.page("/")
         async def index_page(client: Client) -> None:
+            with ui.element("div") as container:
+                container.style(
+                    "width: 800px;"
+                    "margin: 0 auto;"
+                )
+
+                logo = ui.image("assets/images/logo_big.svg")
+                logo.style(
+                    "width: 100%;"
+                )
+
+                ui.element("div").style("height: 100px;")
+
+                with ui.element("div") as non_local:
+                    ui.markdown("Coming soon...")
+
+        @ui.page("/_testing")
+        async def index_page(client: Client) -> None:
             server_ips = list(app.urls)
             bookmarklet_js = insert_server_address(self.bookmarklet_template, server_ips[0])
             compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
