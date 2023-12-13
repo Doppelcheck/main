@@ -47,6 +47,7 @@ class TestPage(ContentPage):
 
             # https://nicegui.io/documentation/aggrid
             # https://nicegui.io/documentation/table
+            # https://chat.openai.com/c/d039f978-0c6b-4657-b407-499b9901f97a
             # https://chat.openai.com/c/7cf93826-efdf-4255-b705-ffb28eb945c0
             with ui.expansion("Interfaces") as interfaces:
                 columns = [
