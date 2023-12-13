@@ -1,3 +1,5 @@
+import os
+import random
 from typing import Callable
 from urllib.parse import urlparse
 
@@ -26,7 +28,7 @@ class TestPage(ContentPage):
         bookmarklet_js = insert_server_address(self.bookmarklet_template, domain)
         compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
 
-        with ui.element("div") as container:
+        with (ui.element("div") as container):
             container.style(
                 "width: 800px;"
                 "margin: 0 auto;"
@@ -36,6 +38,35 @@ class TestPage(ContentPage):
             logo.style(
                 "width: 100%;"
             )
+
+            ui.element("div").style("height: 100px;")
+
+            def add():
+                item = os.urandom(10 // 2).hex()
+                table.add_rows({'name': item, 'endpoint': random.randint(0, 100)})
+
+            # https://nicegui.io/documentation/aggrid
+            # https://nicegui.io/documentation/table
+            # https://chat.openai.com/c/7cf93826-efdf-4255-b705-ffb28eb945c0
+            with ui.expansion("Interfaces") as interfaces:
+                columns = [
+                    {'name': 'name', 'label': 'Name', 'field': 'name'},
+                    {'name': 'endpoint', 'label': 'Endpoint', 'field': 'endpoint'},
+                ]
+                table = ui.table(columns=columns, rows=list(), row_key='name')
+                # table.classes('w-full')
+                table.style("width: 100%;")
+                with ui.row() as buttons:
+                    ui.button('add', on_click=add)
+                    ui.button('edit')
+                    ui.button('remove')
+
+            with ui.expansion("Agents") as agents:
+                ui.markdown("Keypoint Assistant")
+                ui.markdown("Sourcefinder Assistant")
+                ui.markdown("Crosschecker Assistant")
+
+
 
             ui.element("div").style("height: 100px;")
 

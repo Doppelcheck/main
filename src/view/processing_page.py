@@ -1,7 +1,6 @@
-from nicegui import ui, app, Client
+from nicegui import ui, Client
 
 from src.dataobjects import ViewCallbacks
-from src.tools.bookmarklet import insert_server_address, compile_bookmarklet
 from src.view.content_class import ContentPage
 
 
