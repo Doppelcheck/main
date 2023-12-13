@@ -1,8 +1,9 @@
+from typing import Callable
 from urllib.parse import urlparse
 
 from nicegui import ui, app, Client
 
-from src.dataobjects import ViewCallbacks
+from src.dataobjects import ViewCallbacks, Source
 from src.tools.bookmarklet import insert_server_address, compile_bookmarklet
 from src.view.content_class import ContentPage
 
@@ -11,6 +12,7 @@ class TestPage(ContentPage):
     def __init__(self, client: Client, callbacks: ViewCallbacks):
         super().__init__(client, callbacks)
         self.bookmarklet_template = None
+        self.manual_process: Callable[[Source], None] | None = None
 
     async def _create_content(self):
         server_ips = list(app.urls)
@@ -45,6 +47,9 @@ class TestPage(ContentPage):
                     "font-size: 1.5em; "
                 )
 
-            # dummy_content = DummyContent(client, self.callbacks)
-            # await dummy_content.create_content()
+                ui.element("div").style("height: 100px;")
+
+                ui.markdown("Oder füge hier Deinen den Text ein:")
+                text = ui.textarea()
+                button = ui.button("🧐 Doppelcheck", on_click=lambda: self.manual_process(text.value))
 

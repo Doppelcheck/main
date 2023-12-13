@@ -1,12 +1,11 @@
 # coding=utf-8
 from nicegui import ui, Client, app
-from pydantic import BaseModel
 
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
+import validators
 
-from src.dataobjects import ViewCallbacks
-from src.view.dummies import DummyContent
+from src.dataobjects import ViewCallbacks, Source
 from src.view.landing_page import LandingPage
 from src.view.processing_page import ProcessingPage
 from src.view.test_page import TestPage
@@ -20,11 +19,6 @@ app.add_middleware(
 )
 
 
-class Source(BaseModel):
-    url: str
-    text: str | None = None
-
-
 class View:
     def __init__(self, bookmarklet_template: str) -> None:
         self.callbacks: ViewCallbacks | None = None
@@ -35,6 +29,16 @@ class View:
 
     def set_callbacks(self, callback: ViewCallbacks) -> None:
         self.callbacks = callback
+
+    def _manual_process(self, text: str) -> None:
+        if validators.url(text):
+            source = Source(url=text)
+        else:
+            source = Source(url="[unknown]", text=text)
+
+        self.source = source
+        target_url = "process"
+        ui.open(target_url)
 
     def setup_routes(self) -> None:
         @app.post("/pass_source/")
@@ -52,6 +56,7 @@ class View:
         async def test_page(client: Client) -> None:
             testing_page = TestPage(client, self.callbacks)
             testing_page.bookmarklet_template = self.bookmarklet_template
+            testing_page.manual_process = self._manual_process
             await testing_page.create_content()
 
         @ui.page("/process")

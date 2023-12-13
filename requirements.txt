@@ -2,3 +2,4 @@ nicegui~=1.4.5
 pydantic~=2.5.2
 loguru~=0.7.2
 fastapi~=0.104.1
+validators~=0.22.0

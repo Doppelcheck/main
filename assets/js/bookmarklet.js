@@ -32,4 +32,8 @@ fetch(`${endpoint}`, {
 })
 .catch((error) => {
     console.error('Error:', error);
+    alert(
+        "An error occurred: The website's security policy is blocking the request. " +
+        "Please copy and paste the relevant text or complete URL at http://localhost:8000/."
+    );
 });

@@ -12,8 +12,7 @@ class ProcessingPage(ContentPage):
 
     async def _create_content(self):
         ui.label("Test")
-        ui.label(self.source.url)
-        ui.label(self.source.text)
+        ui.label(str(self.source))
 
         # https://chat.openai.com/share/10ef04b0-d709-4edf-b918-57ba1fbc28f3
         """
