@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from nicegui import Client
+from nicegui import Client, ui
 
 from src.dataobjects import ViewCallbacks
 
@@ -10,6 +10,16 @@ class ContentPage(ABC):
         self.client = client
         self.callbacks = callbacks
 
+    def _javascript(self) -> str:
+        return ""
+
     @abstractmethod
-    async def create_content(self) -> None:
+    async def _create_content(self) -> None:
         raise NotImplementedError()
+
+    async def create_content(self) -> None:
+        await self.client.connected()
+        await self._create_content()
+        js_code = self._javascript()
+        _ = ui.run_javascript(js_code)
+

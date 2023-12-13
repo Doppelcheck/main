@@ -6,9 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 
 from src.dataobjects import ViewCallbacks
-from src.tools.bookmarklet import insert_server_address, compile_bookmarklet
 from src.view.dummies import DummyContent
-
+from src.view.landing_page import LandingPage
+from src.view.processing_page import ProcessingPage
+from src.view.test_page import TestPage
 
 app.add_middleware(
     CORSMiddleware,
@@ -26,84 +27,35 @@ class Source(BaseModel):
 
 class View:
     def __init__(self, bookmarklet_template: str) -> None:
-        self.bookmarklet_template = bookmarklet_template
         self.callbacks: ViewCallbacks | None = None
         app.add_static_files(url_path="/assets", local_directory="assets")
 
-        self._source = None
+        self.bookmarklet_template = bookmarklet_template
+        self.source = None
 
     def set_callbacks(self, callback: ViewCallbacks) -> None:
         self.callbacks = callback
 
     def setup_routes(self) -> None:
-        @ui.page("/")
-        async def index_page(client: Client) -> None:
-            with ui.element("div") as container:
-                container.style(
-                    "width: 800px;"
-                    "margin: 0 auto;"
-                )
-
-                logo = ui.image("assets/images/logo_big.svg")
-                logo.style(
-                    "width: 100%;"
-                )
-
-                ui.element("div").style("height: 100px;")
-
-                with ui.element("div") as non_local:
-                    ui.markdown("Coming soon...")
-
-        @ui.page("/_testing")
-        async def index_page(client: Client) -> None:
-            server_ips = list(app.urls)
-            bookmarklet_js = insert_server_address(self.bookmarklet_template, server_ips[0])
-            compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
-
-            with ui.element("div") as container:
-                container.style(
-                    "width: 800px;"
-                    "margin: 0 auto;"
-                )
-
-                logo = ui.image("assets/images/logo_big.svg")
-                logo.style(
-                    "width: 100%;"
-                )
-
-                ui.element("div").style("height: 100px;")
-
-                with ui.element("div") as non_local:
-                    ui.markdown("Zieh diesen Link in deine Lesezeichenleiste:")
-                    # 🧐 👁️‍🗨️ 👁 ⚆
-                    local_bookmarklet = ui.link("🧐 Doppelcheck", target=compiled_bookmarklet)
-                    local_bookmarklet.style(
-                        "font-size: 1.5em; "
-                    )
-
-                # dummy_content = DummyContent(client, self.callbacks)
-                # await dummy_content.create_content()
-
         @app.post("/pass_source/")
         async def pass_source(source: Source) -> Response:
-            self._source = source
+            self.source = source
             target_url = "process"
             return JSONResponse(content={"redirect_to": target_url})
 
+        @ui.page("/")
+        async def index_page(client: Client) -> None:
+            landing_page = LandingPage(client, self.callbacks)
+            await landing_page.create_content()
+
+        @ui.page("/_test")
+        async def test_page(client: Client) -> None:
+            testing_page = TestPage(client, self.callbacks)
+            testing_page.bookmarklet_template = self.bookmarklet_template
+            await testing_page.create_content()
+
         @ui.page("/process")
         async def test_page(client: Client) -> None:
-            ui.label("Test")
-            ui.label(self._source.url)
-            ui.label(self._source.text)
-
-            # https://chat.openai.com/share/10ef04b0-d709-4edf-b918-57ba1fbc28f3
-            """
-            with ui.html(
-                    f"<iframe src=\"{value}\"></iframe>"
-            ) as iframe:
-                pass
-
-            with ui.element("iframe") as iframe:
-                # iframe.style("width: 100%; height: 100%;")
-                iframe.props(f"src = \"{value}\"")
-            """
+            processing_page = ProcessingPage(client, self.callbacks)
+            processing_page.source = self.source
+            await processing_page.create_content()
