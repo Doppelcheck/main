@@ -1,4 +1,5 @@
 import lingua
+import nltk
 
 from src.dataobjects import ViewCallbacks
 from src.model.model import Model
@@ -9,6 +10,8 @@ from src.view.view import View
 class Controller:
     def __init__(self, config: dict[str, any]) -> None:
         bookmarklet_template = get_bookmarklet_template()
+
+        nltk.download('punkt')
         detector = lingua.LanguageDetectorBuilder.from_all_languages()
         self.detector_built = detector.build()
 
