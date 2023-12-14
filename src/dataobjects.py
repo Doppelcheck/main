@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class ViewCallbacks:
     dummy_callback: Callable[[str], None]
     get_agent_config: Callable[[], dict[str, any]]
+    detect_language: Callable[[str], str]
 
 
 class Source(BaseModel):

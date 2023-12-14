@@ -3,7 +3,6 @@ import textwrap
 import newspaper
 import num2words
 from nicegui import ui, Client
-import lingua
 
 from src.dataobjects import ViewCallbacks, Source
 from src.tools.misc import extract_code_block
@@ -18,7 +17,7 @@ class ProcessingPage(ContentPage):
         config = callbacks.get_agent_config()
         self.agent_extraction = PromptOpenAI(config)
         self._number_of_statements = 3
-        self._target_language: str | None = None
+        self._target_language: str | None = "German"
 
         self._prompt_extraction = (
             f"```text"
@@ -27,9 +26,11 @@ class ProcessingPage(ContentPage):
             f"\n"
             f"Identify and extract the top {num2words.num2words(self._number_of_statements)} statements from the "
             f"above text, focusing exclusively on information presented as factual. Exclude examples, questions, "
-            f"descriptions of personal feelings, prose, and similar non-factual content. Clearly reference the line "
-            f"numbers corresponding to each extracted statement. Ensure that the statements are brief, clear, and "
-            f"directly convey the essential information. Use only up to 10 words for each statement.\n"
+            f"opinions, descriptions of personal feelings, prose, and similar non-factual content.\n"
+            f"\n"
+            f"Clearly reference the line numbers corresponding to each extracted statement. Ensure that the statements "
+            f"are brief, clear, and directly convey the essential information. Use only up to 20 words for each "
+            f"statement.\n"
             f"\n"
             f"Respond according to the following pattern:\n"
             f"```statements\n"
@@ -57,31 +58,39 @@ class ProcessingPage(ContentPage):
         with ui.element("div") as loading:
             ui.label("Loading...")
             ui.spinner()
-            article = newspaper.Article(self.source.url)
+            article = newspaper.Article(self.source.url, fetch_images=False)
             article.download()
             article.parse()
-            detector = lingua.LanguageDetectorBuilder.from_all_languages().build()
-            language = detector.detect_language_of(article.text)
-            article.config.language = language.iso_code_639_1.name.lower()
+            language = self.callbacks.detect_language(article.text)
+            article.config.set_language(language)
             article.nlp()
 
         loading.delete()
 
-        title = article.title
         ui.label("Title:")
-        ui.label(title)
+        ui.label(article.title)
+
+        ui.label("Authors:")
+        ui.label(", ".join(article.authors))
 
         ui.label("Language:")
         ui.label(article.meta_lang)
         ui.label(article.config.get_language())
 
-        keywords = article.keywords
-        ui.label("Keywords:")
-        ui.label(", ".join(keywords))
+        ui.label("Publish date:")
+        ui.label(article.publish_date)
 
-        summary = article.summary
+        ui.label("Tags:")
+        ui.label(", ".join(article.tags))
+
+        ui.label("Keywords:")
+        ui.label(", ".join(article.keywords))
+
+        ui.label("Meta keywords:")
+        ui.label(", ".join(article.meta_keywords))
+
         ui.label("Summary:")
-        ui.label(summary)
+        ui.label(article.summary)
 
         text = self.source.text or (article.title + "\n\n" + article.text)
 
