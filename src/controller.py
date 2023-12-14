@@ -12,9 +12,14 @@ class Controller:
         self.model = Model(config_databases)
         self.view = View(bookmarklet_template)
 
+        self.agent_config = config.pop("agent_interface")
         view_callbacks = ViewCallbacks(
-            self.model.dummy_function
+            self.model.dummy_function,
+            self.get_agent_config
         )
 
         self.view.set_callbacks(view_callbacks)
         self.view.setup_routes()
+
+    def get_agent_config(self) -> dict[str, any]:
+        return dict(self.agent_config)

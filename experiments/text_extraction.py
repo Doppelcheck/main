@@ -38,8 +38,7 @@ def newspaper_extract(url: str) -> str:
     """
 
     text = article.text
-
-    return article.text
+    return article.title + "\n\n" + text
 
 
 def main() -> None:
@@ -50,7 +49,6 @@ def main() -> None:
         f"=== Readabilipy\n"
         f"{distilled_readabilipy}\n"
     )
-
 
     distilled_readability = readability_lxml_extract(url)
     print(
