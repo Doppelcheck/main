@@ -30,21 +30,24 @@ class View:
     def set_callbacks(self, callback: ViewCallbacks) -> None:
         self.callbacks = callback
 
-    def _manual_process(self, text: str) -> None:
+    def _get_target_url(self) -> str:
+        return "process"
+
+    def _callback_manual_process(self, text: str) -> None:
         if validators.url(text):
             source = Source(url=text)
         else:
             source = Source(url="[unknown]", text=text)
 
         self.source = source
-        target_url = "process"
+        target_url = self._get_target_url()
         ui.open(target_url)
 
     def setup_routes(self) -> None:
         @app.post("/pass_source/")
         async def pass_source(source: Source) -> Response:
             self.source = source
-            target_url = "process"
+            target_url = self._get_target_url()
             return JSONResponse(content={"redirect_to": target_url})
 
         @ui.page("/")
@@ -56,7 +59,7 @@ class View:
         async def test_page(client: Client) -> None:
             testing_page = TestPage(client, self.callbacks)
             testing_page.bookmarklet_template = self.bookmarklet_template
-            testing_page.manual_process = self._manual_process
+            testing_page.manual_process = self._callback_manual_process
             await testing_page.create_content()
 
         @ui.page("/process")

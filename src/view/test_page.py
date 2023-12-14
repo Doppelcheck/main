@@ -67,8 +67,6 @@ class TestPage(ContentPage):
                 ui.markdown("Sourcefinder Assistant")
                 ui.markdown("Crosschecker Assistant")
 
-
-
             ui.element("div").style("height: 100px;")
 
             with ui.element("div") as main:

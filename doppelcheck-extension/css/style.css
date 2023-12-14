@@ -1,0 +1,24 @@
+#my-extension-sidebar {
+    position: fixed;
+    right: 0;
+    top: 100px;
+    width: 250px;
+    height: 100%;
+    background-color: white;
+    border-left: 1px solid #ccc;
+    border-top: 1px solid #ccc;
+    overflow-y: auto;
+    z-index: 1000; /* Ensure it's above page content */
+}
+
+#my-extension-sidebar-content {
+    padding: 10px;
+}
+
+#my-extension-toggle {
+    position: fixed;
+    right: 10px;
+    top: 20px;
+    z-index: 1001; /* Above the sidebar */
+    /* Add more styling as needed */
+}
