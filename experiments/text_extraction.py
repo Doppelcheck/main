@@ -1,9 +1,8 @@
-import json
-import requests
-
+import newspaper
+import nltk
 import readabilipy
 import readability
-import nltk, newspaper
+import requests
 
 
 def readabilipy_extract(url: str) -> str:
@@ -13,15 +12,20 @@ def readabilipy_extract(url: str) -> str:
     return article['content']
 
 
-def readability_lxml_extract(url: str) -> str:
+def readability_lxml_extract_from_html(html: str) -> str:
     # https://github.com/buriy/python-readability
-    response = requests.get(url)
-    doc = readability.Document(response.content)
+    doc = readability.Document(html)
 
     # cleaned = doc.get_clean_html()
     summary = doc.summary()
 
     return summary
+
+
+def readability_lxml_extract(url: str) -> str:
+    # https://github.com/buriy/python-readability
+    response = requests.get(url)
+    return readability_lxml_extract_from_html(response.text)
 
 
 def newspaper_extract(url: str) -> str:
@@ -42,7 +46,7 @@ def newspaper_extract(url: str) -> str:
 
 
 def main() -> None:
-    url = "https://fox13now.com/2013/12/30/new-year-new-laws-obamacare-pot-guns-and-drones"
+    url = "https://www.tagesschau.de/ausland/europa/eu-gipfel-blcokade-ungarn-100.html"
 
     distilled_readabilipy = readabilipy_extract(url)
     print(
