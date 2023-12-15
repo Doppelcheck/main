@@ -3,16 +3,17 @@ from typing import Callable
 
 from pydantic import BaseModel
 
+from src.agents.extraction import AgentExtraction
+
 
 @dataclasses.dataclass(frozen=True)
 class ViewCallbacks:
     dummy_callback: Callable[[str], None]
-    get_agent_config: Callable[[], dict[str, any]]
-    detect_language: Callable[[str], str]
+    get_extractor_agent: Callable[[], AgentExtraction]
 
 
 class Source(BaseModel):
     url: str
-    text: str | None = None
-    body: str | None = None
+    html: str
+    selected_text: str | None = None
 
