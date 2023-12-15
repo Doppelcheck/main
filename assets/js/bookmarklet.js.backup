@@ -1,18 +1,16 @@
 function main() {
     // the string "http://localhost:8000/" is replaced in this script with the actual server URL
     const server = "http://localhost:8000/";
-    const endpoint = `${server}update_body/`;
+    const endpoint = `${server}pass_source/`;
     let payload = {
         url: window.location.href
     };
 
-    const body = document.body;
     const sel = document.getSelection();
     if (sel !== null) {
         const selectedText = sel.toString().trim();
         if (0 < selectedText.length) {
             payload.text = selectedText;
-            payload.body = body.innerHTML;
         }
     }
 
@@ -28,9 +26,10 @@ function main() {
     .then(response => response.json())
     .then(json_data => {
         console.log('Success:', json_data);
-        if (json_data && "new_body" in json_data) {
-            console.log("Replacing website body with new body");
-            body.innerHTML = json_data.new_body;
+        if (json_data && "redirect_to" in json_data) {
+            const targetURL = `${server}${json_data.redirect_to}`;
+            console.log("Opening redirect_to " + targetURL + " in new tab");
+            window.open(targetURL, '_blank');
         }
     })
     .catch((error) => {

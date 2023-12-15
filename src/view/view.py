@@ -1,6 +1,8 @@
 # coding=utf-8
 from nicegui import ui, Client, app
 
+from bs4 import BeautifulSoup
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 import validators
@@ -43,12 +45,25 @@ class View:
         target_url = self._get_target_url()
         ui.open(target_url)
 
+    def _update_html_body(self, body: str) -> str:
+        # use bs4 to enclose all text in <p> tags in <span class="doppelchecked"> tags
+        soup = BeautifulSoup(body, 'html.parser')
+        for p in soup.find_all('p'):
+            p.wrap(soup.new_tag("span", **{"class": "doppelchecked"}))
+        return str(soup)
+
     def setup_routes(self) -> None:
         @app.post("/pass_source/")
         async def pass_source(source: Source) -> Response:
             self.source = source
             target_url = self._get_target_url()
             return JSONResponse(content={"redirect_to": target_url})
+
+        @app.post("/update_body/")
+        async def pass_source(source: Source) -> Response:
+            body = source.body
+            new_body = self._update_html_body(body)
+            return JSONResponse(content={"body": new_body})
 
         @ui.page("/")
         async def index_page(client: Client) -> None:

@@ -14,4 +14,5 @@ class ViewCallbacks:
 class Source(BaseModel):
     url: str
     text: str | None = None
+    body: str | None = None
 

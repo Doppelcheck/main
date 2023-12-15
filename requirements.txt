@@ -11,3 +11,4 @@ readabilipy~=0.2.0
 readability~=0.3.1
 num2words~=0.5.13
 lingua-language-detector~=2.0.2
+beautifulsoup4~=4.12.2
