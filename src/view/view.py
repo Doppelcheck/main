@@ -1,4 +1,5 @@
 # coding=utf-8
+import loguru
 from loguru import logger
 from lxml import etree, html
 from nicegui import ui, Client, app
@@ -10,7 +11,6 @@ from fastapi.responses import JSONResponse, Response
 import validators
 
 from experiments.navi_str import XpathSlice
-from experiments.text_extraction import readability_lxml_extract, readability_lxml_extract_from_html
 from src.dataobjects import ViewCallbacks, Source
 from src.view.landing_page import LandingPage
 from src.view.processing_page import ProcessingPage
@@ -53,39 +53,37 @@ class View:
         tree = html.fromstring(html_text)
         for each_xpath, each_text in zip(xslice.xpaths, xslice.texts):
             nodes = tree.xpath(each_xpath)
-            for each_node in nodes:
-                # text_position = each_node.text.index(each_text)
-                span_tag = etree.Element("span", **{"class": "doppelchecked"})
-                span_tag.text = each_text
-                node_text: str | None = each_node.text
+            if len(nodes) >= 2:
+                logger.warning(f"Xpath: {each_xpath} has more than one node.")
 
-                try:
-                    if node_text == each_text:
-                        each_node.text = None
-                        each_node.append(span_tag)
-                        continue
+            each_node = nodes[0]
+            if each_node.text is None:
+                logger.warning(f"Node text is None: {each_xpath}")
+                continue
 
-                    if node_text.startswith(each_text):
-                        each_node.insert(0, span_tag)
-                        each_node.tail = node_text[len(each_text):]
-                        continue
+            each_node.text = each_node.text.replace(each_text, f"[xslice_{xslice.order}]")
+            """
+            each_node.text = None
 
-                    if node_text.endswith(each_text):
-                        each_node.text = node_text[:-len(each_text)]
-                        each_node.append(span_tag)
-                        continue
+            prefix, found, suffix = node_text.partition(each_text)
+            if len(found) < 1:
+                continue
 
-                    if each_text in node_text:
-                        index = node_text.index(each_text)
-                        each_node.text = node_text[:index]
-                        each_node.append(span_tag)
-                        each_node.tail = node_text[index + len(each_text):]
-                        continue
+            if 0 < len(prefix):
+                each_node.text = prefix
 
-                except ValueError:
-                    continue
+            span_tag = etree.Element("span", **{"class": "doppelchecked"})
+            span_tag.text = each_text
+            logger.info(f"highlighting: {each_text}")
+            each_node.append(span_tag)
 
-        return html.tostring(tree).decode("utf-8")
+            if 0 < len(suffix):
+                each_node.tail = suffix
+            """
+
+        html_text_new = html.tostring(tree).decode("utf-8")
+        # other_html = etree.tostring(tree, pretty_print=True, method="html").decode()
+        return html_text_new
 
     def _highlight_text_section(self, soup: BeautifulSoup, marked_text: str) -> BeautifulSoup:
         for text_node in soup.find_all(text=True):
@@ -135,7 +133,21 @@ class View:
                     logger.info(f"Statement: {each_statement}")
                     logger.info(f"Source: {each_indices}")
                     for each_index in each_indices:
+                        # replaces the text in the html with tags
                         html_text = self._highlight_slice(html_text, each_index)
+
+                # collects all tags
+                all_slices = list()
+                for each_indices, each_statement in sourced_statements:
+                    for each_each_index in each_indices:
+                        if each_each_index not in all_slices:
+                            all_slices.append(each_each_index)
+
+                # replaces tags with highlights original text
+                for each_slice in all_slices:
+                    find_text = f"[xslice_{each_slice.order}]"
+                    replace_text = f"<span class=\"doppelchecked\">{each_slice.get_text()}</span>"
+                    html_text = html_text.replace(find_text, replace_text)
 
                 soup = BeautifulSoup(html_text, "html.parser")
                 statements = [each_statement for _, each_statement in sourced_statements]
