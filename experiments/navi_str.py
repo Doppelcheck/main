@@ -11,19 +11,21 @@ class SliceCombinationException(Exception):
 class XpathSlice:
     _order = 0
 
-    def __init__(self, xpaths: list[str], texts: list[str], finished: bool) -> None:
+    def __init__(self, xpaths: tuple[str], texts: tuple[str]) -> None:
         self._order = XpathSlice._order
         XpathSlice._order += 1
         self.xpaths = xpaths
         self.texts = texts
-        self.finished = finished
 
     @property
     def order(self) -> int:
         return self._order
 
+    def get_text(self) -> str:
+        return " ".join(x.strip() for x in self.texts)
+
     def __str__(self) -> str:
-        return f"{self._order:03d}"
+        return f"{self._order:03d} {self.get_text()} {str(self.xpaths)}"
 
 
 EXCLUDED_TAGS = {
@@ -45,47 +47,55 @@ def is_excluded(node: etree._Element) -> bool:
     return False
 
 
-def get_text_nodes(root: etree._Element) -> Generator[tuple[str, etree._Element], None, None]:
+def get_text_xpaths(root: etree._Element) -> Generator[tuple[str, str], None, None]:
     """Recursively yield text nodes that are not purely whitespace."""
+    root_tree = root.getroottree()
     for node in root.iter():
         if is_excluded(node):
             continue
 
-        if node.text and node.text.strip():
-            yield node.text.strip(), node
+        if node.text:
+            stripped = node.text.strip()
+            if stripped:
+                yield stripped, root_tree.getpath(node)
 
 
-def index_html(html_content: str, min_length: int = 20, max_length: int = 50) -> list[tuple[XpathSlice, str]]:
+def index_html_new(html_content: str, max_length: int = 40) -> Generator[XpathSlice, None, None]:
     parser = etree.HTMLParser()
     tree = etree.fromstring(html_content, parser=parser)
-    xpath_slices = list()
-    current_slice_text = ""
-    current_xpaths = list()
-    current_texts = list()
 
-    for text, node in get_text_nodes(tree):
-        current_text = text
-        node_xpath = node.getroottree().getpath(node)
+    line_xpaths = list[str]()
+    line_texts = list[str]()
 
-        while current_text:
-            additional_text = current_text[:max_length - len(current_slice_text)]
-            if len(current_xpaths) >= 1:
-                current_slice_text += " "
+    for node_text, xpath in get_text_xpaths(tree):
+        len_node = len(node_text)
+        len_line = sum(map(len, line_texts))
 
-            current_slice_text += additional_text
-            current_xpaths.append(node_xpath)
-            current_texts.append(current_text)
-            current_text = current_text[len(additional_text):]
+        while len_line + len_node >= max_length:
+            slice_index = max_length - len_line
 
-            if len(current_slice_text) >= min_length:
-                is_last_slice = len(current_text) == 0
-                xpath_slice = XpathSlice(xpaths=current_xpaths, texts=current_texts, finished=is_last_slice)
-                xpath_slices.append((xpath_slice, current_slice_text))
-                current_slice_text = ""
-                current_xpaths = list()
-                current_texts = list()
+            node_front_slice = node_text[:slice_index]
+            line_xpaths.append(xpath)
+            line_texts.append(node_front_slice)
+            yield XpathSlice(tuple(line_xpaths), tuple(line_texts))
 
-    return xpath_slices
+            line_xpaths.clear()
+            line_texts.clear()
+
+            len_node -= slice_index
+            if 0 >= len_node:
+                break
+
+            len_line = 0
+            node_text = node_text[slice_index:]
+
+        if len_line + len_node < max_length:
+            line_xpaths.append(xpath)
+            line_texts.append(node_text)
+            continue
+
+    if len(line_xpaths) > 0:
+        yield XpathSlice(tuple(line_xpaths), tuple(line_texts))
 
 
 def main() -> None:
@@ -94,12 +104,10 @@ def main() -> None:
     response = requests.get(url)
     html_text = response.text
 
-    texts_with_paths = index_html(html_text)
+    text_slices = index_html_new(html_text, 20)
 
-    for each_xpath, each_text in texts_with_paths:
-        print(each_xpath.xpaths)
-        reference = f"{each_xpath.order}\n{each_text}\n"
-        print(reference)
+    for each_xslice in text_slices:
+        print(each_xslice)
 
 
 if __name__ == "__main__":
