@@ -7,7 +7,7 @@ import nltk
 import num2words
 from loguru import logger
 
-from experiments.navi_str import XpathSlice, index_html
+from experiments.navi_str import XpathSlice, index_html_new
 from src.tools.misc import extract_code_block
 from src.tools.prompt_openai import PromptOpenAI
 
@@ -43,7 +43,7 @@ class AgentExtraction:
         self._target_language: str | None = "German"
 
         self._prompt_extraction = (
-            f"```text"
+            f"```text\n"
             f"{{text}}\n"
             f"```\n"
             f"\n"
@@ -116,13 +116,13 @@ class AgentExtraction:
         return article
 
     async def extract_statements_from_html(self, html_text: str) -> list[tuple[list[XpathSlice], str]]:
-        indexed = index_html(html_text)
+        indexes = index_html_new(html_text)
         lines = list()
-        for each_xpath, each_text in indexed:
-            each_line = f"{each_xpath.order:03d} {each_text}"
+        indices_dict = dict[int, XpathSlice]()
+        for each_xslice in indexes:
+            each_line = f"{each_xslice.order:03d} {each_xslice.get_text()}"
+            indices_dict[each_xslice.order] = each_xslice
             lines.append(each_line)
-
-        indices = {each_index.order: each_index for each_index, _ in indexed}
 
         numbered = "\n".join(lines)
         prompt = self._prompt_extraction.format(text=numbered)
@@ -133,14 +133,13 @@ class AgentExtraction:
         for each_line in lines.splitlines():
             try:
                 from_number, to_number, each_statement = AgentExtraction.split_lines(each_line)
-                each_indices = [indices[each_index] for each_index in range(from_number, to_number + 1)]
+                each_indices = [indices_dict[each_index] for each_index in range(from_number, to_number + 1)]
                 results.append((each_indices, each_statement))
 
             except LLMFormatException as e:
                 logger.error(e)
 
         return results
-
 
     async def extract_statements_from_text(self, text: str) -> list[tuple[str, str]]:
         wrapped = textwrap.wrap(text, width=50)

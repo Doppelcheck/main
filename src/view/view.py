@@ -51,22 +51,39 @@ class View:
 
     def _highlight_slice(self, html_text: str, xslice: XpathSlice) -> str:
         tree = html.fromstring(html_text)
-        for each_xpath in xslice.xpaths:
-            text_nodes = tree.xpath(each_xpath)
-            for each_node in text_nodes:
-                # Parse the node text with BeautifulSoup
-                soup = BeautifulSoup(each_node.text, 'html.parser')
-                # Find all span elements
-                spans = soup.find_all('span')
-                # Replace each span with its own text content
-                for span in spans:
-                    span.replace_with(span.text)
-                # Get the modified text
-                modified_text = str(soup)
-                # Replace xslice.text in the modified text with a span-wrapped version of xslice.text
-                new_content = modified_text.replace(xslice.text, f'<span class="doppelchecked">{xslice.text}</span>')
-                parent = each_node.getparent()
-                parent.replace(each_node, etree.fromstring(f"<div>{new_content}</div>"))
+        for each_xpath, each_text in zip(xslice.xpaths, xslice.texts):
+            nodes = tree.xpath(each_xpath)
+            for each_node in nodes:
+                # text_position = each_node.text.index(each_text)
+                span_tag = etree.Element("span", **{"class": "doppelchecked"})
+                span_tag.text = each_text
+                node_text: str | None = each_node.text
+
+                try:
+                    if node_text == each_text:
+                        each_node.text = None
+                        each_node.append(span_tag)
+                        continue
+
+                    if node_text.startswith(each_text):
+                        each_node.insert(0, span_tag)
+                        each_node.tail = node_text[len(each_text):]
+                        continue
+
+                    if node_text.endswith(each_text):
+                        each_node.text = node_text[:-len(each_text)]
+                        each_node.append(span_tag)
+                        continue
+
+                    if each_text in node_text:
+                        index = node_text.index(each_text)
+                        each_node.text = node_text[:index]
+                        each_node.append(span_tag)
+                        each_node.tail = node_text[index + len(each_text):]
+                        continue
+
+                except ValueError:
+                    continue
 
         return html.tostring(tree).decode("utf-8")
 
