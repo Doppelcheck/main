@@ -51,7 +51,7 @@ class View:
 
     def _highlight_slice(self, html_text: str, xslice: XpathSlice) -> str:
         tree = html.fromstring(html_text)
-        for each_xpath, each_text in zip(xslice.xpaths, xslice.texts):
+        for i, (each_xpath, each_text) in enumerate(zip(xslice.xpaths, xslice.texts)):
             nodes = tree.xpath(each_xpath)
             if len(nodes) >= 2:
                 logger.warning(f"Xpath: {each_xpath} has more than one node.")
@@ -61,25 +61,7 @@ class View:
                 logger.warning(f"Node text is None: {each_xpath}")
                 continue
 
-            each_node.text = each_node.text.replace(each_text, f"[xslice_{xslice.order}]")
-            """
-            each_node.text = None
-
-            prefix, found, suffix = node_text.partition(each_text)
-            if len(found) < 1:
-                continue
-
-            if 0 < len(prefix):
-                each_node.text = prefix
-
-            span_tag = etree.Element("span", **{"class": "doppelchecked"})
-            span_tag.text = each_text
-            logger.info(f"highlighting: {each_text}")
-            each_node.append(span_tag)
-
-            if 0 < len(suffix):
-                each_node.tail = suffix
-            """
+            each_node.text = each_node.text.replace(each_text, f"[xslice_{xslice.order}_{i:03d}]")
 
         html_text_new = html.tostring(tree).decode("utf-8")
         # other_html = etree.tostring(tree, pretty_print=True, method="html").decode()
@@ -145,9 +127,10 @@ class View:
 
                 # replaces tags with highlights original text
                 for each_slice in all_slices:
-                    find_text = f"[xslice_{each_slice.order}]"
-                    replace_text = f"<span class=\"doppelchecked\">{each_slice.get_text()}</span>"
-                    html_text = html_text.replace(find_text, replace_text)
+                    for i, (each_xpath, each_text) in enumerate(zip(each_slice.xpaths, each_slice.texts)):
+                        find_text = f"[xslice_{each_slice.order}_{i:03d}]"
+                        replace_text = f"<span class=\"doppelchecked\">{each_text}</span>"
+                        html_text = html_text.replace(find_text, replace_text)
 
                 soup = BeautifulSoup(html_text, "html.parser")
                 statements = [each_statement for _, each_statement in sourced_statements]
