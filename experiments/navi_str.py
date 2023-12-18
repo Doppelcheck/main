@@ -9,11 +9,8 @@ class SliceCombinationException(Exception):
 
 
 class XpathSlice:
-    _order = 0
-
-    def __init__(self, xpaths: tuple[str], texts: tuple[str]) -> None:
-        self._order = XpathSlice._order
-        XpathSlice._order += 1
+    def __init__(self, order: int, xpaths: tuple[str], texts: tuple[str]) -> None:
+        self._order = order
         self.xpaths = xpaths
         self.texts = texts
 
@@ -62,6 +59,8 @@ def get_text_xpaths(root: etree._Element) -> Generator[tuple[str, str], None, No
 
 
 def index_html_new(html_content: str, max_length: int = 40) -> Generator[XpathSlice, None, None]:
+    order = 0
+
     parser = etree.HTMLParser()
     tree = etree.fromstring(html_content, parser=parser)
 
@@ -78,7 +77,8 @@ def index_html_new(html_content: str, max_length: int = 40) -> Generator[XpathSl
             node_front_slice = node_text[:slice_index]
             line_xpaths.append(xpath)
             line_texts.append(node_front_slice)
-            yield XpathSlice(tuple(line_xpaths), tuple(line_texts))
+            yield XpathSlice(order, tuple(line_xpaths), tuple(line_texts))
+            order += 1
 
             line_xpaths.clear()
             line_texts.clear()
@@ -96,7 +96,8 @@ def index_html_new(html_content: str, max_length: int = 40) -> Generator[XpathSl
             continue
 
     if len(line_xpaths) > 0:
-        yield XpathSlice(tuple(line_xpaths), tuple(line_texts))
+        yield XpathSlice(order, tuple(line_xpaths), tuple(line_texts))
+        order += 1
 
 
 def main() -> None:
