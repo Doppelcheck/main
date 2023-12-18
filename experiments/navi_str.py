@@ -57,6 +57,9 @@ def get_text_xpaths(root: etree._Element) -> Generator[tuple[str, str], None, No
         if node.text and node.text.strip():
             yield node.text, root_tree.getpath(node)
 
+        if node.tail and node.tail.strip():
+            yield node.tail, root_tree.getpath(node)
+
 
 def index_html_new(html_content: str, max_length: int = 40) -> Generator[XpathSlice, None, None]:
     parser = etree.HTMLParser()
@@ -66,7 +69,7 @@ def index_html_new(html_content: str, max_length: int = 40) -> Generator[XpathSl
     line_texts = list[str]()
 
     for node_text, xpath in get_text_xpaths(tree):
-        len_node = len(node_text)
+        len_node = len(node_text)  # todo: just `len(node_text.strip())`?
         len_line = sum(map(len, line_texts))
 
         while len_line + len_node >= max_length:

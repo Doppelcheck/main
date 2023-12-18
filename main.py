@@ -8,7 +8,7 @@ from loguru import logger
 
 from src.controller import Controller
 
-logger.add(sys.stderr, format="{time} {level} {message}", colorize=True, level="INFO")
+# logger.add(sys.stderr, format="{time} {level} {message}", colorize=True, level="INFO")
 logger.add("logs/file_{time}.log", backtrace=True, diagnose=True, rotation="500 MB", level="DEBUG")
 
 

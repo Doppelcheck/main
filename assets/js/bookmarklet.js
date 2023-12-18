@@ -7,10 +7,6 @@ function main() {
     // set additional css styles
     const styleElement = document.createElement('style');
     styleElement.innerHTML = "" +
-        ".doppelchecked {\n" +
-        "    background: yellow; \n" +
-        "}\n" +
-        "\n" +
         ".doppelchecked-text {\n" +
         "    position: fixed; /* Fixed position to stay in place during scrolling */\n" +
         "    top: 50%; /* Center vertically */\n" +

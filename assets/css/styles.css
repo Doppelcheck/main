@@ -1,0 +1,41 @@
+/* Base style for all highlights */
+.doppelchecked {
+    position: relative;
+    overflow: hidden; /* Ensures that the pseudo-element does not extend outside */
+    color: black; /* Ensuring text color is dark for readability */
+}
+
+/* Different semi-transparent highlight colors */
+.claim01 { background-color: rgba(255, 255, 0, 0.3); } /* Light yellow */
+.claim02 { background-color: rgba(0, 255, 0, 0.3); } /* Light green */
+.claim03 { background-color: rgba(0, 255, 255, 0.3); } /* Light cyan */
+.claim04 { background-color: rgba(255, 0, 255, 0.3); } /* Light magenta */
+.claim05 { background-color: rgba(255, 165, 0, 0.3); } /* Light orange */
+.claim06 { background-color: rgba(0, 0, 255, 0.3); } /* Light blue */
+.claim07 { background-color: rgba(160, 32, 240, 0.3); } /* Light purple */
+.claim08 { background-color: rgba(255, 192, 203, 0.3); } /* Light pink */
+.claim09 { background-color: rgba(64, 224, 208, 0.3); } /* Light turquoise */
+.claim10 { background-color: rgba(255, 69, 0, 0.3); } /* Light red-orange */
+
+.doppelcheck-sidebar {
+    width: 200px;
+    height: 100%;
+    position: fixed;
+    top: 0;
+    right: 0;
+    color: black;
+    background: #f0f0f0;
+    padding: 10px 10px 10px 20px;
+    z-index: 10000;"
+}
+
+.doppelcheck-sidebar-content {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1;
+    color: black;
+}
+
+li.extracted {
+    margin-bottom: 1em;
+}

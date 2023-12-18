@@ -10,7 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 import validators
 
-from experiments.navi_str import XpathSlice
+from experiments.navi_str import XpathSlice, index_html_new
+from src.agents.extraction import Extract
 from src.dataobjects import ViewCallbacks, Source
 from src.view.landing_page import LandingPage
 from src.view.processing_page import ProcessingPage
@@ -49,23 +50,26 @@ class View:
         target_url = self._get_target_url()
         ui.open(target_url)
 
-    def _highlight_slice(self, html_text: str, xslice: XpathSlice) -> str:
+    def _mark_slice(self, html_text: str, xslice: XpathSlice) -> str:
         tree = html.fromstring(html_text)
-        for i, (each_xpath, each_text) in enumerate(zip(xslice.xpaths, xslice.texts)):
+        for index_element, (each_xpath, each_text) in enumerate(zip(xslice.xpaths, xslice.texts)):
             nodes = tree.xpath(each_xpath)
             if len(nodes) >= 2:
                 logger.warning(f"Xpath: {each_xpath} has more than one node.")
 
             each_node = nodes[0]
-            if each_node.text is None:
+            if each_text in each_node.text:
+                each_node.text = each_node.text.replace(each_text, f"[xslice_{xslice.order}_{index_element}]")
+
+            elif each_text in each_node.tail:
+                each_node.tail = each_node.tail.replace(each_text, f"[xslice_{xslice.order}_{index_element}]")
+
+            else:
                 logger.warning(f"Node text is None: {each_xpath}")
                 continue
 
-            each_node.text = each_node.text.replace(each_text, f"[xslice_{xslice.order}_{i:03d}]")
-
-        html_text_new = html.tostring(tree).decode("utf-8")
-        # other_html = etree.tostring(tree, pretty_print=True, method="html").decode()
-        return html_text_new
+        html_template = html.tostring(tree).decode("utf-8")
+        return html_template
 
     def _highlight_text_section(self, soup: BeautifulSoup, marked_text: str) -> BeautifulSoup:
         for text_node in soup.find_all(text=True):
@@ -90,6 +94,67 @@ class View:
 
         return soup
 
+    def mark_extract_sources(self, extracts: list[Extract], html_template: str) -> str:
+        for source_slices, each_statement in extracts:
+            for each_slice in source_slices:
+                html_template = self._mark_slice(html_template, each_slice)
+
+        return html_template
+
+    def insert_highlights(self, slices_per_extract: tuple[list[XpathSlice]], html_template: str) -> str:
+        for index_extract, each_extract_slices in enumerate(slices_per_extract):
+            for index_slice, each_slice in enumerate(each_extract_slices):
+                for index_element, (each_xpath, each_text) in enumerate(zip(each_slice.xpaths, each_slice.texts)):
+                    find_text = f"[xslice_{each_slice.order}_{index_element}]"
+                    if index_slice < 1:
+                        replace_text = (
+                            f"<span id=\"doppelcheckextract{index_extract + 1:02d}\" class=\"doppelchecked claim{index_extract + 1:02d}\">"
+                            f"{each_text}"
+                            f"</span>"
+                        )
+                    else:
+                        replace_text = (
+                            f"<span class=\"doppelchecked claim{index_extract + 1:02d}\">"
+                            f"{each_text}"
+                            f"</span>"
+                        )
+
+                    html_template = html_template.replace(find_text, replace_text)
+
+        return html_template
+
+    def render_sidebar(self, soup: BeautifulSoup, statements: list[str]) -> str:
+        # add sidebar
+        element_list = tuple(
+            f'<li class="extracted claim{i + 1:02d}"><a href="#doppelcheckextract{i + 1:02d}">{each_statement}</a></li>'
+            for i, each_statement in enumerate(statements)
+        )
+
+        elements_statements = "\n".join(element_list)
+        sidebar_html = f"""
+        <div class="doppelcheck-sidebar">
+            <div class="doppelcheck-sidebar-content">
+                <h1>Side bar</h1>
+                <ul>
+                    {elements_statements}
+                </ul>
+            </div>
+        </div>
+        """
+
+        style_tag = soup.new_tag("style", **{"type": "text/css"})
+        with open("assets/css/styles.css") as f:
+            style_tag.string = f.read()
+        # style in body, ugly but works
+        soup.body.insert(0, style_tag)
+
+        sidebar = BeautifulSoup(sidebar_html, "html.parser")
+        soup.body.insert(0, sidebar)
+
+        # body_html = body_soup.prettify()
+        body_html = str(soup.body)
+        return body_html
+
     def setup_routes(self) -> None:
         @app.post("/pass_source/")
         async def pass_source(source: Source) -> Response:
@@ -99,75 +164,51 @@ class View:
 
         @app.post("/update_body/")
         async def pass_source(source: Source) -> Response:
-            html_text = source.html
-            soup = BeautifulSoup(html_text, "html.parser")
+            html_template = source.html
 
             # process
             extractor_agent = self.callbacks.get_extractor_agent()
 
             if source.selected_text is None:
                 # take website
-                main_content = html_text
+                main_content = html_template
                 # main_content = readability_lxml_extract_from_html(body)
-                sourced_statements = await extractor_agent.extract_statements_from_html(main_content)
 
-                for each_indices, each_statement in sourced_statements:
-                    logger.info(f"Statement: {each_statement}")
-                    logger.info(f"Source: {each_indices}")
-                    for each_index in each_indices:
-                        # replaces the text in the html with tags
-                        html_text = self._highlight_slice(html_text, each_index)
+                # todo:
+                #  remove Xslice.order, causes problems with multiple extracts
+                #  improve xslices by considering only text.strip()
+                #  text node segmentation introduces new .text and .tail nodes which are not highlighted
 
-                # collects all tags
-                all_slices = list()
-                for each_indices, each_statement in sourced_statements:
-                    for each_each_index in each_indices:
-                        if each_each_index not in all_slices:
-                            all_slices.append(each_each_index)
 
-                # replaces tags with highlights original text
-                for each_slice in all_slices:
-                    for i, (each_xpath, each_text) in enumerate(zip(each_slice.xpaths, each_slice.texts)):
-                        find_text = f"[xslice_{each_slice.order}_{i:03d}]"
-                        replace_text = f"<span class=\"doppelchecked\">{each_text}</span>"
-                        html_text = html_text.replace(find_text, replace_text)
+                xslices = list(index_html_new(main_content))
+                extracts = await extractor_agent.extract_from_slices(xslices)
+                logger.info(f"Extracts: {extracts}")
+                html_template = self.mark_extract_sources(extracts, html_template)
+
+                slices_referenced = tuple(sorted(source_slices, key=lambda x: x.order) for source_slices, _ in extracts)
+
+                # replace tags with highlights original text
+                html_text = self.insert_highlights(slices_referenced, html_template)
 
                 soup = BeautifulSoup(html_text, "html.parser")
-                statements = [each_statement for _, each_statement in sourced_statements]
+                statements = [each_statement for _, each_statement in extracts]
 
             else:
                 # take selection (get html of selection?)
-                text = source.selected_text
-                sourced_statements = await extractor_agent.extract_statements_from_text(text)
+                # parse Article from source url
+                soup = BeautifulSoup(html_template, "html.parser")
 
-                for each_statement, each_source in sourced_statements:
+                text = source.selected_text
+                extracts = await extractor_agent.extract_statements_from_text(text)
+
+                for each_statement, each_source in extracts:
                     logger.info(f"Statement: {each_statement}")
                     logger.info(f"Source: {each_source}")
                     soup = self._highlight_text_section(soup, each_source)
 
-                statements = [each_statement for each_statement, _ in sourced_statements]
+                statements = [each_statement for each_statement, _ in extracts]
 
-            # add sidebar
-            elements_statements = "\n".join(
-                f'<li style="margin-bottom: 1em;">{each_statement}</li>'
-                for each_statement in statements
-            )
-            sidebar_html = f"""
-<div class="doppelcheck-sidebar" style="width: 200px; height: 100%; position: fixed; top: 0; right: 0; color: black; background: #f0f0f0; padding: 10px; z-index: 10000;">
-    <div class="doppelcheck-sidebar-content">
-        <h1>Side bar</h1>
-        <ul>
-            {elements_statements}
-        </ul>
-    </div>
-</div>
-            """
-
-            sidebar = BeautifulSoup(sidebar_html, "html.parser")
-            soup.body.insert(0, sidebar)
-
-            # body_html = body_soup.prettify()
-            body_html = str(soup.body)
+            body_html = self.render_sidebar(soup, statements)
             return JSONResponse(content={"body": body_html})
 
         @ui.page("/")
