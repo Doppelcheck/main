@@ -175,10 +175,8 @@ class View:
                 # main_content = readability_lxml_extract_from_html(body)
 
                 # todo:
-                #  remove Xslice.order, causes problems with multiple extracts
                 #  improve xslices by considering only text.strip()
                 #  text node segmentation introduces new .text and .tail nodes which are not highlighted
-
 
                 xslices = list(index_html_new(main_content))
                 extracts = await extractor_agent.extract_from_slices(xslices)
