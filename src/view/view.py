@@ -175,7 +175,10 @@ class View:
                 # main_content = readability_lxml_extract_from_html(body)
 
                 # todo:
-                #  improve xslices by considering only text.strip()
+                #  improve xslices
+                #   do not include text segments but text ranges
+                #   remove order from xslice
+                #   by considering only text.strip()?
                 #  text node segmentation introduces new .text and .tail nodes which are not highlighted
 
                 xslices = list(index_html_new(main_content))
