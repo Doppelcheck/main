@@ -125,6 +125,7 @@ class View:
 
     def render_sidebar(self, soup: BeautifulSoup, statements: list[str]) -> str:
         # add sidebar
+        # todo: get [].href from javascript and add to anchor link
         element_list = tuple(
             f'<li class="extracted claim{i + 1:02d}"><a href="#doppelcheckextract{i + 1:02d}">{each_statement}</a></li>'
             for i, each_statement in enumerate(statements)
