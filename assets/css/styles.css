@@ -18,7 +18,7 @@
 .claim10 { background-color: rgba(255, 69, 0, 0.3); } /* Light red-orange */
 
 .doppelcheck-sidebar {
-    width: 200px;
+    width: 300px;
     height: 100%;
     position: fixed;
     top: 0;
@@ -26,16 +26,52 @@
     color: black;
     background: #f0f0f0;
     padding: 10px 10px 10px 20px;
-    z-index: 10000;"
+    z-index: 10000;
 }
 
 .doppelcheck-sidebar-content {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    font-size: 14px;
+    font-size: 16px;
     line-height: 1;
     color: black;
 }
 
-li.extracted {
-    margin-bottom: 1em;
+.doppelcheck-sidebar h1 {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 20px;
+    font-weight: bold;
+    color: black;
 }
+
+.doppelcheck-sidebar h2 {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 18px;
+    color: black;
+}
+
+.doppelcheck-button {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1;
+    color: black;
+    background: #ccc;
+    border: 1px solid #aaa;
+    border-radius: 3px;
+    padding: 5px 10px;
+    margin: 20px auto;
+    cursor: pointer;
+    display: block;
+}
+
+.doppelcheck-button:hover {
+    background: #ddd;
+}
+
+.doppelcheck-sidebar-content li {
+    margin: 50px 10px;
+}
+
+.doppelcheck-processing {
+    height: 5em;
+    width: 5em;
+ }

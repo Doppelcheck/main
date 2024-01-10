@@ -11,21 +11,19 @@ from src.view.content_class import ContentPage
 
 
 class TestPage(ContentPage):
-    def __init__(self, client: Client, callbacks: ViewCallbacks):
+    def __init__(self, client: Client, domain: str, callbacks: ViewCallbacks):
         super().__init__(client, callbacks)
+        self.domain = domain
         self.bookmarklet_template = None
         self.manual_process: Callable[[Source], None] | None = None
 
     async def _create_content(self):
         server_ips = list(app.urls)
-
-        js_url = await ui.run_javascript('window.location.href')
         ui.label(f"Server IPs from nicegui: {server_ips}")
-        parsed_url = urlparse(js_url)
-        domain = f"{parsed_url.scheme}://{parsed_url.netloc}/"
-        ui.label(f"JS URL: {domain}")
 
-        bookmarklet_js = insert_server_address(self.bookmarklet_template, domain)
+        ui.label(f"JS URL: {self.domain}")
+
+        bookmarklet_js = insert_server_address(self.bookmarklet_template, self.domain)
         compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
 
         with (ui.element("div") as container):
