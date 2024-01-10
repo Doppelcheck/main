@@ -1,8 +1,11 @@
+// READ THE FOLLOWING CODE CAREFULLY
+
 function main() {
     // base parameters
     // (the string "http://localhost:8000/" is replaced in this script with the actual server URL)
-    const server = "http://localhost:8000/";
-    const endpoint = `${server}update_body/`;
+    const serverURL = "http://localhost:8000/";
+    const endpoint = `${serverURL}update_body/`;
+    const sidebarScriptURL = `${serverURL}assets/js/sidebar.js`;
 
     // set additional css styles
     const styleElement = document.createElement('style');
@@ -75,6 +78,10 @@ function main() {
         if (json_data && "body" in json_data) {
             console.log("Replacing website body with new body");
             document.body.outerHTML = json_data.body;
+            // loading scripts, must be after body alterations!
+            const sidebarScript = document.createElement('script');
+            sidebarScript.src = sidebarScriptURL;
+            document.head.appendChild(sidebarScript);
         }
 
     })
@@ -92,5 +99,4 @@ function main() {
     });
 }
 
-// Call the main function explicitly
 main();

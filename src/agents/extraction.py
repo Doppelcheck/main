@@ -7,7 +7,7 @@ import nltk
 import num2words
 from loguru import logger
 
-from experiments.navi_str import XpathSlice, index_html_new
+from experiments.navi_str import XpathSlice
 from src.tools.misc import extract_code_block
 from src.tools.prompt_openai import PromptOpenAI
 

@@ -1,13 +1,17 @@
 # coding=utf-8
-import loguru
+import asyncio
+from typing import Generator
+from urllib.parse import urlparse
+
 from loguru import logger
-from lxml import etree, html
+from lxml import html
 from nicegui import ui, Client, app
 
 from bs4 import BeautifulSoup, NavigableString
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi import WebSocket
 import validators
 
 from experiments.navi_str import XpathSlice, index_html_new
@@ -33,6 +37,12 @@ class View:
 
         self.bookmarklet_template = bookmarklet_template
         self.source = None
+        self.domain = "https://doppelcheck.com/"
+
+    async def get_domain(self) -> None:
+        js_url = await ui.run_javascript('window.location.href')
+        parsed_url = urlparse(js_url)
+        self.domain = f"{parsed_url.scheme}://{parsed_url.netloc}/"
 
     def set_callbacks(self, callback: ViewCallbacks) -> None:
         self.callbacks = callback
@@ -58,10 +68,10 @@ class View:
                 logger.warning(f"Xpath: {each_xpath} has more than one node.")
 
             each_node = nodes[0]
-            if each_text in each_node.text:
+            if each_node.text is not None and each_text in each_node.text:
                 each_node.text = each_node.text.replace(each_text, f"[xslice_{xslice.order}_{index_element}]")
 
-            elif each_text in each_node.tail:
+            elif each_node.tail is not None and each_text in each_node.tail:
                 each_node.tail = each_node.tail.replace(each_text, f"[xslice_{xslice.order}_{index_element}]")
 
             else:
@@ -107,17 +117,18 @@ class View:
                 for index_element, (each_xpath, each_text) in enumerate(zip(each_slice.xpaths, each_slice.texts)):
                     find_text = f"[xslice_{each_slice.order}_{index_element}]"
                     if index_slice < 1:
-                        replace_text = (
-                            f"<span id=\"doppelcheckextract{index_extract + 1:02d}\" class=\"doppelchecked claim{index_extract + 1:02d}\">"
-                            f"{each_text}"
-                            f"</span>"
-                        )
+                        replace_text = f"""
+                            <span id=\"doppelcheckextract{index_extract + 1:02d}\" class=\"doppelchecked claim{index_extract + 1:02d}\">
+                                {each_text}
+                            </span>
+                            """
+
                     else:
-                        replace_text = (
-                            f"<span class=\"doppelchecked claim{index_extract + 1:02d}\">"
-                            f"{each_text}"
-                            f"</span>"
-                        )
+                        replace_text = f"""
+                            <span class=\"doppelchecked claim{index_extract + 1:02d}\">
+                                {each_text}
+                            </span>
+                            """
 
                     html_template = html_template.replace(find_text, replace_text)
 
@@ -125,29 +136,53 @@ class View:
 
     def render_sidebar(self, soup: BeautifulSoup, statements: list[str]) -> str:
         # add sidebar
-        # todo: get [].href from javascript and add to anchor link
-        element_list = tuple(
-            f'<li class="extracted claim{i + 1:02d}"><a href="#doppelcheckextract{i + 1:02d}">{each_statement}</a></li>'
-            for i, each_statement in enumerate(statements)
-        )
 
-        elements_statements = "\n".join(element_list)
-        sidebar_html = f"""
-        <div class="doppelcheck-sidebar">
-            <div class="doppelcheck-sidebar-content">
-                <h1>Side bar</h1>
-                <ul>
-                    {elements_statements}
-                </ul>
-            </div>
-        </div>
-        """
+        # assets/images/android-chrome-512x512.png
+        server_addresses = list(app.urls)  # todo: get [].href from javascript and add to anchor link, also for assets
+        processing_src = f"{self.domain}assets/images/processing_small.gif"
 
         style_tag = soup.new_tag("style", **{"type": "text/css"})
         with open("assets/css/styles.css") as f:
             style_tag.string = f.read()
-        # style in body, ugly but works
+            # style in body, ugly but works
         soup.body.insert(0, style_tag)
+
+        claim_element_list = tuple(
+            f"""
+            <li>
+                <a href="#doppelcheckextract{i + 1:02d}">
+                    <span class="extracted claim{i + 1:02d}">
+                        {each_statement}
+                    </span>
+                </a>
+            </li>
+            """
+            for i, each_statement in enumerate(statements)
+        )
+
+        claim_elements = "\n".join(claim_element_list)
+        sidebar_html = f"""
+        <div class="doppelcheck-sidebar">
+            <div class="doppelcheck-sidebar-content">
+                <h1>Doppelcheck Kernaussagen</h1>
+                <div>
+                    <ul>
+                        {claim_elements}
+                    </ul>
+                <div>
+                            
+                <button class="doppelcheck-button" id="loadButton" 
+                onclick="startStreaming()">🧐 Doppelcheck</button>
+                
+                <div id="dataArea"></div>
+                
+                <div id="processingIndicator" style="display:none;">
+                    <img src="{processing_src}" alt="Processing..." class="doppelcheck-processing" />
+                </div>
+                
+            </div>
+        </div>
+        """
 
         sidebar = BeautifulSoup(sidebar_html, "html.parser")
         soup.body.insert(0, sidebar)
@@ -157,6 +192,14 @@ class View:
         return body_html
 
     def setup_routes(self) -> None:
+        @app.websocket("/ws")
+        async def websocket_endpoint(websocket: WebSocket):
+            await websocket.accept()
+            for i in range(1, 6):
+                await websocket.send_text(f"Data chunk {i}")
+                await asyncio.sleep(1)  # Simulate delay
+            await websocket.close()
+
         @app.post("/pass_source/")
         async def pass_source(source: Source) -> Response:
             self.source = source
@@ -220,7 +263,9 @@ class View:
 
         @ui.page("/_test")
         async def test_page(client: Client) -> None:
-            testing_page = TestPage(client, self.callbacks)
+            await client.connected()
+            await self.get_domain()
+            testing_page = TestPage(client, self.domain, self.callbacks)
             testing_page.bookmarklet_template = self.bookmarklet_template
             testing_page.manual_process = self._callback_manual_process
             await testing_page.create_content()
