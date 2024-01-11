@@ -48,6 +48,7 @@ function main() {
     }
 
     // add overlay
+    // todo: instead of overlay, show sidebar immediately. populate sidebar with data as it arrives.
     const overlay = document.createElement('div');
     overlay.addEventListener('click', function(event) {
         event.preventDefault();
@@ -94,7 +95,7 @@ function main() {
         console.error('Error:', error);
         alert(
             "An error occurred: Maybe the website's security policy is blocking the request. " +
-            "Please copy and paste the relevant text or complete URL at http://localhost:8000/."
+            `Please copy and paste the relevant text or complete URL at ${serverURL}.`
         );
     });
 }

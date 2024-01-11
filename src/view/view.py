@@ -1,6 +1,5 @@
 # coding=utf-8
 import asyncio
-from typing import Generator
 from urllib.parse import urlparse
 
 from loguru import logger
@@ -10,7 +9,7 @@ from nicegui import ui, Client, app
 from bs4 import BeautifulSoup, NavigableString
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi import WebSocket
 import validators
 
@@ -155,6 +154,19 @@ class View:
                         {each_statement}
                     </span>
                 </a>
+                                            
+                <button class="doppelcheck-button" id="loadButton{i + 1:02d}" 
+                onclick="startStreaming('{i + 1:02d}')">🧐 Doppelcheck</button>
+                
+                <div class="doppelcheck-review">
+                    <ul id="dataArea{i + 1:02d}">
+                    </ul>
+                    
+                    <div id="processingIndicator{i + 1:02d}" style="display:none;">
+                        <img src="{processing_src}" alt="Processing..." class="doppelcheck-processing" />
+                    </div>
+                </div>
+                
             </li>
             """
             for i, each_statement in enumerate(statements)
@@ -170,16 +182,6 @@ class View:
                         {claim_elements}
                     </ul>
                 <div>
-                            
-                <button class="doppelcheck-button" id="loadButton" 
-                onclick="startStreaming()">🧐 Doppelcheck</button>
-                
-                <div id="dataArea"></div>
-                
-                <div id="processingIndicator" style="display:none;">
-                    <img src="{processing_src}" alt="Processing..." class="doppelcheck-processing" />
-                </div>
-                
             </div>
         </div>
         """
@@ -196,7 +198,7 @@ class View:
         async def websocket_endpoint(websocket: WebSocket):
             await websocket.accept()
             for i in range(1, 6):
-                await websocket.send_text(f"Data chunk {i}")
+                await websocket.send_text(f"information source {i}")
                 await asyncio.sleep(1)  # Simulate delay
             await websocket.close()
 

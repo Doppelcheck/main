@@ -35,15 +35,16 @@ class AgentExtraction:
 
         raise LLMFormatException(f"Could not parse line: {line}")
 
-    def __init__(self, config: dict[str, any]) -> None:
+    def __init__(self, extraction_config: dict[str, any], openai_config: dict[str, any]) -> None:
         nltk.download('punkt')
         detector = lingua.LanguageDetectorBuilder.from_all_languages()
         self.detector_built = detector.build()
 
-        self.agent_extraction = PromptOpenAI(config)
+        self.agent_extraction = PromptOpenAI(openai_config)
 
-        self._number_of_statements = 3
-        self._target_language: str | None = "German"
+        self._number_of_statements = extraction_config["number_of_statements"]
+        self._target_language = extraction_config["target_language"]
+        self._max_text_length = extraction_config["max_text_length"]
 
         self._prompt_extraction = (
             f"```text\n"
@@ -69,7 +70,9 @@ class AgentExtraction:
             f"Answer in one triple single quote fenced code block with the keyword `key_claims`."
         )
 
-        if self._target_language is not None:
+        if len(self._target_language) < 1:
+            self._prompt_extraction += " Respond in the same language as the text."
+        else:
             self._prompt_extraction += f" Translate the claims into {self._target_language}."
 
     def _detect_language(self, text: str) -> str:
@@ -149,6 +152,7 @@ class AgentExtraction:
         return results
 
     async def extract_statements_from_text(self, text: str) -> list[tuple[str, str]]:
+        text = await self.agent_extraction.summarize(text)
         wrapped = textwrap.wrap(text, width=50)
 
         numbered = "\n".join(f"{i + 1:02d} {line}" for i, line in enumerate(wrapped))
