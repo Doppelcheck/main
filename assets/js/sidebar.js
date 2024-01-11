@@ -1,11 +1,11 @@
 console.log("sidebar.js loaded");
 
-function startStreaming() {
+function startStreaming(idSuffix) {
     console.log("startStreaming() called");
 
-    const loadButton = document.getElementById(`loadButton`);
-    const processingIndicator = document.getElementById(`processingIndicator`);
-    const dataArea = document.getElementById(`dataArea`);
+    const loadButton = document.getElementById(`loadButton${idSuffix}`);
+    const processingIndicator = document.getElementById(`processingIndicator${idSuffix}`);
+    const dataAreaUnorderedList = document.getElementById(`dataArea${idSuffix}`);
 
     loadButton.style.display = 'none'
     processingIndicator.style.display = 'block';
@@ -14,7 +14,10 @@ function startStreaming() {
 
     ws.onmessage = function(event) {
         console.log("Data received:", event.data);
-        dataArea.innerText += event.data + "\n";
+
+        const dataArea = document.createElement('li');
+        dataArea.innerText = event.data;
+        dataAreaUnorderedList.appendChild(dataArea);
     };
 
     ws.onopen = function(event) {

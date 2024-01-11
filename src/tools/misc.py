@@ -1,6 +1,15 @@
 import re
 
 
+def generate_block(text: str, block_type: str = "") -> str:
+    return (
+        f"```{block_type.strip()}\n"
+        f"{text.strip()}\n"
+        f"```\n"
+        f"\n"
+    )
+
+
 def extract_code_block(text: str, code_type: str = "") -> str:
     """
     Extracts the first code block from a string using regular expressions.
@@ -8,7 +17,8 @@ def extract_code_block(text: str, code_type: str = "") -> str:
     pattern = r"```" + code_type + r"\n(.*?)\n```"
     match = re.search(pattern, text, re.DOTALL)
     if match:
-        return match.group(1).strip()
+        found_match = match.group(1)
+        return found_match.removeprefix(f"```{code_type}").removeprefix("```").removesuffix("```").strip()
     return ""
 
 

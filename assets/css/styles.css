@@ -75,3 +75,11 @@
     height: 5em;
     width: 5em;
  }
+
+.doppelcheck-review {
+    margin: 10px;
+ }
+
+.doppelcheck-review li {
+    margin: 0 0 10px 0;
+ }

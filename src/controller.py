@@ -12,8 +12,14 @@ class Controller:
     def __init__(self, config: dict[str, any]) -> None:
         bookmarklet_template = get_bookmarklet_template()
 
-        config_agent = config.pop("agent_interface")
-        self.extractor_agent = AgentExtraction(config_agent)
+        config_agents = config.pop("agents")
+
+        config_extraction_agent = config_agents.pop("extraction")
+        agent_interface = config.pop("agent_interface")
+        self.extractor_agent = AgentExtraction(config_extraction_agent, agent_interface)
+        # todo: add comparison_agent and retrieval_agent
+        self.comparison_agent = None
+        self.retrieval_agent = None
 
         config_databases = config.pop("redis")
         self.model = Model(config_databases)
