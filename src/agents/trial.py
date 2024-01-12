@@ -2,16 +2,23 @@ import asyncio
 import dataclasses
 import json
 from pprint import pprint
+from typing import Generator
 
-from src.agents.comparison import AgentComparison
+from src.agents.comparison import AgentComparison, Match
 from src.agents.retrieval import AgentRetrieval
+
+
+async def press_opinions(
+        claim: str,
+        agent_comparison: AgentComparison, agent_retrieval: AgentRetrieval) -> Generator[Match, None, None]:
+    documents = agent_retrieval.retrieve_documents(claim)
+    async for each_document in documents:
+        each_match = await agent_comparison.compare(claim, each_document)
+        yield each_match
 
 
 async def main() -> None:
     # todo: bash `playwright install`
-    claim_a = "Israel wird vor dem Internationalen Gerichtshof wegen des Verdachts auf Völkermord im Gazastreifen angeklagt."
-    claim_b = "Südafrika hat den Internationalen Gerichtshof aufgefordert, Israels Vorgehen gegen die Hamas als Völkermord einzustufen. "
-
     with open("../../config/config.json", mode="r", encoding="utf-8") as f:
         config = json.load(f)
 
@@ -26,11 +33,12 @@ async def main() -> None:
     agent_retrieval = AgentRetrieval(retrieval_config, google_config, openai_config)
     agent_comparison = AgentComparison(comparison_config, openai_config)
 
-    documents = agent_retrieval.retrieve_documents(claim_b)
+    claim = "Israel wird vor dem Internationalen Gerichtshof wegen des Verdachts auf Völkermord im Gazastreifen angeklagt."
+    claim = "Südafrika hat den Internationalen Gerichtshof aufgefordert, Israels Vorgehen gegen die Hamas als Völkermord einzustufen. "
+
     i = 0
-    async for each_document in documents:
-        pprint(each_document)
-        each_match = await agent_comparison.compare(claim_b, each_document)
+    async for each_match in press_opinions(claim, agent_comparison, agent_retrieval):
+        pprint(each_match)
         with open(f"{i:02d}.json", mode="w", encoding="utf-8") as f:
             each_dict = dataclasses.asdict(each_match)
             json.dump(each_dict, f, indent=2)

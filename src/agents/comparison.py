@@ -8,7 +8,7 @@ from src.tools.prompt_openai import PromptOpenAI
 @dataclasses.dataclass(frozen=True)
 class Match:
     claim: str
-    document: Document
+    source: str
     rating: int
     explanation: str
 
@@ -57,4 +57,4 @@ class AgentComparison:
         reply = await self.agent_extraction.reply_to_prompt(prompt)
         response = extract_code_block(reply, "rating")
         rating_str, text_passage = response.split("\n", 1)
-        return Match(claim, document, int(rating_str), text_passage.strip())
+        return Match(claim, document.source, int(rating_str), text_passage.strip())

@@ -36,7 +36,7 @@ class View:
 
         self.bookmarklet_template = bookmarklet_template
         self.source = None
-        self.domain = "https://doppelcheck.com/"
+        self.domain = "https://localhost:8000/"
 
     async def get_domain(self) -> None:
         js_url = await ui.run_javascript('window.location.href')
@@ -186,6 +186,7 @@ class View:
         </div>
         """
 
+        # todo: sidebar not absolute but previous content and sidebar in columns
         sidebar = BeautifulSoup(sidebar_html, "html.parser")
         soup.body.insert(0, sidebar)
 
