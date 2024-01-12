@@ -1,9 +1,7 @@
-// READ THE FOLLOWING CODE CAREFULLY
-
 function main() {
     // base parameters
-    // (the string "http://localhost:8000/" is replaced in this script with the actual server URL)
-    const serverURL = "http://localhost:8000/";
+    // (the string "https://localhost:8000/" is replaced in this script with the actual server URL)
+    const serverURL = "https://localhost:8000/";
     const endpoint = `${serverURL}update_body/`;
     const sidebarScriptURL = `${serverURL}assets/js/sidebar.js`;
 

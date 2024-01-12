@@ -1,3 +1,4 @@
+import dataclasses
 import re
 import textwrap
 
@@ -13,6 +14,19 @@ from src.tools.prompt_openai import PromptOpenAI
 
 
 Extract = tuple[list[XpathSlice], str]
+
+
+@dataclasses.dataclass(frozen=True)
+class Claim:
+    statement: str
+    quote: str
+
+
+@dataclasses.dataclass(frozen=True)
+class Essence:
+    source: str
+    claims: list[str]
+    context: newspaper.Article | None = None
 
 
 class LLMFormatException(Exception):
@@ -42,22 +56,31 @@ class AgentExtraction:
 
         self.agent_extraction = PromptOpenAI(openai_config)
 
-        self._number_of_statements = extraction_config["number_of_statements"]
+        number_of_statements = extraction_config["number_of_statements"]
+        len_claim = extraction_config["approx_words_claim"]
         self._target_language = extraction_config["target_language"]
         self._max_text_length = extraction_config["max_text_length"]
+
+        statement_num_word = f"{number_of_statements:d}" \
+            if number_of_statements >= 13 \
+            else num2words.num2words(number_of_statements)
+
+        claim_num_word = f"{len_claim:d}" \
+            if len_claim >= 13 \
+            else num2words.num2words(len_claim)
 
         self._prompt_extraction = (
             f"```text\n"
             f"{{text}}\n"
             f"```\n"
             f"\n"
-            f"Identify and extract the {num2words.num2words(self._number_of_statements)} key claims from the text "
-            f"in the above code block. Exclude all examples, questions, opinions, descriptions of personal feelings, "
-            f"prose, advertisements, and similar non-factual content.\n"
+            f"Identify and extract the {statement_num_word} key claims from the text in the code block above. Exclude "
+            f"all examples, questions, opinions, descriptions of personal feelings, prose, advertisements, and similar "
+            f"non-factual content.\n"
             f"\n"
             f"Precisely reference an exclusive range of line numbers with each extracted claim. Provide a brief, "
-            f"clear, and direct rephrasing of each key claim to convey its essential statement. Use only up to 20 "
-            f"words for each claim.\n"
+            f"clear, and direct rephrasing of each key claim to convey its essential statement. Use only up to "
+            f"{claim_num_word} words for each claim.\n"
             f"\n"
             f"Respond according to the following pattern:\n"
             f"```key_claims\n"
@@ -67,7 +90,8 @@ class AgentExtraction:
             f"[...]\n"
             f"```\n"
             f"\n"
-            f"Answer in one triple single quote fenced code block with the keyword `key_claims`."
+            f"Answer in one triple single quote fenced code block with the keyword `key_claims` containing all "
+            f"{statement_num_word} key claims."
         )
 
         if len(self._target_language) < 1:
@@ -153,6 +177,7 @@ class AgentExtraction:
 
     async def extract_statements_from_text(self, text: str) -> list[tuple[str, str]]:
         text = await self.agent_extraction.summarize(text)
+        # todo: pass on summarization warning
         wrapped = textwrap.wrap(text, width=50)
 
         numbered = "\n".join(f"{i + 1:02d} {line}" for i, line in enumerate(wrapped))
