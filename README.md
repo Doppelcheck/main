@@ -18,10 +18,22 @@ Doppelcheck is a cutting-edge, browser-based AI assistance system, uniquely desi
 To start using Doppelcheck:
 - Users can access [Doppelcheck.com](https://doppelcheck.com) for immediate use.
 - For enhanced data security or accessibility, users have the option to set up their own server. This involves:
-  1. Cloning the repository.
-  2. (Optional) Creating a virtual environment.
-  3. Installing dependencies via pip.
-  4. Running `main.py`.
+  1. Installing Python 3.12 or higher
+  2. Cloning the repository: 
+     1. `git clone https://github.com/Doppelcheck/main`
+  3. (Optional) Creating a virtual environment: 
+     1. `cd main`
+     2. `python3 -m venv venv`
+     3. activating it with `source venv/bin/activate`
+  4. Installing dependencies via pip:
+     1. `pip install -r requirements.txt`
+  5. Copying the `config/config.example.py` file to `config/config.py` and configuring the following settings:
+     1. `[storage_secret]`: random string used to encrypt client data
+     2. `[custom_search_api_key]`: API key for the Google Custom Search API
+     3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine
+     4. `[openAI_key]`: key for the OpenAI API
+  6. Running the server:
+     1. `python3 main.py`
 
 ## Documentation
 
