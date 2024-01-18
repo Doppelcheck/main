@@ -30,7 +30,7 @@ To start using Doppelcheck:
   5. Copying the `config/config.example.py` file to `config/config.py` and configuring the following settings:
      1. `[storage_secret]`: random string used to encrypt client data
      2. `[custom_search_api_key]`: API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
-     3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine, add a new search engine it [here](https://programmablesearchengine.google.com/controlpanel/all)
+     3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine, add a new search engine [here](https://programmablesearchengine.google.com/controlpanel/all)
      4. `[openAI_key]`: key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
   6. Running the server:
      1. `python3 main.py`
