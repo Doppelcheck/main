@@ -16,9 +16,9 @@ Doppelcheck is a cutting-edge, browser-based AI assistance system, uniquely desi
 ## Getting Started
 
 To start using Doppelcheck:
-- Users can access [Doppelcheck.com](https://doppelcheck.com) for immediate use.
+- Users can always access [doppelcheck.com](https://doppelcheck.com) for immediate use.
 - For enhanced data security or accessibility, users have the option to set up their own server. This involves:
-  1. Installing Python 3.12 or higher
+  1. Installing Python 3.11.6 or higher
   2. Cloning the repository: 
      1. `git clone https://github.com/Doppelcheck/main`
   3. (Optional) Creating a virtual environment: 
@@ -29,11 +29,12 @@ To start using Doppelcheck:
      1. `pip install -r requirements.txt`
   5. Copying the `config/config.example.py` file to `config/config.py` and configuring the following settings:
      1. `[storage_secret]`: random string used to encrypt client data
-     2. `[custom_search_api_key]`: API key for the Google Custom Search API
-     3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine
-     4. `[openAI_key]`: key for the OpenAI API
+     2. `[custom_search_api_key]`: API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
+     3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine, add a new search engine it [here](https://programmablesearchengine.google.com/controlpanel/all)
+     4. `[openAI_key]`: key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
   6. Running the server:
      1. `python3 main.py`
+  7. Open the Web UI at `https://localhost:8000` (take care to use HTTPS) or whatever is set in `config/config.json['nicegui']['host']` and`config/config.json['nicegui']['port']` 
 
 ## Documentation
 
