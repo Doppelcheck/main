@@ -1,0 +1,58 @@
+{
+  "nicegui": {
+    "host": "localhost",
+    "port": 8000,
+    "title": "Doppelcheck",
+    "uvicorn_logging_level": "debug",
+    "storage_secret": "[storage_secret]",
+    "favicon": "assets/images/android-chrome-512x512.png",
+    "dark": true,
+    "reload": true,
+    "tailwind": false,
+    "prod_js": false,
+    "ssl_keyfile": "./dev_signatures/localhost.key",
+    "ssl_certfile": "./dev_signatures/localhost.cert"
+  },
+  "google": {
+    "custom_search_api_key": "[custom_search_api_key]",
+    "custom_search_engine_id": "[custom_search_api_key]"
+  },
+  "redis": {
+    "database_01": {
+      "host": "localhost",
+      "port": 6379,
+      "password": "[redis_password]",
+      "db": 0
+    }
+  },
+  "bookmarklet": {
+    "href_target": ""
+  },
+  "agent_interface": {
+    "type": "openAI",
+    "key": "[openAI_key]",
+    "parameters": {
+      "model": "gpt-4-1106-preview",
+      "temperature": 0,
+      "top_p": null
+    }
+  },
+  "agents": {
+    "extraction": {
+      "number_of_statements": 5,
+      "approx_words_claim": 20,
+      "target_language": "",
+      "max_text_length": 20000
+    },
+    "retrieval": {
+      "target_language": "",
+      "max_text_length": 20000
+    },
+    "comparison": {
+      "target_language": "",
+      "max_text_length": 20000
+    }
+  },
+  "SERVICES": {},
+  "FUNCTIONS": {}
+}
