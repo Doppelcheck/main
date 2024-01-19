@@ -1,7 +1,6 @@
-import lingua
-import nltk
-
+from src.agents.comparison import AgentComparison
 from src.agents.extraction import AgentExtraction
+from src.agents.retrieval import AgentRetrieval
 from src.dataobjects import ViewCallbacks
 from src.model.model import Model
 from src.tools.bookmarklet import get_bookmarklet_template
@@ -14,12 +13,16 @@ class Controller:
 
         config_agents = config.pop("agents")
 
-        config_extraction_agent = config_agents.pop("extraction")
         agent_interface = config.pop("agent_interface")
+        config_extraction_agent = config_agents.pop("extraction")
         self.extractor_agent = AgentExtraction(config_extraction_agent, agent_interface)
-        # todo: add comparison_agent and retrieval_agent
-        self.comparison_agent = None
-        self.retrieval_agent = None
+
+        config_retrieval_agent = config_agents.pop("retrieval")
+        config_google = config.pop("google")
+        self.retrieval_agent = AgentRetrieval(config_retrieval_agent, config_google, agent_interface)
+
+        config_comparison_agent = config_agents.pop("comparison")
+        self.comparison_agent = AgentComparison(config_comparison_agent, agent_interface)
 
         config_databases = config.pop("redis")
         self.model = Model(config_databases)
@@ -27,11 +30,10 @@ class Controller:
 
         view_callbacks = ViewCallbacks(
             self.model.dummy_function,
-            self.get_extractor_agent,
+            lambda: self.extractor_agent,
+            lambda: self.retrieval_agent,
+            lambda: self.comparison_agent,
         )
 
         self.view.set_callbacks(view_callbacks)
         self.view.setup_routes()
-
-    def get_extractor_agent(self) -> AgentExtraction:
-        return self.extractor_agent

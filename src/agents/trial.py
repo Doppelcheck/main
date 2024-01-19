@@ -11,6 +11,7 @@ from src.agents.retrieval import AgentRetrieval
 async def press_opinions(
         claim: str,
         agent_comparison: AgentComparison, agent_retrieval: AgentRetrieval) -> Generator[Match, None, None]:
+
     documents = agent_retrieval.retrieve_documents(claim)
     async for each_document in documents:
         each_match = await agent_comparison.compare(claim, each_document)
@@ -35,6 +36,10 @@ async def main() -> None:
 
     claim = "Israel wird vor dem Internationalen Gerichtshof wegen des Verdachts auf Völkermord im Gazastreifen angeklagt."
     claim = "Südafrika hat den Internationalen Gerichtshof aufgefordert, Israels Vorgehen gegen die Hamas als Völkermord einzustufen. "
+
+    # urls = agent_retrieval._get_urls_from_google_query(claim)
+    # print(urls)
+    # return
 
     i = 0
     async for each_match in press_opinions(claim, agent_comparison, agent_retrieval):

@@ -18,6 +18,7 @@
 .claim10 { background-color: rgba(255, 69, 0, 0.3); } /* Light red-orange */
 
 .doppelcheck-sidebar {
+    /*all: initial;*/
     width: 300px;
     height: 100%;
     position: fixed;
@@ -27,6 +28,10 @@
     background: #f0f0f0;
     padding: 10px 10px 10px 20px;
     z-index: 10000;
+}
+
+.doppelcheck-sidebar * {
+    /*all: unset;*/
 }
 
 .doppelcheck-sidebar-content {
