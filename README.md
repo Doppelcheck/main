@@ -31,10 +31,11 @@ To start using Doppelcheck:
      1. `[storage_secret]`: random string used to encrypt client data
      2. `[custom_search_api_key]`: API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
      3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine, add a new search engine [here](https://programmablesearchengine.google.com/controlpanel/all)
-     4. `[openAI_key]`: key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
+     4. `[redis_password]`: password for the Redis database
+     5. `[openAI_key]`: key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
   6. Running the server:
      1. `python3 main.py`
-  7. Open the Web UI at `https://localhost:8000` (take care to use HTTPS) or whatever is set in `config/config.json['nicegui']['host']` and`config/config.json['nicegui']['port']` 
+  7. Open the Web UI at `https://localhost:8000` or whatever is set in `config/config.json['nicegui']['host']` and`config/config.json['nicegui']['port']` (take care to use HTTPS)
 
 ## Documentation
 

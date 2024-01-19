@@ -1,11 +1,11 @@
-import dataclasses
+from dataclasses import dataclass
 
 from src.agents.retrieval import Document
 from src.tools.misc import extract_code_block
 from src.tools.prompt_openai import PromptOpenAI
 
 
-@dataclasses.dataclass(frozen=True)
+@dataclass(frozen=True)
 class Match:
     claim: str
     source: str

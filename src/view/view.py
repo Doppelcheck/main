@@ -133,7 +133,7 @@ class View:
 
         return html_template
 
-    def render_sidebar(self, soup: BeautifulSoup, statements: list[str]) -> str:
+    def render_sidebar(self, soup: BeautifulSoup, claims: list[str]) -> str:
         # add sidebar
 
         # assets/images/android-chrome-512x512.png
@@ -150,8 +150,8 @@ class View:
             f"""
             <li>
                 <a href="#doppelcheckextract{i + 1:02d}">
-                    <span class="extracted claim{i + 1:02d}">
-                        {each_statement}
+                    <span class="extracted claim{i + 1:02d}" id="extractedClaim{i + 1:02d}">
+                        {each_claim}
                     </span>
                 </a>
                                             
@@ -169,7 +169,7 @@ class View:
                 
             </li>
             """
-            for i, each_statement in enumerate(statements)
+            for i, each_claim in enumerate(claims)
         )
 
         claim_elements = "\n".join(claim_element_list)
@@ -198,9 +198,16 @@ class View:
         @app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
             await websocket.accept()
-            for i in range(1, 6):
-                await websocket.send_text(f"information source {i}")
-                await asyncio.sleep(1)  # Simulate delay
+            retrieval_agent = self.callbacks.get_retrieval_agent()
+            #comparison_agent = self.callbacks.get_comparison_agent()
+
+            claim = await websocket.receive_text()
+            logger.info(f"Claim: {claim}")
+
+            async for each_document in retrieval_agent.retrieve_documents(claim):
+                logger.info(f"each_source: {each_document.source}")
+                await websocket.send_text(each_document.source)
+
             await websocket.close()
 
         @app.post("/pass_source/")
@@ -239,7 +246,7 @@ class View:
                 html_text = self.insert_highlights(slices_referenced, html_template)
 
                 soup = BeautifulSoup(html_text, "html.parser")
-                statements = [each_statement for _, each_statement in extracts]
+                claims = [each_statement for _, each_statement in extracts]
 
             else:
                 # take selection (get html of selection?)
@@ -254,9 +261,9 @@ class View:
                     logger.info(f"Source: {each_source}")
                     soup = self._highlight_text_section(soup, each_source)
 
-                statements = [each_statement for each_statement, _ in extracts]
+                claims = [each_statement for each_statement, _ in extracts]
 
-            body_html = self.render_sidebar(soup, statements)
+            body_html = self.render_sidebar(soup, claims)
             return JSONResponse(content={"body": body_html})
 
         @ui.page("/")

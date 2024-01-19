@@ -3,6 +3,7 @@ import dataclasses
 from typing import Generator
 
 import httpx
+from loguru import logger
 
 from lxml import etree
 
@@ -35,6 +36,10 @@ class AgentRetrieval:
 
         self._google_api_key = google_config["custom_search_api_key"]
         self._search_engine_id = google_config["custom_search_engine_id"]
+
+        logger.info(f"Using Google Custom Search API key {self._google_api_key}")
+        logger.info(f"Using Google Custom Search Engine with ID {self._search_engine_id}")
+
         _target_language = retrieval_config.get("target_language", "")
 
         self.agent_extraction = PromptOpenAI(openai_config)
@@ -57,7 +62,11 @@ class AgentRetrieval:
             f"to improve result precision and recall."
             f"{{context_instruction}}{_language_instruction}\n"
             f"\n"
-            f"Respond exactly and only with the one search query requested."
+            f"Respond exactly and only with the search query requested in a fenced code block according to the "
+            f"following pattern.\n"
+            f"```query\n"
+            f"[query]\n"
+            f"```\n"
         )
 
     async def _make_query(self, claim: str, context: str | None = None) -> str:
@@ -78,7 +87,8 @@ class AgentRetrieval:
         )
 
         response = await self.agent_extraction.reply_to_prompt(prompt)
-        return response.strip()
+        query = extract_code_block(response, "query")
+        return query
 
     def _get_urls_from_google_query(self, search_query: str) -> list[str]:
         url = "https://www.googleapis.com/customsearch/v1"
@@ -98,7 +108,9 @@ class AgentRetrieval:
 
         items = result.get("items")
         if items is None or len(items) < 1:
-            return list()
+            raise ReceiveGoogleResultsException(
+                f"Google did not return results for {search_query}"
+            )
 
         return [each_item['link'] for each_item in items]
 
@@ -118,7 +130,7 @@ class AgentRetrieval:
         await page.goto(url)
         html = await page.content()
         relevant_content = self._get_text(html)
-        await page.close()
+        # await page.close()
         return Document(source=url, content=relevant_content)
 
     async def _open_new_pages(self, context, urls: list[str]) -> Generator[Document, None, None]:
@@ -128,8 +140,8 @@ class AgentRetrieval:
 
     async def retrieve_documents(self, claim: str, information_context: str | None = None) -> Generator[Document, None, None]:
         query = await self._make_query(claim, context=information_context)
-
         urls = self._get_urls_from_google_query(query)
+
         async with async_playwright() as driver:
             browser = await driver.firefox.launch(headless=False)
             context = await browser.new_context()

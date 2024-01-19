@@ -13,6 +13,8 @@ function startStreaming(idSuffix) {
     const loadButton = document.getElementById(`loadButton${idSuffix}`);
     const processingIndicator = document.getElementById(`processingIndicator${idSuffix}`);
     const dataAreaUnorderedList = document.getElementById(`dataArea${idSuffix}`);
+    const claimNode = document.getElementById(`extractedClaim${idSuffix}`);
+    const claim = claimNode.textContent.trim();
 
     loadButton.style.display = 'none'
     processingIndicator.style.display = 'block';
@@ -20,16 +22,18 @@ function startStreaming(idSuffix) {
     try {
         const ws = new WebSocket("wss://localhost:8000/ws");
 
+        ws.onopen = function(event) {
+            console.log(`Connected to WebSocket. Sending extractedClaim${idSuffix} to server: ${claim}`);
+            ws.send(claim);
+        };
+
+
         ws.onmessage = function(event) {
             console.log("Data received:", event.data);
 
             const dataArea = document.createElement('li');
             dataArea.innerText = event.data;
             dataAreaUnorderedList.appendChild(dataArea);
-        };
-
-        ws.onopen = function(event) {
-            console.log("Connected to WebSocket.");
         };
 
         ws.onerror = function(event) {
@@ -40,6 +44,7 @@ function startStreaming(idSuffix) {
             console.log("WebSocket connection closed:", event);
             processingIndicator.style.display = 'none';
         };
+
     } catch (error) {
         alert("An error occurred while starting the WebSocket: " + error.toString());
         // Handle or report the error as needed
