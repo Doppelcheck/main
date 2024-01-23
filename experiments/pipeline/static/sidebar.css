@@ -1,7 +1,4 @@
 #doppelcheck-sidebar {
-    /* remove all parent styles */
-    all: initial;
-
     border: 1px solid #ccc;
 
     /* hover on the right hand side */
@@ -20,8 +17,7 @@
 }
 
 #doppelcheck-sidebar * {
-    /* remove all parent styles */
-    all: initial;
+    all: revert;
 }
 
 #doppelcheck-sidebar.doppelcheck-sidebar-hidden {
