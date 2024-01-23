@@ -1,0 +1,29 @@
+#doppelcheck-sidebar {
+    /* remove all parent styles */
+    all: initial;
+
+    border: 1px solid #ccc;
+
+    /* hover on the right hand side */
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 300px;
+    z-index: 10000;
+    background-color: #fff;
+    overflow: scroll;
+
+    /* transition */
+    transition: right 0.5s ease-in-out;
+
+}
+
+#doppelcheck-sidebar * {
+    /* remove all parent styles */
+    all: initial;
+}
+
+#doppelcheck-sidebar.doppelcheck-sidebar-hidden {
+    right: -100%;
+}

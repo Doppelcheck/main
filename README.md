@@ -6,6 +6,17 @@
 
 Doppelcheck is a cutting-edge, browser-based AI assistance system, uniquely designed for journalists and media professionals. Leveraging advanced AI models, Doppelcheck automates the process of research, analysis, and detection of biases in news content. It simplifies the identification of strategic disinformation, enabling users to receive customized press reviews efficiently and effortlessly.
 
+
+### Installation
+
+[![Doppelcheck Usage](https://markdown-videos-api.jorgenkh.no/url?url=https%3A%2F%2Fyoutu.be%2Fleuq1Vkaxck)](https://youtu.be/leuq1Vkaxck)
+
+
+### Usage
+
+[![Doppelcheck Usage](https://markdown-videos-api.jorgenkh.no/url?url=https%3A%2F%2Fyoutu.be%2FaARmTlohcs0)](https://youtu.be/aARmTlohcs0)
+
+
 ## Features
 
 - **AI-Powered Analysis**: Leverages advanced Language Learning Models (LLMs) to extract key claims from content, cross-reference them with a vast array of sources, and detect biases in news content, ensuring that you receive a balanced view of the narrative.
@@ -39,7 +50,17 @@ To start using Doppelcheck:
 
 ## Documentation
 
-Detailed user guides and API documentation will be provided in the future to facilitate easy navigation and utilization of Doppelcheck's features.
+Detailed user guides and API documentation will be added during project development to facilitate easy navigation and utilization of Doppelcheck's features.
+
+### Installation
+![Installation](assets/images/installation.png)
+
+### Usage
+![Usage](assets/images/usage.png)
+
+### Review
+![Review](assets/images/review.png)
+
 
 ## Contributing
 
