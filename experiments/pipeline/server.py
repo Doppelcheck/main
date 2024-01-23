@@ -1,3 +1,4 @@
+import asyncio
 import json
 from urllib.parse import urlparse
 
@@ -21,14 +22,21 @@ app.add_middleware(
 
 
 class Server:
-    def __init__(self, agent_interface: dict[str, any]) -> None:
-        self.llm_interface = PromptOpenAI(agent_interface)
-
     @staticmethod
     async def get_address() -> str:
         js_url = await ui.run_javascript('window.location.href')
         parsed_url = urlparse(js_url)
         return parsed_url.netloc
+
+    def __init__(self, agent_interface: dict[str, any]) -> None:
+        self.llm_interface = PromptOpenAI(agent_interface)
+
+    async def stream_from_llm(self, websocket: WebSocket, data: str, purpose: str) -> None:
+        response = self.llm_interface.stream_reply_to_prompt(data)
+        async for each_chunk_dict in response:
+            each_dict = {'purpose': purpose, 'data': each_chunk_dict}
+            json_str = json.dumps(each_dict)
+            await websocket.send_text(json_str)
 
     def setup_routes(self) -> None:
         # Serve 'index.html' at the root
@@ -70,6 +78,52 @@ class Server:
                         await websocket.send_text(json_str)
 
                     break
+
+            except WebSocketDisconnect as e:
+                print(e)
+
+        @app.websocket("/talk")
+        async def websocket_endpoint(websocket: WebSocket):
+            await websocket.accept()
+            try:
+                message_str = await websocket.receive_text()
+                message = json.loads(message_str)
+                purpose = message['purpose']
+                data = message['data']
+
+                response: dict[str, any] = {"purpose": purpose}
+                match purpose:
+                    case "extract":
+                        for i in range(10):
+                            await asyncio.sleep(1)
+                            response["data"] = {"extractedClaim": f"extract {i}, len {len(data)}", "done": True}
+                            response["done"] = i == 9
+                            json_str = json.dumps(response)
+                            await websocket.send_text(json_str)
+
+                    case "retrieve":
+                        for i in range(10):
+                            await asyncio.sleep(1)
+                            response["data"] = {"source": f"document {i}, len {len(data)}"}
+                            response["done"] = i == 9
+                            json_str = json.dumps(response)
+                            await websocket.send_text(json_str)
+
+                    case "compare":
+                        for i in range(10):
+                            await asyncio.sleep(1)
+                            response["data"] = {"score": 0, "explanation": f"compare {i}, len {len(data)}", "done": True}
+                            response["done"] = i == 9
+                            json_str = json.dumps(response)
+                            await websocket.send_text(json_str)
+
+                    case _:
+                        response["data"] = {"error": f"unknown purpose {purpose}, len {len(data)}"}
+                        response["done"] = True
+                        json_str = json.dumps(response)
+                        await websocket.send_text(json_str)
+
+                # await self.stream_from_llm(websocket, data, purpose)
 
             except WebSocketDisconnect as e:
                 print(e)
