@@ -1,9 +1,8 @@
 const address = window.location.host;
 
 const IFrameCommunication = {
-                // Create an IFrame and append it to the body
+     // Create an IFrame and append it to the body
     initIframe() {
-
         const iframe = document.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-storage-access-by-user-activation')
         iframe.style.display = 'none';
@@ -19,33 +18,29 @@ const IFrameCommunication = {
             }
 
             const data = event.data;
-
-            if (data.type === 'settings') {
-                // Handle the settings
-                console.log("CONFIG: Settings received from helper", data);
-                // update elements here
+            if (data.type === 'loaded') {
+                console.log("CONFIG: Settings received from helper ", data);
 
             } else if (data.type === 'saved') {
-                console.log("CONFIG: Settings successfully saved in helper", data);
+                console.log("CONFIG: Settings successfully saved in helper ", data);
             }
         });
-
     },
-
-    sendSettings(message) {
+    setHelper(key, value) {
         const iframe = document.getElementById('doppelcheck-iframe');
+        const message = {type: 'save', key: key, value: value };
         console.log("CONFIG: Sending settings to iframe", message);
         iframe.contentWindow.postMessage(
-            {type: 'save', settings: message },
+            message,
             `https://${address}`
         );
     },
-
-    getSettings() {
+    getHelper(key) {
         const iframe = document.getElementById('doppelcheck-iframe');
-        console.log("CONFIG: Requesting settings from iframe");
+        const message = {type: 'load', key: key };
+        console.log("CONFIG: Requesting settings from iframe ", message);
         iframe.contentWindow.postMessage(
-            {type: 'get'},
+            message,
             `https://${address}`
         );
     }

@@ -1,53 +1,50 @@
 const address = "localhost:8000";
 
-
 const IFrameCommunication = {
                 // Create an IFrame and append it to the body
     initIframe() {
         const iframe = document.createElement('iframe');
         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-storage-access-by-user-activation')
         iframe.style.display = 'none';
+        iframe.id = 'doppelcheck-iframe';
         iframe.src = `https://${address}/helper`; // URL of your helper page
         document.body.appendChild(iframe);
 
-        iframe.onload = function () {
-            // Wait for the IFrame to load and then send a message
-            console.log("BOOKMARKLET: Requesting settings from helper");
-            iframe.contentWindow.postMessage(
-                {type: 'load'},
-                `https://${address}`
-            );
-            /*
-            iframe.contentWindow.postMessage(
-                {type: 'save', settings: "set those seddddttings" },
-                `https://${address}`
-            );
-            */
+        window.addEventListener('message', function (event) {
+            if (event.origin !== `https://${address}`) {
+                // Only accept messages from the IFrame's origin
+                console.log(`Origin ${event.origin} not allowed`);
+                return;
+            }
 
-            // Listen for messages from the IFrame
-            window.addEventListener('message', function (event) {
-                if (event.origin !== `https://${address}`) {
-                    // Only accept messages from the IFrame's origin
-                    console.log(`Origin ${event.origin} not allowed`);
-                    return;
-                }
+            const data = event.data;
+            if (data.type === 'loaded') {
+                console.log("BOOKMARKLET: Data received from helper ", data);
 
-                const data = event.data;
-
-                if (data.type === 'settings') {
-                    // Handle the settings
-                    console.log("BOOKMARKLET: Settings received from helper", data);
-                    // You can now use the settings in your bookmarklet
-
-                } else if (data.type === 'saved') {
-                    console.log("BOOKMARKLET: Settings successfully saved in helper", data);
-                }
-            });
-
-            // To save settings, send a message like this:
-            // iframe.contentWindow.postMessage({ type: 'save', settings: { key: 'value' } }, 'https://localhost:8000');
-        };
+            } else if (data.type === 'saved') {
+                console.log("BOOKMARKLET: Data successfully saved in helper ", data);
+            }
+        });
+    },
+    setHelper(key, value) {
+        const iframe = document.getElementById('doppelcheck-iframe');
+        const message = {type: 'save', key: key, value: value };
+        console.log("BOOKMARKLET: Sending data to helper", message);
+        iframe.contentWindow.postMessage(
+            message,
+            `https://${address}`
+        );
+    },
+    getHelper(key) {
+        const iframe = document.getElementById('doppelcheck-iframe');
+        const message = {type: 'load', key: key };
+        console.log("BOOKMARKLET: Requesting data from helper ", message);
+        iframe.contentWindow.postMessage(
+            message,
+            `https://${address}`
+        );
     }
+
 }
 
 const ProxyUrlServices = {
@@ -184,6 +181,14 @@ const InitializeDoppelcheck = {
         sidebarStyle.rel = "stylesheet";
         sidebarStyle.href = `https://${address}/static/sidebar.css`;
         document.head.appendChild(sidebarStyle);
+
+        const testButton = document.createElement("button");
+        testButton.id = "doppelcheck-test-button";
+        testButton.innerText = "Test";
+        testButton.onclick = function () {
+            IFrameCommunication.getHelper("testkey");
+        }
+        sidebar.appendChild(testButton);
 
         // addSidebarScopedCss()
 
