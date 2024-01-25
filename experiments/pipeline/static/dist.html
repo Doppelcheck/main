@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helper Page</title>
+</head>
+<body>
+     <script id="bookmarklet-script" type="text/plain">
+        (function() {
+            // Create an IFrame and append it to the body
+            const iframe = document.createElement('iframe');
+            iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-storage-access-by-user-activation')
+            iframe.style.display = 'none';
+            iframe.src = 'https://localhost:8000/helper'; // URL of your helper page
+            document.body.appendChild(iframe);
+
+            iframe.onload = function() {
+                // Wait for the IFrame to load and then send a message
+                iframe.contentWindow.postMessage({ type: 'load' }, 'https://localhost:8000');
+                iframe.contentWindow.postMessage({ type: 'save', settings: "set those seddddttings" }, 'https://localhost:8000');
+
+                // Listen for messages from the IFrame
+                window.addEventListener('message', function(event) {
+                    if (event.origin !== 'https://localhost:8000') {
+                        return;
+                    }
+
+                    const data = event.data;
+
+                    if (data.type === 'settings') {
+                        // Handle the settings
+                        console.log('Settings received:', data.settings);
+                        // You can now use the settings in your bookmarklet
+                    } else if (data.type === 'saved') {
+                        console.log('Settings saved successfully');
+                    }
+                });
+
+                // To save settings, send a message like this:
+                // iframe.contentWindow.postMessage({ type: 'save', settings: { key: 'value' } }, 'http://yourdomain.com');
+            };
+        })();
+    </script>
+
+    <div id="bookmarklet-link"></div>
+
+    <script>
+        function convertScriptToBookmarklet() {
+            const script = document.getElementById('bookmarklet-script').textContent;
+            const bookmarkletCode = `javascript:(function(){${encodeURIComponent(script)}})();`;
+
+            // Create a link element
+            const link = document.createElement('a');
+            link.href = bookmarkletCode;
+            link.textContent = 'Drag this link to your bookmarks';
+
+            // Add the link to the placeholder
+            const placeholder = document.getElementById('bookmarklet-link');
+            placeholder.innerHTML = '';
+            placeholder.appendChild(link);
+        }
+
+        // Convert the script to a bookmarklet link when the page loads
+        window.onload = convertScriptToBookmarklet;
+    </script>
+
+</body>
+</html>

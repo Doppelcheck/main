@@ -2,17 +2,17 @@ import asyncio
 import dataclasses
 import json
 from dataclasses import dataclass
-from typing import Generator
+from typing import Generator, Callable
 from urllib.parse import urlparse
 
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from nicegui import ui, app, Client
 
-from experiments.pipeline.prompt_openai_chunks import PromptOpenAI
 from fastapi.middleware.cors import CORSMiddleware
 
+from experiments.pipeline.tools.prompt_openai_chunks import PromptOpenAI
 from src.tools.bookmarklet import compile_bookmarklet
 
 app.add_middleware(
@@ -49,18 +49,43 @@ class ComparisonSegment(MessageSegment):
 
 class Server:
     @staticmethod
-    async def get_address() -> str:
+    async def get_address(client: Client) -> str:
+        await client.connected()
         js_url = await ui.run_javascript('window.location.href')
         parsed_url = urlparse(js_url)
         return parsed_url.netloc
+
+    @staticmethod
+    async def set_local_storage(client: Client, key: str, value: any) -> None:
+        await client.connected()
+        _ = ui.run_javascript(f'localStorage.setItem("{key}", "{value}")')
+
+    @staticmethod
+    async def send_iframe_message(client: Client, settings: str) -> None:
+        await client.connected()
+        _ = ui.run_javascript(f'IFrameCommunication.sendSettings("{settings}");')
+
+    @staticmethod
+    async def get_iframe_message(client: Client) -> str:
+        await client.connected()
+        settings = await ui.run_javascript('IFrameCommunication.getSettings();')
+        return settings
+
+    @staticmethod
+    async def get_local_storage(client: Client, key: str, default: any = None) -> any:
+        await client.connected()
+        value = await ui.run_javascript(f'localStorage.getItem("{key}")')
+        if value is None:
+            return default
+        return value
 
     def __init__(self, agent_interface: dict[str, any]) -> None:
         self.llm_interface = PromptOpenAI(agent_interface)
 
     async def get_claims(self, body_html: str) -> Generator[ClaimSegment, None, None]:
-        for i in range(10):
+        for i in range(5):
             text = f"Claim {i}, ({len(body_html)})"
-            last_claim = i >= 9
+            last_claim = i >= 4
             for j, each_character in enumerate(text):
                 await asyncio.sleep(.1)
                 last_segment = j >= len(text) - 1
@@ -70,9 +95,9 @@ class Server:
     async def get_documents(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
         # retrieve documents from claim_text
 
-        for i in range(10):
+        for i in range(5):
             text = f"Document {i}, (id {claim_id})"
-            last_document = i >= 9
+            last_document = i >= 4
             for j, each_character in enumerate(text):
                 await asyncio.sleep(.1)
                 last_segment = j >= len(text) - 1
@@ -80,9 +105,9 @@ class Server:
                 yield message_segment
 
     async def get_comparisons(self, claim_id: int, claim: str, document_uri: str) -> Generator[ComparisonSegment, None, None]:
-        for i in range(10):
+        for i in range(5):
             text = f"Comparison {i}, ({document_uri} vs {claim_id})"
-            last_comparison = i >= 9
+            last_comparison = i >= 4
             for j, each_character in enumerate(text):
                 await asyncio.sleep(.1)
                 last_segment = j >= len(text) - 1
@@ -100,14 +125,65 @@ class Server:
         claims = list[str]()
 
         # Serve 'index.html' at the root
-        @ui.page("/")
+        @ui.page("/websocket_test")
         def get():
             return FileResponse('static/index.html')
 
-        @ui.page("/bookmarklet")
-        async def bookmarklet(client: Client) -> None:
+        @app.get("/htmx_test")
+        async def htmx_test():
+            # create div element and return html code
+            return HTMLResponse("<div>Hello!</div>")
+
+        @app.get("/helper")
+        async def helper():
+            return FileResponse('static/helper.html')
+
+        @app.get("/dist")
+        async def dist():
+            return FileResponse('static/dist.html')
+
+        @ui.page("/config")
+        async def config(client: Client) -> None:
+            ui.add_head_html(f"<script defer src='static/iframecommunication.js'></script>")
             await client.connected()
-            address = await Server.get_address()
+
+            timer: ui.timer | None = None
+
+            def update_timer(callback: Callable[..., any]) -> None:
+                nonlocal timer
+                if timer is not None:
+                    timer.cancel()
+                    del timer
+                timer = ui.timer(interval=1.0, active=True, once=True, callback=callback)
+
+            def delayed_set_storage(key: str, value: any) -> None:
+                text_input.classes(add="bg-warning ")
+
+                async def set_storage() -> None:
+                    # await Server.set_local_storage(client, key, value)
+                    await Server.send_iframe_message(client, value)
+                    print(f"set {key} to {value}")
+                    text_input.classes(remove="bg-warning ")
+
+                update_timer(set_storage)
+
+            # individual setting
+            key_name = "name"
+            label = "label"
+            placeholder = "placeholder"
+            last_value = await Server.get_local_storage(client, key_name)
+            with ui.input(
+                    label=label,
+                    placeholder=placeholder,
+                    value=f"{last_value}",
+                    on_change=lambda event: delayed_set_storage(key_name, event.value),
+            ) as text_input:
+                text_input.classes(add="transition ease-out duration-500 ")
+                text_input.classes(remove="bg-warning ")
+
+        @ui.page("/")
+        async def bookmarklet(client: Client) -> None:
+            address = await Server.get_address(client)
 
             with open("static/bookmarklet.js") as file:
                 bookmarklet_js = file.read()
@@ -116,10 +192,6 @@ class Server:
             compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
             ui.link("test bookmarklet", target=compiled_bookmarklet)
 
-        @app.get("/htmx_test")
-        async def htmx_test():
-            # create div element and return html code
-            return HTMLResponse("<div>Hello!</div>")
 
         @app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
@@ -152,6 +224,11 @@ class Server:
                 data = message['data']
 
                 match purpose:
+                    case "ping":
+                        answer = {"purpose": "pong", "data": "pong"}
+                        json_str = json.dumps(answer)
+                        await websocket.send_text(json_str)
+
                     case "extract":
                         async for segment in self.get_claims(data):
                             each_dict = dataclasses.asdict(segment)
