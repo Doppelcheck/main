@@ -56,27 +56,19 @@ class Server:
         return parsed_url.netloc
 
     @staticmethod
-    async def set_local_storage(client: Client, key: str, value: any) -> None:
+    async def set_helper(client: Client, key: str, value: any) -> None:
         await client.connected()
-        _ = ui.run_javascript(f'localStorage.setItem("{key}", "{value}")')
+        value_str = json.dumps(value)
+        cmd = f'IFrameCommunication.setHelper("{key}", {value_str});'
+        print(cmd)
+        _ = ui.run_javascript(cmd)
 
     @staticmethod
-    async def send_iframe_message(client: Client, settings: str) -> None:
+    async def get_helper(client: Client, key: str) -> any:
         await client.connected()
-        _ = ui.run_javascript(f'IFrameCommunication.sendSettings("{settings}");')
-
-    @staticmethod
-    async def get_iframe_message(client: Client) -> str:
-        await client.connected()
-        settings = await ui.run_javascript('IFrameCommunication.getSettings();')
-        return settings
-
-    @staticmethod
-    async def get_local_storage(client: Client, key: str, default: any = None) -> any:
-        await client.connected()
-        value = await ui.run_javascript(f'localStorage.getItem("{key}")')
-        if value is None:
-            return default
+        cmd = f'IFrameCommunication.getHelper("{key}");'
+        value_str = await ui.run_javascript(cmd)
+        value = json.loads(value_str)
         return value
 
     def __init__(self, agent_interface: dict[str, any]) -> None:
@@ -160,26 +152,26 @@ class Server:
                 text_input.classes(add="bg-warning ")
 
                 async def set_storage() -> None:
-                    # await Server.set_local_storage(client, key, value)
-                    await Server.send_iframe_message(client, value)
-                    print(f"set {key} to {value}")
+                    await Server.set_helper(client, key, value)
                     text_input.classes(remove="bg-warning ")
 
                 update_timer(set_storage)
 
             # individual setting
-            key_name = "name"
+            key_name = "testkey"
             label = "label"
             placeholder = "placeholder"
-            last_value = await Server.get_local_storage(client, key_name)
+            # last_value = await Server.get_iframe_message(client, key_name)
+            last_value = ""
             with ui.input(
                     label=label,
                     placeholder=placeholder,
-                    value=f"{last_value}",
+                    value=last_value,
                     on_change=lambda event: delayed_set_storage(key_name, event.value),
             ) as text_input:
                 text_input.classes(add="transition ease-out duration-500 ")
                 text_input.classes(remove="bg-warning ")
+
 
         @ui.page("/")
         async def bookmarklet(client: Client) -> None:
