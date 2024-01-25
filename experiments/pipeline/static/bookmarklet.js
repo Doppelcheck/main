@@ -1,5 +1,54 @@
-address = "localhost:8000";
+const address = "localhost:8000";
 
+
+const IFrameCommunication = {
+                // Create an IFrame and append it to the body
+    initIframe() {
+        const iframe = document.createElement('iframe');
+        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-storage-access-by-user-activation')
+        iframe.style.display = 'none';
+        iframe.src = `https://${address}/helper`; // URL of your helper page
+        document.body.appendChild(iframe);
+
+        iframe.onload = function () {
+            // Wait for the IFrame to load and then send a message
+            console.log("BOOKMARKLET: Requesting settings from helper");
+            iframe.contentWindow.postMessage(
+                {type: 'load'},
+                `https://${address}`
+            );
+            /*
+            iframe.contentWindow.postMessage(
+                {type: 'save', settings: "set those seddddttings" },
+                `https://${address}`
+            );
+            */
+
+            // Listen for messages from the IFrame
+            window.addEventListener('message', function (event) {
+                if (event.origin !== `https://${address}`) {
+                    // Only accept messages from the IFrame's origin
+                    console.log(`Origin ${event.origin} not allowed`);
+                    return;
+                }
+
+                const data = event.data;
+
+                if (data.type === 'settings') {
+                    // Handle the settings
+                    console.log("BOOKMARKLET: Settings received from helper", data);
+                    // You can now use the settings in your bookmarklet
+
+                } else if (data.type === 'saved') {
+                    console.log("BOOKMARKLET: Settings successfully saved in helper", data);
+                }
+            });
+
+            // To save settings, send a message like this:
+            // iframe.contentWindow.postMessage({ type: 'save', settings: { key: 'value' } }, 'https://localhost:8000');
+        };
+    }
+}
 
 const ProxyUrlServices = {
     get12ftProxyUrl(originalUrl) {
@@ -27,10 +76,12 @@ const ProxyUrlServices = {
 
     redirect() {
         const proxyUrl = ProxyUrlServices.getPrintFriendlyProxyUrl(window.location.href);
-        alert(`Connection to doppelcheck server ${address} failed. This may be due to restrictive security settings on the current website ${window.location.hostname}.\n\nWe'll open the website on a proxy server\n\n${proxyUrl}\n\nPlease retry doppelcheck there.`);
+        alert(
+            `Connection to doppelcheck server ${address} failed. This may be due to restrictive security settings ` +
+            `on the current website ${window.location.hostname}.\n\nWe'll try open the website on a proxy server\n\n` +
+            `${proxyUrl}\n\nPlease allow this one popup and retry doppelcheck there.`);
         window.open(proxyUrl);
     }
-
 
 };
 
@@ -49,7 +100,9 @@ const InitializeDoppelcheck = {
 
     addSidebarScopedCss() {
         const cssContent = InitializeDoppelcheck.getCSSContent(`https://${address}/static/pico.min.css`);
-        const scopedCss = cssContent.replace(/(^|\s+|,)([a-zA-Z0-9*[_#:.-]+)/g, '$1#doppelcheck-sidebar $2');
+        const scopedCss = cssContent.replace(
+            /(^|\s+|,)([a-zA-Z0-9*[_#:.-]+)/g, '$1#doppelcheck-sidebar $2'
+        );
 
         const style = document.createElement('style');
         style.appendChild(document.createTextNode(scopedCss));
@@ -78,8 +131,10 @@ const InitializeDoppelcheck = {
         return xhr.responseText;
     },
 
-    addDoppelcheckElements() {
+    async addDoppelcheckElements() {
         InitializeDoppelcheck.reduceZIndex(1000);
+
+        IFrameCommunication.initIframe();
 
         const bodyWrapper = document.createElement("div");
         bodyWrapper.id = "doppelcheck-body-wrapper";
@@ -100,7 +155,7 @@ const InitializeDoppelcheck = {
 
         const subheading = document.createElement("h2");
         subheading.id = "doppelcheck-subheading";
-        subheading.innerText = "Claims ⏳";
+        subheading.innerText = "Claims";
         sidebar.appendChild(subheading);
 
         const config = document.createElement("a");
@@ -109,6 +164,17 @@ const InitializeDoppelcheck = {
         config.href = `https://${address}/config`;
         config.target = "_blank";
         sidebar.appendChild(config);
+
+        const button = document.createElement("button");
+        button.id = "doppelcheck-button-start";
+        button.innerText = "Start Extraction";
+        button.onclick = function () {
+            button.remove();
+            subheading.textContent += " ⏳";
+            const fullHTML = document.documentElement.outerHTML;
+            exchange("extract", fullHTML);
+        }
+        sidebar.appendChild(button);
 
         const claimContainer = document.createElement("div");
         claimContainer.id = "doppelcheck-claims-container";
@@ -181,7 +247,9 @@ const ExtractClaims = {
             } else {
                 ExtractClaims.addClaim(claimId, claimsContainer);
             }
-            const eachClaimContainer = document.getElementById(`doppelcheck-each-claim-container${claimId - 1}`);
+            const eachClaimContainer = document.getElementById(
+                `doppelcheck-each-claim-container${claimId - 1}`
+            );
             eachClaimContainer.removeAttribute("onclick");
             const claim = document.getElementById(`doppelcheck-claim${claimId - 1}`);
             claim.onclick = function () {
@@ -215,7 +283,9 @@ const RetrieveDocuments = {
         documentsContainer.id = `doppelcheck-documents-container${claimId}`;
         documentsContainer.classList.add("doppelcheck-documents-container");
 
-        const eachClaimContainer = document.getElementById(`doppelcheck-each-claim-container${claimId}`);
+        const eachClaimContainer = document.getElementById(
+            `doppelcheck-each-claim-container${claimId}`
+        );
         eachClaimContainer.appendChild(documentsContainer);
 
         const claim = document.getElementById(`doppelcheck-claim${claimId}`);
@@ -233,7 +303,9 @@ const RetrieveDocuments = {
         const claimId = response.claim_id;
 
         // replace button with documents container
-        let documentsContainer = document.getElementById(`doppelcheck-documents-container${claimId}`)
+        let documentsContainer = document.getElementById(
+            `doppelcheck-documents-container${claimId}`
+        )
         if (!documentsContainer) {
             documentsContainer = RetrieveDocuments.addDocumentsContainer(claimId);
         }
@@ -258,7 +330,9 @@ const RetrieveDocuments = {
                 _ = RetrieveDocuments.addDocument(claimId, documentCount, documentsContainer);
             }
 
-            const documentElement = document.getElementById(`doppelcheck-document${claimId}-${documentCount - 1}`);
+            const documentElement = document.getElementById(
+                `doppelcheck-document${claimId}-${documentCount - 1}`
+            );
             documentElement.onclick = function () {
                 CompareDocuments.action(documentElement.textContent, claimId, documentCount - 1);
             }
@@ -272,7 +346,9 @@ const RetrieveDocuments = {
 const CompareDocuments = {
     action(documentText, claimId, documentId) {
         alert(`comparison of claim ${claimId} with document ${documentId}`);
-        const documentElement = document.getElementById(`doppelcheck-document${claimId}-${documentCount - 1}`);
+        const documentElement = document.getElementById(
+            `doppelcheck-document${claimId}-${documentId}`
+        );
         documentElement.textContent = documentElement.textContent.replace("🧐", "⏳");
         documentElement.onclick = null;
         documentElement.classList.remove("doppelcheck-document-clickable");
@@ -286,51 +362,50 @@ const CompareDocuments = {
 }
 
 function exchange(purpose, data) {
-    try {
-        const ws = new WebSocket(`wss://${address}/talk`);
+    const ws = new WebSocket(`wss://${address}/talk`);
 
-        const message = {
-            purpose: purpose,
-            data: data
-        };
-        const messageStr = JSON.stringify(message);
+    const message = {
+        purpose: purpose,
+        data: data
+    };
+    const messageStr = JSON.stringify(message);
 
-        ws.onopen = function(event) {
-            console.log(`sending for ${purpose}`);
-            ws.send(messageStr);
+    ws.onopen = function(event) {
+        console.log(`sending for ${purpose}`);
+        ws.send(messageStr);
+    }
+
+    ws.onmessage = function(event) {
+        const response = JSON.parse(event.data);
+        switch (response.purpose) {
+            case "pong":
+                if (purpose === "ping") {
+                    console.log("Communication established");
+                } else {
+                    console.log(`unexpected pong response to: ${purpose}`);
+                }
+                break;
+
+            case "extract":
+                ExtractClaims.extraction(response);
+                break;
+
+            case "retrieve":
+                RetrieveDocuments.retrieval(response);
+                break;
+
+            case "compare":
+                CompareDocuments.comparison(response);
+                break;
+
+            default:
+                console.log(`unknown purpose: ${response.purpose}`);
         }
+    }
 
-        ws.onmessage = function(event) {
-            const response = JSON.parse(event.data);
-            switch (response.purpose) {
-                case "extract":
-                    const sidebar = document.getElementById("doppelcheck-sidebar");
-                    if (!sidebar) {
-                        InitializeDoppelcheck.addDoppelcheckElements();
-                    }
-                    ExtractClaims.extraction(response);
-                    break;
-
-                case "retrieve":
-                    RetrieveDocuments.retrieval(response);
-                    break;
-
-                case "compare":
-                    CompareDocuments.comparison(response);
-                    break;
-
-                default:
-                    console.log(`unknown purpose: ${response.purpose}`);
-            }
-        }
-
-        ws.onerror = function(event) {
-            console.log(event);
-            ProxyUrlServices.redirect();
-        }
-
-    } catch (error) {
-        ProxyUrlServices.redirect();
+    ws.onerror = function(event) {
+        console.log("error");
+        console.log(event);
     }
 
 }
@@ -341,8 +416,15 @@ function main() {
         sidebar.classList.toggle("doppelcheck-sidebar-hidden");
 
     } else {
-        const fullHTML = document.documentElement.outerHTML;
-        exchange("extract", fullHTML);
+        try {
+            exchange("ping", null);
+
+        } catch (error) {
+            ProxyUrlServices.redirect();
+            return;
+        }
+
+        InitializeDoppelcheck.addDoppelcheckElements();
     }
 }
 

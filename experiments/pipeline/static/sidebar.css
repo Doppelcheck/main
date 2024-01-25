@@ -19,6 +19,7 @@
 
 #doppelcheck-sidebar * {
     all: revert;
+    background: white;
 }
 
 #doppelcheck-sidebar.doppelcheck-sidebar-hidden {
