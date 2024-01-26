@@ -55,7 +55,7 @@ const WebStorageAPIStuff = {
           name: "storage-access",
         });
         console.log("permissions:", permission);
-
+        // https://developers.google.com/privacy-sandbox/3pcd/related-website-sets-integration?hl=de#implementation_examples
         if (permission.state === "granted") {
           // Can just call requestStorageAccess() without a
           // user interaction and it will resolve automatically.
