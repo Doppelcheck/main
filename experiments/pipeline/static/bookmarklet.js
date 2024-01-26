@@ -1,155 +1,6 @@
 const address = "localhost:8000";
+const userID = "[unique user identification]";
 
-const WebStorageAPIStuff = {
-    hasAccess: false,
-
-    updateCookiesOutput() {
-      console.log("Reading local storage:", localStorage);
-    },
-
-    // This function is called by the refreshCookiesButton
-    // It either already has access - in which case it can simply access the cookies
-    // Or it doesn't have access because it was waiting for a prompt
-    // We could just gate this on `hasAccess`
-    async refreshCookies() {
-      if (!WebStorageAPIStuff.hasAccess) {
-        console.log(
-          "Don't have access. Trying again within this click handler, in case it needed a prompt."
-        );
-        try {
-          // This should now work if it was waiting a prompt
-          await document.requestStorageAccess();
-          WebStorageAPIStuff.hasAccess = true;  // Can assume this was true is above did not reject
-          console.log("Have access now thanks to prompt");
-        } catch (err) {
-          console.log("requestStorageAccess Error:", err);
-        }
-
-        WebStorageAPIStuff.hasAccess = await document.hasStorageAccess();
-        console.log("Updated hasAccess:", WebStorageAPIStuff.hasAccess);
-      }
-      WebStorageAPIStuff.updateCookiesOutput();
-    },
-
-    async hasCookieAccess() {
-      // Check if Storage Access API is supported
-      if (!document.requestStorageAccess) {
-        // Storage Access API is not supported so best we can do is
-        // hope it's an older browser that doesn't block 3P cookies
-        console.log("Storage Acccess API not supported. Assume we have access.")
-        return true;
-      }
-
-      // Check if access has already been granted
-      if (await document.hasStorageAccess()) {
-        console.log("Cookie access already granted");
-        return true;
-      }
-
-      // Check the storage-access permission
-      // Wrap this in a try/catch for browsers that support the
-      // Storage Access API but not this permission check
-      // (e.g. Safari and older versions of Firefox)
-      try {
-        const permission = await navigator.permissions.query({
-          name: "storage-access",
-        });
-        console.log("permissions:", permission);
-        // https://developers.google.com/privacy-sandbox/3pcd/related-website-sets-integration?hl=de#implementation_examples
-        if (permission.state === "granted") {
-          // Can just call requestStorageAccess() without a
-          // user interaction and it will resolve automatically.
-          try {
-            console.log("Cookie access allowed. Calling requestStorageAccess()");
-            await document.requestStorageAccess();
-            console.log("Cookie access granted");
-            return true;
-          } catch (error) {
-            // This shouldn't really fail if access is granted
-            return false;
-          }
-        } else if (permission.state === "prompt") {
-          // Need to call requestStorageAccess() after a user interaction
-          // Can't do anything further here, so handle this in the click handler
-          console.log("Cookie access requires a prompt");
-          return false;
-        } else if (permission.state === "denied") {
-          // Currently not used. See:
-          // https://github.com/privacycg/storage-access/issues/149
-          console.log("Cookie access denied");
-          return false;
-        }
-      } catch (error) {
-        // storage-access permission not supported. Assume false.
-          console.log("storage-access permission not supported. Assume no access.");
-        return false;
-      }
-
-      // By default return false, though should really be caught by one of above.
-      return false;
-    },
-
-    // This function runs as page loads to try to give access initially
-    // This can make the click handler quicker as it doesn't need to
-    // await the access request if it's already happened.
-    async handleCookieAccessInit() {
-      WebStorageAPIStuff.hasAccess = await WebStorageAPIStuff.hasCookieAccess();
-      WebStorageAPIStuff.updateCookiesOutput();
-    }
-}
-
-const IFrameCommunication = {
-                // Create an IFrame and append it to the body
-    initIframe() {
-        const iframe = document.createElement('iframe');
-        iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-storage-access-by-user-activation')
-        iframe.style.display = 'none';
-        iframe.id = 'doppelcheck-iframe';
-        iframe.src = `https://${address}/helper`; // URL of your helper page
-        document.body.appendChild(iframe);
-
-        window.addEventListener('message', function (event) {
-            if (event.origin !== `https://${address}`) {
-                // Only accept messages from the IFrame's origin
-                console.log(`Origin ${event.origin} not allowed`);
-                return;
-            }
-
-            const data = event.data;
-            if (data.type === 'loaded') {
-                console.log("BOOKMARKLET: Data received from helper ", data);
-
-            } else if (data.type === 'saved') {
-                console.log("BOOKMARKLET: Data successfully saved in helper ", data);
-            }
-        });
-    },
-    async setHelper(key, value) {
-        await WebStorageAPIStuff.refreshCookies();
-        await WebStorageAPIStuff.handleCookieAccessInit();
-
-        const iframe = document.getElementById('doppelcheck-iframe');
-        const message = {type: 'save', key: key, value: value };
-        console.log("BOOKMARKLET: Sending data to helper", message);
-        iframe.contentWindow.postMessage(
-            message,
-            `https://${address}`
-        );
-    },
-    async getHelper(key) {
-        await WebStorageAPIStuff.refreshCookies();
-        await WebStorageAPIStuff.handleCookieAccessInit();
-
-        const iframe = document.getElementById('doppelcheck-iframe');
-        const message = {type: 'load', key: key };
-        console.log("BOOKMARKLET: Requesting data from helper ", message);
-        iframe.contentWindow.postMessage(
-            message,
-            `https://${address}`
-        );
-    }
-
-}
 
 const ProxyUrlServices = {
     get12ftProxyUrl(originalUrl) {
@@ -232,10 +83,10 @@ const InitializeDoppelcheck = {
         return xhr.responseText;
     },
 
-    async addDoppelcheckElements() {
-        InitializeDoppelcheck.reduceZIndex(1000);
+    async addDoppelcheckElements(configuration) {
+        console.log("configuration ", configuration)
 
-        IFrameCommunication.initIframe();
+        InitializeDoppelcheck.reduceZIndex(1000);
 
         const bodyWrapper = document.createElement("div");
         bodyWrapper.id = "doppelcheck-body-wrapper";
@@ -262,7 +113,7 @@ const InitializeDoppelcheck = {
         const config = document.createElement("a");
         config.id = "doppelcheck-config";
         config.innerText = "Config";
-        config.href = `https://${address}/config`;
+        config.href = `https://${address}/config/${userID}`;
         config.target = "_blank";
         sidebar.appendChild(config);
 
@@ -286,13 +137,10 @@ const InitializeDoppelcheck = {
         sidebarStyle.href = `https://${address}/static/sidebar.css`;
         document.head.appendChild(sidebarStyle);
 
-        const testButton = document.createElement("button");
-        testButton.id = "doppelcheck-test-button";
-        testButton.innerText = "Test";
-        testButton.onclick = function () {
-            IFrameCommunication.getHelper("testkey");
-        }
-        sidebar.appendChild(testButton);
+        const userIdField = document.createElement("div");
+        userIdField.id = "doppelcheck-user-id";
+        userIdField.innerText = userID;
+        sidebar.appendChild(userIdField);
 
         // addSidebarScopedCss()
 
@@ -516,7 +364,17 @@ function exchange(purpose, data) {
         console.log("error");
         console.log(event);
     }
+}
 
+function getConfig() {
+    const configUrl = `https://${address}/get_config/${userID}`;
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', configUrl, false);
+    xhr.send();
+    console.log("response ", xhr.response)
+    const textConfig = xhr.responseText
+    console.log("textConfig", textConfig)
+    return textConfig;
 }
 
 function main() {
@@ -526,14 +384,15 @@ function main() {
 
     } else {
         try {
-            exchange("ping", null);
+            // exchange("ping", null);
+            const config = getConfig();
 
         } catch (error) {
             ProxyUrlServices.redirect();
             return;
         }
 
-        InitializeDoppelcheck.addDoppelcheckElements();
+        InitializeDoppelcheck.addDoppelcheckElements(config);
     }
 }
 
