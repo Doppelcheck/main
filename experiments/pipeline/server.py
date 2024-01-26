@@ -1,6 +1,7 @@
 import asyncio
 import dataclasses
 import json
+import secrets
 from dataclasses import dataclass
 from typing import Generator, Callable
 from urllib.parse import urlparse
@@ -11,6 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from nicegui import ui, app, Client
 
 from fastapi.middleware.cors import CORSMiddleware
+from nicegui.observables import ObservableDict
 
 from experiments.pipeline.tools.prompt_openai_chunks import PromptOpenAI
 from src.tools.bookmarklet import compile_bookmarklet
@@ -54,22 +56,6 @@ class Server:
         js_url = await ui.run_javascript('window.location.href')
         parsed_url = urlparse(js_url)
         return parsed_url.netloc
-
-    @staticmethod
-    async def set_helper(client: Client, key: str, value: any) -> None:
-        await client.connected()
-        value_str = json.dumps(value)
-        cmd = f'IFrameCommunication.setHelper("{key}", {value_str});'
-        print(cmd)
-        _ = ui.run_javascript(cmd)
-
-    @staticmethod
-    async def get_helper(client: Client, key: str) -> any:
-        await client.connected()
-        cmd = f'IFrameCommunication.getHelper("{key}");'
-        value_str = await ui.run_javascript(cmd)
-        value = json.loads(value_str)
-        return value
 
     def __init__(self, agent_interface: dict[str, any]) -> None:
         self.llm_interface = PromptOpenAI(agent_interface)
@@ -126,19 +112,20 @@ class Server:
             # create div element and return html code
             return HTMLResponse("<div>Hello!</div>")
 
-        @app.get("/helper")
-        async def helper():
-            return FileResponse('static/helper.html')
+        @app.get("/get_config/{userid}", response_model=dict)
+        async def get_config(userid: str) -> dict:
+            # return {"key": "key", "value": "value"}
 
-        @app.get("/dist")
-        async def dist():
-            return FileResponse('static/dist.html')
+            settings: ObservableDict = app.storage.general.get(userid)
+            if settings is None:
+                print(f"getting settings for {userid}: No settings")
+                return dict()
 
-        @ui.page("/config")
-        async def config(client: Client) -> None:
-            ui.add_head_html(f"<script defer src='static/iframecommunication.js'></script>")
-            await client.connected()
+            print(f"getting settings for {userid}: {settings}")
+            return {key: value for key, value in settings.items()}
 
+        @ui.page("/config/{userid}")
+        async def config(client: Client, userid: str):
             timer: ui.timer | None = None
 
             def update_timer(callback: Callable[..., any]) -> None:
@@ -152,7 +139,13 @@ class Server:
                 text_input.classes(add="bg-warning ")
 
                 async def set_storage() -> None:
-                    await Server.set_helper(client, key, value)
+                    settings = app.storage.general.get(userid)
+                    if settings is None:
+                        settings = {key: value}
+                        app.storage.general[userid] = settings
+                    else:
+                        settings[key] = value
+                    print(f"setting settings for {userid}: {app.storage.general.get(userid)}")
                     text_input.classes(remove="bg-warning ")
 
                 update_timer(set_storage)
@@ -172,7 +165,6 @@ class Server:
                 text_input.classes(add="transition ease-out duration-500 ")
                 text_input.classes(remove="bg-warning ")
 
-
         @ui.page("/")
         async def bookmarklet(client: Client) -> None:
             address = await Server.get_address(client)
@@ -181,9 +173,12 @@ class Server:
                 bookmarklet_js = file.read()
 
             bookmarklet_js = bookmarklet_js.replace("localhost:8000", address)
+
+            secret = secrets.token_urlsafe(32)
+            bookmarklet_js = bookmarklet_js.replace("[unique user identification]", secret)
+
             compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
             ui.link("test bookmarklet", target=compiled_bookmarklet)
-
 
         @app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
