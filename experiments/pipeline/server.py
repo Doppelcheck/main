@@ -6,13 +6,14 @@ from dataclasses import dataclass
 from typing import Generator, Callable
 from urllib.parse import urlparse
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect, Body, Request, Cookie
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from nicegui import ui, app, Client
 
 from fastapi.middleware.cors import CORSMiddleware
 from nicegui.observables import ObservableDict
+from pydantic import BaseModel
 
 from experiments.pipeline.tools.prompt_openai_chunks import PromptOpenAI
 from src.tools.bookmarklet import compile_bookmarklet
@@ -24,6 +25,10 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+
+class User(BaseModel):
+    user_id: str
 
 
 @dataclass
@@ -102,30 +107,18 @@ class Server:
     def setup_routes(self) -> None:
         claims = list[str]()
 
-        # Serve 'index.html' at the root
-        @ui.page("/websocket_test")
-        def get():
-            return FileResponse('static/index.html')
-
-        @app.get("/htmx_test")
-        async def htmx_test():
-            # create div element and return html code
-            return HTMLResponse("<div>Hello!</div>")
-
-        @app.get("/get_config/{userid}", response_model=dict)
-        async def get_config(userid: str) -> dict:
-            # return {"key": "key", "value": "value"}
-
-            settings: ObservableDict = app.storage.general.get(userid)
+        @app.post("/get_config/")
+        async def get_config(user_data: User = Body(...)) -> dict:
+            settings: ObservableDict = app.storage.general.get(user_data.user_id)
             if settings is None:
-                print(f"getting settings for {userid}: No settings")
+                print(f"getting settings for {user_data.user_id}: No settings")
                 return dict()
 
-            print(f"getting settings for {userid}: {settings}")
+            print(f"getting settings for {user_data.user_id}: {settings}")
             return {key: value for key, value in settings.items()}
 
         @ui.page("/config/{userid}")
-        async def config(client: Client, userid: str):
+        async def config(userid: str):
             timer: ui.timer | None = None
 
             def update_timer(callback: Callable[..., any]) -> None:
@@ -149,6 +142,22 @@ class Server:
                     text_input.classes(remove="bg-warning ")
 
                 update_timer(set_storage)
+
+            # interfaces
+            #   agents
+            #   data sources
+            # function
+            #   language
+            #   extraction
+            #       which agent interface?
+            #       how many claims?
+            #   retrieval
+            #       which data source?
+            #       how many documents?
+            #       score explanation
+            #   comparison
+            #       which agent interface?
+            #       range of match
 
             # individual setting
             key_name = "testkey"
