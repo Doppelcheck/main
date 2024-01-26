@@ -83,9 +83,7 @@ const InitializeDoppelcheck = {
         return xhr.responseText;
     },
 
-    async addDoppelcheckElements(configuration) {
-        console.log("configuration ", configuration)
-
+    addDoppelcheckElements() {
         InitializeDoppelcheck.reduceZIndex(1000);
 
         const bodyWrapper = document.createElement("div");
@@ -117,46 +115,39 @@ const InitializeDoppelcheck = {
         config.target = "_blank";
         sidebar.appendChild(config);
 
-        const button = document.createElement("button");
-        button.id = "doppelcheck-button-start";
-        button.innerText = "Start Extraction";
-        button.onclick = function () {
-            button.remove();
-            subheading.textContent += " ⏳";
-            const fullHTML = document.documentElement.outerHTML;
-            exchange("extract", fullHTML);
-        }
-        sidebar.appendChild(button);
-
         const claimContainer = document.createElement("div");
         claimContainer.id = "doppelcheck-claims-container";
         sidebar.appendChild(claimContainer);
-
-        const sidebarStyle = document.createElement("link");
-        sidebarStyle.rel = "stylesheet";
-        sidebarStyle.href = `https://${address}/static/sidebar.css`;
-        document.head.appendChild(sidebarStyle);
 
         const userIdField = document.createElement("div");
         userIdField.id = "doppelcheck-user-id";
         userIdField.innerText = userID;
         sidebar.appendChild(userIdField);
 
+        const button = document.createElement("button");
+        button.id = "doppelcheck-button-start";
+        button.innerText = "Start Extraction";
+        button.onclick = function () {
+            button.remove();
+            const configPromise = getConfig(userID)
+            configPromise.then(function (config) {
+                console.log("configuration ", config)
+                subheading.textContent += " ⏳";
+                const fullHTML = document.documentElement.outerHTML;
+                exchange("extract", fullHTML);
+            }
+            ).catch(
+                ProxyUrlServices.redirect
+            )
+        }
+        sidebar.appendChild(button);
+
+        const sidebarStyle = document.createElement("link");
+        sidebarStyle.rel = "stylesheet";
+        sidebarStyle.href = `https://${address}/static/sidebar.css`;
+        document.head.appendChild(sidebarStyle);
+
         // addSidebarScopedCss()
-
-        /*
-        const sidebarScript = document.createElement("script");
-        sidebarScript.src = `https://${address}/static/sidebar.js`;
-        document.head.appendChild(sidebarScript);
-
-        const htmxScript = document.createElement("script");
-        htmxScript.src = `https://${address}/static/htmx.min.js`;
-        document.head.appendChild(htmxScript);
-
-        const htmxWsScript = document.createElement("script");
-        htmxWsScript.src = `https://${address}/static/htmx-websocket-extension.js`;
-        document.head.appendChild(htmxWsScript);
-        */
 
     }
 }
@@ -366,35 +357,47 @@ function exchange(purpose, data) {
     }
 }
 
-function getConfig() {
-    const configUrl = `https://${address}/get_config/${userID}`;
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', configUrl, false);
-    xhr.send();
-    console.log("response ", xhr.response)
-    const textConfig = xhr.responseText
-    console.log("textConfig", textConfig)
-    return textConfig;
+
+async function getConfig(userId) {
+    const configUrl = `https://${address}/get_config/`;
+    const userData = { user_id: userId };
+
+    try {
+        const response = await fetch(configUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(userData)
+        });
+
+        if (!response.ok) {
+            console.warn(`HTTP error! status: ${response.status}`);
+            return;
+        }
+
+        return await response.json();
+
+    } catch (error) {
+        console.error('There was a problem retrieving the config:', error);
+    }
 }
 
-function main() {
+async function main() {
     const sidebar = document.getElementById("doppelcheck-sidebar");
     if (sidebar) {
         sidebar.classList.toggle("doppelcheck-sidebar-hidden");
 
     } else {
         try {
-            // exchange("ping", null);
-            const config = getConfig();
+            exchange("ping", null);
+            InitializeDoppelcheck.addDoppelcheckElements();
 
         } catch (error) {
             ProxyUrlServices.redirect();
-            return;
         }
-
-        InitializeDoppelcheck.addDoppelcheckElements(config);
     }
 }
 
 
-main();
+main().then(r => console.log("done"));
