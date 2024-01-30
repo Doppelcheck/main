@@ -1,7 +1,10 @@
 import re
-from typing import Generator, Iterable
+from collections import namedtuple
+from typing import Generator, Iterable, AsyncGenerator, Callable, runtime_checkable, Protocol
 from lxml import etree
 from lxml.etree import _Element
+from fastapi import WebSocket
+
 
 EXCLUDED_TAGS = {
     "script", "style", "meta", "link", "br", "hr", "img",
@@ -62,12 +65,27 @@ def lined_text(lines: Iterable[str]) -> str:
     return "\n".join(numbered_lines)
 
 
-def pipe_codeblock_content(text_str: Iterable[str]) -> Generator[tuple[int, str], None, None]:
+CodeBlockSegment = namedtuple("CodeBlockSegment", ["block_count", "block_type", "segment"])
+
+
+@runtime_checkable
+class SendCodeblockSegmentProtocol(Protocol):
+    async def __call__(self, segment: CodeBlockSegment) -> None:
+        ...
+
+
+async def pipe_codeblock_content(
+        dict_stream: AsyncGenerator[dict[str, any], None, None],
+        get_text: Callable[[dict[str, any]], str]
+
+) -> AsyncGenerator[CodeBlockSegment, None, None]:
+
     block_type = ""
     block_count = 0
     state = 0
-    for each_segment in text_str:
-        for each_char in each_segment:
+    async for each_dict in dict_stream:
+        each_text = get_text(each_dict)
+        for each_char in each_text:
             if state == 0:
                 block_type = ""
                 if each_char == "`":
@@ -82,8 +100,7 @@ def pipe_codeblock_content(text_str: Iterable[str]) -> Generator[tuple[int, str]
             elif state == 3:
                 if each_char == "\n":
                     state = 5
-                elif each_char == "`":
-                    state = 7
+                    # state = 7
                 else:
                     block_type += each_char
                     state = 4
@@ -98,20 +115,23 @@ def pipe_codeblock_content(text_str: Iterable[str]) -> Generator[tuple[int, str]
                 if each_char == "`":
                     state = 7
                 else:
-                    yield block_count, block_type, each_char
+                    codeblock_segment = CodeBlockSegment(block_count, block_type, each_char)
+                    yield codeblock_segment
 
             elif state == 7:
                 if each_char == "`":
                     state = 9
                 else:
-                    yield block_count, block_type, "`" + each_char
+                    codeblock_segment = CodeBlockSegment(block_count, block_type, "`" + each_char)
+                    yield codeblock_segment
                     state = 5
 
             elif state == 9:
                 if each_char == "`":
                     state = 11
                 else:
-                    yield block_count, block_type, "``" + each_char
+                    codeblock_segment = CodeBlockSegment(block_count, block_type, "``" + each_char)
+                    yield codeblock_segment
                     state = 5
 
             elif state == 11:
@@ -119,7 +139,8 @@ def pipe_codeblock_content(text_str: Iterable[str]) -> Generator[tuple[int, str]
                     state = 0
                     block_count += 1
                 else:
-                    yield block_count, block_type, "```" + each_char
+                    codeblock_segment = CodeBlockSegment(block_count, block_type, "```" + each_char)
+                    yield codeblock_segment
                     state = 5
 
 
@@ -150,7 +171,7 @@ This string contains three code blocks, each delimited by triple single quotes. 
 
     g = (each_char for each_char in test)
     li = list()
-    for each_content in pipe_codeblock_content(g):
+    async for each_content in pipe_codeblock_content(g):
         li += each_content[2]
         print(each_content)
 
