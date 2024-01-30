@@ -3,7 +3,6 @@ from typing import Generator
 
 import openai
 from loguru import logger
-from openai.types.chat import ChatCompletionChunk
 
 
 class PromptOpenAI:
