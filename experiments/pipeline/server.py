@@ -15,7 +15,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from nicegui.observables import ObservableDict
 from pydantic import BaseModel
 
+from experiments.pipeline.prompts.agent_patterns import extraction
 from experiments.pipeline.tools.prompt_openai_chunks import PromptOpenAI
+from experiments.pipeline.tools.text_processing import text_node_generator, get_text_lines, lined_text
 from src.tools.bookmarklet import compile_bookmarklet
 
 app.add_middleware(
@@ -65,7 +67,14 @@ class Server:
     def __init__(self, agent_interface: dict[str, any]) -> None:
         self.llm_interface = PromptOpenAI(agent_interface)
 
-    async def get_claims(self, body_html: str) -> Generator[ClaimSegment, None, None]:
+    async def stream_from_llm(self, websocket: WebSocket, data: str, purpose: str) -> None:
+        response = self.llm_interface.stream_reply_to_prompt(data)
+        async for each_chunk_dict in response:
+            each_dict = {'purpose': purpose, 'data': each_chunk_dict}
+            json_str = json.dumps(each_dict)
+            await websocket.send_text(json_str)
+
+    async def get_claims_dummy(self, body_html: str) -> Generator[ClaimSegment, None, None]:
         for i in range(5):
             text = f"Claim {i}, ({len(body_html)})"
             last_claim = i >= 4
@@ -75,7 +84,17 @@ class Server:
                 message_segment = ClaimSegment(each_character, last_segment, last_claim)
                 yield message_segment
 
-    async def get_documents(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
+    async def get_claims_from_html(self, body_html: str) -> Generator[ClaimSegment, None, None]:
+        node_generator = text_node_generator(body_html)
+        text_lines = list(get_text_lines(node_generator, line_length=20))
+        prompt = extraction(text_lines)
+
+
+
+    async def get_claims_from_selection(self, text: str) -> Generator[ClaimSegment, None, None]:
+        pass
+
+    async def get_documents_dummy(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
         # retrieve documents from claim_text
 
         for i in range(5):
@@ -87,7 +106,7 @@ class Server:
                 message_segment = DocumentSegment(each_character, last_segment, last_document, claim_id)
                 yield message_segment
 
-    async def get_comparisons(self, claim_id: int, claim: str, document_uri: str) -> Generator[ComparisonSegment, None, None]:
+    async def get_comparisons_dummy(self, claim_id: int, claim: str, document_uri: str) -> Generator[ComparisonSegment, None, None]:
         for i in range(5):
             text = f"Comparison {i}, ({document_uri} vs {claim_id})"
             last_comparison = i >= 4
@@ -97,12 +116,6 @@ class Server:
                 message_segment = ComparisonSegment(each_character, last_segment, last_comparison)
                 yield message_segment
 
-    async def stream_from_llm(self, websocket: WebSocket, data: str, purpose: str) -> None:
-        response = self.llm_interface.stream_reply_to_prompt(data)
-        async for each_chunk_dict in response:
-            each_dict = {'purpose': purpose, 'data': each_chunk_dict}
-            json_str = json.dumps(each_dict)
-            await websocket.send_text(json_str)
 
     def setup_routes(self) -> None:
         claims = list[str]()
@@ -226,7 +239,7 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
-                        async for segment in self.get_claims(data):
+                        async for segment in self.get_claims_dummy(data):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
@@ -234,7 +247,7 @@ class Server:
                     case "retrieve":
                         claim_id = data['id']
                         claim_text = data['text']
-                        async for segment in self.get_documents(claim_id, claim_text):
+                        async for segment in self.get_documents_dummy(claim_id, claim_text):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
@@ -243,7 +256,7 @@ class Server:
                         claim_id = data['claim_id']
                         claim_text = data['claim_text']
                         document_uri = data['document_id']
-                        async for segment in self.get_comparisons(claim_id, claim_text, document_uri):
+                        async for segment in self.get_comparisons_dummy(claim_id, claim_text, document_uri):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)

@@ -127,8 +127,18 @@ const InitializeDoppelcheck = {
         const button = document.createElement("button");
         button.id = "doppelcheck-button-start";
         button.innerText = "Start Extraction";
+
+        //const regexPattern = /Das Ausmaß/g;
+        const regexPattern = /Das\s+Ausmaß/g;
+
         button.onclick = function () {
             button.remove();
+            const markInstance = new Mark(document.querySelector("#doppelcheck-main-content"));
+            markInstance.markRegExp(regexPattern, {
+                "acrossElements": true,
+                "className": "doppelcheck-highlight"
+            });
+
             const configPromise = getConfig(userID)
             configPromise.then(function (config) {
                 console.log("configuration ", config)
@@ -146,6 +156,12 @@ const InitializeDoppelcheck = {
         sidebarStyle.rel = "stylesheet";
         sidebarStyle.href = `https://${address}/static/sidebar.css`;
         document.head.appendChild(sidebarStyle);
+
+        // add mark.js
+        const markJs = document.createElement("script");
+        markJs.src = `https://${address}/static/mark.min.js`;
+        markJs.defer = true;
+        document.head.appendChild(markJs);
 
         // addSidebarScopedCss()
 
