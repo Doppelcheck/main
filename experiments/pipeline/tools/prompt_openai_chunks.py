@@ -1,5 +1,5 @@
 import time
-from typing import Generator
+from typing import Generator, AsyncGenerator
 
 import openai
 from loguru import logger
@@ -68,7 +68,8 @@ class PromptOpenAI:
         logger.info(reply)
         return reply.strip()
 
-    async def stream_reply_to_prompt(self, prompt: str, **kwargs: any) -> Generator[dict[str, any], None, None]:
+    # async def stream_reply_to_prompt(self, prompt: str, **kwargs: any) -> Generator[dict[str, any], None, None]:
+    async def stream_reply_to_prompt(self, prompt: str, **kwargs: any) -> AsyncGenerator[dict[str, any], None, None]:
         logger.info(prompt)
 
         arguments = dict(self._config)

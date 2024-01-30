@@ -3,7 +3,7 @@ import dataclasses
 import json
 import secrets
 from dataclasses import dataclass
-from typing import Generator, Callable
+from typing import Generator, Callable, runtime_checkable, Protocol
 from urllib.parse import urlparse
 
 from fastapi import WebSocket, WebSocketDisconnect, Body, Request, Cookie
@@ -17,7 +17,8 @@ from pydantic import BaseModel
 
 from experiments.pipeline.prompts.agent_patterns import extraction
 from experiments.pipeline.tools.prompt_openai_chunks import PromptOpenAI
-from experiments.pipeline.tools.text_processing import text_node_generator, get_text_lines, lined_text
+from experiments.pipeline.tools.text_processing import text_node_generator, get_text_lines, lined_text, \
+    pipe_codeblock_content, CodeBlockSegment
 from src.tools.bookmarklet import compile_bookmarklet
 
 app.add_middleware(
@@ -27,6 +28,8 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
+
+
 
 
 class User(BaseModel):
@@ -67,7 +70,10 @@ class Server:
     def __init__(self, agent_interface: dict[str, any]) -> None:
         self.llm_interface = PromptOpenAI(agent_interface)
 
-    async def stream_from_llm(self, websocket: WebSocket, data: str, purpose: str) -> None:
+    async def get_claims_from_selection(self, text: str) -> Generator[ClaimSegment, None, None]:
+        pass
+
+    async def reference_stream_from_llm(self, websocket: WebSocket, data: str, purpose: str) -> None:
         response = self.llm_interface.stream_reply_to_prompt(data)
         async for each_chunk_dict in response:
             each_dict = {'purpose': purpose, 'data': each_chunk_dict}
@@ -84,19 +90,30 @@ class Server:
                 message_segment = ClaimSegment(each_character, last_segment, last_claim)
                 yield message_segment
 
-    async def get_claims_from_html(self, body_html: str) -> Generator[ClaimSegment, None, None]:
+    async def get_claims_from_html(self, websocket: WebSocket, body_html: str) -> Generator[ClaimSegment, None, None]:
+        def get_text(each_dict: dict[str, any]) -> str:
+            return each_dict['text']
+
+        async def send_codeblock_segment(codeblock_segment: CodeBlockSegment) -> None:
+            each_dict = {'purpose': "extract", 'data': {"delta": {"content": codeblock_segment.segment}}}
+            json_str = json.dumps(each_dict)
+            await websocket.send_text(json_str)
+
         node_generator = text_node_generator(body_html)
         text_lines = list(get_text_lines(node_generator, line_length=20))
         prompt = extraction(text_lines)
 
+        response = self.llm_interface.stream_reply_to_prompt(prompt)
 
+        last_message_segment = None
+        async for each_segment in pipe_codeblock_content(response, get_text):
+            if last_message_segment is not None and each_segment.block_count != last_message_segment.block_count:
+                yield ClaimSegment(last_message_segment.segment, True, False)
 
-    async def get_claims_from_selection(self, text: str) -> Generator[ClaimSegment, None, None]:
-        pass
+            last_message_segment = each_segment
 
     async def get_documents_dummy(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
         # retrieve documents from claim_text
-
         for i in range(5):
             text = f"Document {i}, (id {claim_id})"
             last_document = i >= 4
@@ -115,7 +132,6 @@ class Server:
                 last_segment = j >= len(text) - 1
                 message_segment = ComparisonSegment(each_character, last_segment, last_comparison)
                 yield message_segment
-
 
     def setup_routes(self) -> None:
         claims = list[str]()
@@ -202,27 +218,6 @@ class Server:
             compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
             ui.link("test bookmarklet", target=compiled_bookmarklet)
 
-        @app.websocket("/ws")
-        async def websocket_endpoint(websocket: WebSocket):
-            await websocket.accept()
-            try:
-                while True:
-                    json_data = await websocket.receive_text()
-                    data = json.loads(json_data)
-                    message_id = data['id']
-                    message_content = data['data']
-
-                    response = self.llm_interface.stream_reply_to_prompt(message_content)
-                    async for each_chunk_dict in response:
-                        each_dict = {'id': message_id, 'data': each_chunk_dict}
-                        json_str = json.dumps(each_dict)
-                        await websocket.send_text(json_str)
-
-                    break
-
-            except WebSocketDisconnect as e:
-                print(e)
-
         @app.websocket("/talk")
         async def websocket_endpoint(websocket: WebSocket):
             await websocket.accept()
@@ -268,6 +263,27 @@ class Server:
                         await websocket.send_text(json_str)
 
                 # await self.stream_from_llm(websocket, data, purpose)
+
+            except WebSocketDisconnect as e:
+                print(e)
+
+        @app.websocket("/ws")
+        async def websocket_endpoint(websocket: WebSocket):
+            await websocket.accept()
+            try:
+                while True:
+                    json_data = await websocket.receive_text()
+                    data = json.loads(json_data)
+                    message_id = data['id']
+                    message_content = data['data']
+
+                    response = self.llm_interface.stream_reply_to_prompt(message_content)
+                    async for each_chunk_dict in response:
+                        each_dict = {'id': message_id, 'data': each_chunk_dict}
+                        json_str = json.dumps(each_dict)
+                        await websocket.send_text(json_str)
+
+                    break
 
             except WebSocketDisconnect as e:
                 print(e)
