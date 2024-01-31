@@ -1,9 +1,8 @@
+import dataclasses
 import re
-from collections import namedtuple
-from typing import Generator, Iterable, AsyncGenerator, Callable, runtime_checkable, Protocol
+from typing import Generator, Iterable, AsyncGenerator, Callable
 from lxml import etree
 from lxml.etree import _Element
-from fastapi import WebSocket
 
 
 EXCLUDED_TAGS = {
@@ -12,11 +11,16 @@ EXCLUDED_TAGS = {
     "head", "title", "noscript", "area", "map", "nav", "footer", "header"
 }
 
+EXCLUDED_IDS = {
+    "doppelcheck-sidebar"
+}
+
 
 def is_excluded(node: _Element) -> bool:
     """Check if any node in the absolute path is in EXCLUDED_TAGS"""
-    if node.tag in EXCLUDED_TAGS or node.tag == etree.Comment:  # Skip comments
+    if node.tag in EXCLUDED_TAGS or node.get("id") in EXCLUDED_IDS or node.tag == etree.Comment:  # Skip comments
         return True
+
     parent = node.getparent()
     while parent is not None:
         if parent.tag in EXCLUDED_TAGS:
@@ -65,26 +69,24 @@ def lined_text(lines: Iterable[str]) -> str:
     return "\n".join(numbered_lines)
 
 
-CodeBlockSegment = namedtuple("CodeBlockSegment", ["block_count", "block_type", "segment"])
+@dataclasses.dataclass(frozen=True)
+class CodeBlockSegment:
+    block_index: int
+    block_type: str
+    segment: str
 
 
-@runtime_checkable
-class SendCodeblockSegmentProtocol(Protocol):
-    async def __call__(self, segment: CodeBlockSegment) -> None:
-        ...
-
-
-async def pipe_codeblock_content(
-        dict_stream: AsyncGenerator[dict[str, any], None, None],
-        get_text: Callable[[dict[str, any]], str]
-
-) -> AsyncGenerator[CodeBlockSegment, None, None]:
+async def pipe_codeblock_content[E](
+        stream: AsyncGenerator[E, None], get_text: Callable[[E], str]) -> AsyncGenerator[CodeBlockSegment, None]:
 
     block_type = ""
-    block_count = 0
+    block_index = 0
     state = 0
-    async for each_dict in dict_stream:
+    async for each_dict in stream:
         each_text = get_text(each_dict)
+        if each_text is None:
+            continue
+
         for each_char in each_text:
             if state == 0:
                 block_type = ""
@@ -100,7 +102,6 @@ async def pipe_codeblock_content(
             elif state == 3:
                 if each_char == "\n":
                     state = 5
-                    # state = 7
                 else:
                     block_type += each_char
                     state = 4
@@ -115,14 +116,14 @@ async def pipe_codeblock_content(
                 if each_char == "`":
                     state = 7
                 else:
-                    codeblock_segment = CodeBlockSegment(block_count, block_type, each_char)
+                    codeblock_segment = CodeBlockSegment(block_index, block_type, each_char)
                     yield codeblock_segment
 
             elif state == 7:
                 if each_char == "`":
                     state = 9
                 else:
-                    codeblock_segment = CodeBlockSegment(block_count, block_type, "`" + each_char)
+                    codeblock_segment = CodeBlockSegment(block_index, block_type, "`" + each_char)
                     yield codeblock_segment
                     state = 5
 
@@ -130,49 +131,15 @@ async def pipe_codeblock_content(
                 if each_char == "`":
                     state = 11
                 else:
-                    codeblock_segment = CodeBlockSegment(block_count, block_type, "``" + each_char)
+                    codeblock_segment = CodeBlockSegment(block_index, block_type, "``" + each_char)
                     yield codeblock_segment
                     state = 5
 
             elif state == 11:
                 if each_char == "\n":
                     state = 0
-                    block_count += 1
+                    block_index += 1
                 else:
-                    codeblock_segment = CodeBlockSegment(block_count, block_type, "```" + each_char)
+                    codeblock_segment = CodeBlockSegment(block_index, block_type, "```" + each_char)
                     yield codeblock_segment
                     state = 5
-
-
-if __name__ == "__main__":
-    test = """
-Sure, here is an example string with multiple non-nested triple single quote fenced code blocks:
-
-```python
-print("This is a Python code block.")
-```
-
-asdfsdf
-
-```javascript
-console.log("This is a JavaScript code block.");
-```
-
-
-asdfasdf
-
-```sql
-SELECT * FROM users;
-```
-
-
-This string contains three code blocks, each delimited by triple single quotes. The first block is a Python code block, the second block is a JavaScript code block, and the third block is an SQL code block. The code blocks are not nested within each other, and there are no empty lines or other non-code content between the blocks.
-    """
-
-    g = (each_char for each_char in test)
-    li = list()
-    async for each_content in pipe_codeblock_content(g):
-        li += each_content[2]
-        print(each_content)
-
-    print("".join(li))

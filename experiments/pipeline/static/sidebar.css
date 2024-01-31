@@ -1,25 +1,26 @@
 /* variable for sidebar width */
-#doppelcheck-body-wrapper {
-    display: flex;
-    height: 100vh;
-}
-
-#doppelcheck-main-content {
-    flex-grow: 1; /* Takes up the remaining space */
-    overflow-y: auto; /* Enables vertical scrolling if content overflows */
+#doppelcheck-sidebar, #doppelcheck-sidebar * {
+    all: initial;
+    /*box-sizing: border-box;*/
 }
 
 #doppelcheck-sidebar {
+    position: fixed;
+    resize: horizontal;
+    direction: rtl;
+
+    top: 0;
+    bottom: 0;
+    right: 0;
+
+    background-color: white;
+
     width: 300px; /* Fixed width for the sidebar */
-    overflow-y: auto; /* Enables vertical scrolling if content overflows */
+    overflow: auto; /* Enables vertical scrolling if content overflows */
 
     transition: transform 0.5s ease-in-out;
     transform: translateX(0);
-}
-
-#doppelcheck-sidebar * {
-    all: revert;
-    background: white;
+    z-index: 1001;
 }
 
 #doppelcheck-sidebar.doppelcheck-sidebar-hidden {

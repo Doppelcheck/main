@@ -38,6 +38,12 @@ const ProxyUrlServices = {
 };
 
 const InitializeDoppelcheck = {
+    shadowElement: null,
+
+    getElementById(id) {
+        return InitializeDoppelcheck.shadowElement.getElementById(id);
+    },
+
     reduceZIndex(maxZIndex) {
         const allElements = document.querySelectorAll('*');
 
@@ -50,22 +56,44 @@ const InitializeDoppelcheck = {
         });
     },
 
-    addSidebarScopedCss() {
-        const cssContent = InitializeDoppelcheck.getCSSContent(`https://${address}/static/pico.min.css`);
-        const scopedCss = cssContent.replace(
-            /(^|\s+|,)([a-zA-Z0-9*[_#:.-]+)/g, '$1#doppelcheck-sidebar $2'
-        );
+    async loadExternalStyles(url, shadowRoot) {
+        try {
+            const response = await fetch(url);
+            const cssText = await response.text();
 
-        const style = document.createElement('style');
-        style.appendChild(document.createTextNode(scopedCss));
-        document.head.appendChild(style);
+            const style = document.createElement('style');
+            style.textContent = cssText;
+            shadowRoot.appendChild(style);
+
+        } catch (error) {
+            console.error('Failed to load external styles:', error);
+        }
     },
 
-    createSidebar(container) {
+    async createSidebar(container) {
         const sidebar = document.createElement("div");
+        InitializeDoppelcheck.shadowElement = sidebar.attachShadow({ mode: 'open' });
+
+        //await InitializeDoppelcheck.loadExternalStyles(`https://${address}/static/pico.css`, InitializeDoppelcheck.shadowElement)
+
+        const shadowContainer = document.createElement("div");
+        shadowContainer.id = "doppelcheck-shadow-container";
+        shadowContainer.setAttribute("data-theme", "light")
+        InitializeDoppelcheck.shadowElement.appendChild(shadowContainer);
+
+        const sidebarStyle = document.createElement("link");
+        sidebarStyle.rel = "stylesheet";
+        sidebarStyle.href = `https://${address}/static/sidebar-content.css`;
+        InitializeDoppelcheck.shadowElement.appendChild(sidebarStyle);
+
+        const picoStyle = document.createElement("link");
+        picoStyle.rel = "stylesheet";
+        picoStyle.href = `https://${address}/static/pico.css`;
+        InitializeDoppelcheck.shadowElement.appendChild(picoStyle);
+
         sidebar.id = "doppelcheck-sidebar";
         container.appendChild(sidebar);
-        return sidebar;
+        return shadowContainer;
     },
 
     moveBodyContentToContainer(container) {
@@ -76,14 +104,7 @@ const InitializeDoppelcheck = {
         body.appendChild(container);
     },
 
-    getCSSContent(url) {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', url, false);
-        xhr.send();
-        return xhr.responseText;
-    },
-
-    addDoppelcheckElements() {
+    async addDoppelcheckElements() {
         InitializeDoppelcheck.reduceZIndex(1000);
 
         const bodyWrapper = document.createElement("div");
@@ -94,7 +115,7 @@ const InitializeDoppelcheck = {
         InitializeDoppelcheck.moveBodyContentToContainer(mainContent);
         bodyWrapper.appendChild(mainContent);
 
-        const sidebar = InitializeDoppelcheck.createSidebar(bodyWrapper);
+        const sidebar = await InitializeDoppelcheck.createSidebar(bodyWrapper);
 
         document.body.appendChild(bodyWrapper);
 
@@ -128,17 +149,8 @@ const InitializeDoppelcheck = {
         button.id = "doppelcheck-button-start";
         button.innerText = "Start Extraction";
 
-        //const regexPattern = /Das Ausmaß/g;
-        const regexPattern = /Das\s+Ausmaß/g;
-
         button.onclick = function () {
             button.remove();
-            const markInstance = new Mark(document.querySelector("#doppelcheck-main-content"));
-            markInstance.markRegExp(regexPattern, {
-                "acrossElements": true,
-                "className": "doppelcheck-highlight"
-            });
-
             const configPromise = getConfig(userID)
             configPromise.then(function (config) {
                 console.log("configuration ", config)
@@ -146,11 +158,17 @@ const InitializeDoppelcheck = {
                 const fullHTML = document.documentElement.outerHTML;
                 exchange("extract", fullHTML);
             }
-            ).catch(
-                ProxyUrlServices.redirect
-            )
+            ).catch(function (error) {
+                console.error('There was a problem retrieving the config:', error);
+                ProxyUrlServices.redirect();
+            })
         }
         sidebar.appendChild(button);
+
+        const doppelcheckStyle = document.createElement("link");
+        doppelcheckStyle.rel = "stylesheet";
+        doppelcheckStyle.href = `https://${address}/static/main-content.css`;
+        document.head.appendChild(doppelcheckStyle);
 
         const sidebarStyle = document.createElement("link");
         sidebarStyle.rel = "stylesheet";
@@ -179,47 +197,68 @@ const ExtractClaims = {
         const claim = document.createElement("summary");
         claim.id = `doppelcheck-claim${claimId}`;
         claim.classList.add("doppelcheck-claim");
+        claim.classList.add(`doppelcheck-claim-${claimId}`);
         eachClaimContainer.appendChild(claim);
 
         return claim;
     },
 
+    segmentWords(text, segmentLength) {
+        const words = text.split(/\s+/);
+        const segments = [];
+        for (let i = 0; i <= words.length - segmentLength; i++) {
+            // Join with a regular expression pattern as a string
+            const regexPattern = words.slice(i, i + segmentLength).join('\\s+');
+            segments.push(new RegExp(regexPattern, 'g')); // Create a RegExp object
+        }
+        return segments;
+    },
+
     extraction(response) {
         console.log("extraction");
 
-        const claimSegment = response.segment;
-        const lastClaim = response.last_message;
-        const lastSegment = response.last_segment;
+        const highlight = response.highlight;
+        const claimId = response.claim_id;
 
-        const claimsContainer = document.getElementById("doppelcheck-claims-container");
-        let claimId = claimsContainer.childElementCount;
+        if (highlight) {
+            // console.log("highlighting: ", highlight);
+            const markInstance = new Mark(document.querySelector("#doppelcheck-main-content"));
 
-        let claim;
-        if (claimId < 1) {
-            claim = ExtractClaims.addClaim(0, claimsContainer);
-            claimId += 1;
+            for (const regexPattern of ExtractClaims.segmentWords(highlight, 3)) {
+                // console.log("regex pattern: ", regexPattern);
+                markInstance.markRegExp(regexPattern, {
+                    "acrossElements": true,
+                    "className": `doppelcheck-claim-${claimId}`
+                });
+            }
+
         } else {
-            const eachClaimContainer = claimsContainer.lastChild;
-            claim = eachClaimContainer.firstChild;
-        }
-        claim.textContent += claimSegment;
+            const claimSegment = response.segment;
 
-        if (lastSegment) {
-            if (lastClaim) {
-                const subheading = document.getElementById("doppelcheck-subheading");
-                subheading.innerText = subheading.innerText.replace("⏳", "✅");
-            } else {
-                ExtractClaims.addClaim(claimId, claimsContainer);
-            }
-            const eachClaimContainer = document.getElementById(
-                `doppelcheck-each-claim-container${claimId - 1}`
-            );
-            eachClaimContainer.removeAttribute("onclick");
-            const claim = document.getElementById(`doppelcheck-claim${claimId - 1}`);
-            claim.onclick = function () {
-                RetrieveDocuments.getDocuments(claimId - 1);
-            }
+            const claimsContainer = InitializeDoppelcheck.getElementById("doppelcheck-claims-container");
 
+            let claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
+            if (!claim) {
+                claim = ExtractClaims.addClaim(claimId, claimsContainer);
+            }
+            claim.textContent += claimSegment;
+
+            const lastClaim = response.last_message;
+            const lastSegment = response.last_segment;
+            if (lastSegment) {
+                if (lastClaim) {
+                    const subheading = InitializeDoppelcheck.getElementById("doppelcheck-subheading");
+                    subheading.innerText = subheading.innerText.replace("⏳", "✅");
+                }
+                const eachClaimContainer = InitializeDoppelcheck.getElementById(
+                    `doppelcheck-each-claim-container${claimId}`
+                );
+                eachClaimContainer.removeAttribute("onclick");
+                const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
+                claim.onclick = function () {
+                    RetrieveDocuments.getDocuments(claimId);
+                }
+            }
         }
     }
 }
@@ -235,7 +274,7 @@ const RetrieveDocuments = {
 
     getDocuments(claimId) {
         console.log(`checking claim ${claimId}`);
-        const claim = document.getElementById(`doppelcheck-claim${claimId}`);
+        const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
         claim.onclick = null;
         const claimText = claim.textContent;
         const data = {id: claimId, text: claimText}
@@ -247,12 +286,12 @@ const RetrieveDocuments = {
         documentsContainer.id = `doppelcheck-documents-container${claimId}`;
         documentsContainer.classList.add("doppelcheck-documents-container");
 
-        const eachClaimContainer = document.getElementById(
+        const eachClaimContainer = InitializeDoppelcheck.getElementById(
             `doppelcheck-each-claim-container${claimId}`
         );
         eachClaimContainer.appendChild(documentsContainer);
 
-        const claim = document.getElementById(`doppelcheck-claim${claimId}`);
+        const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
         claim.textContent += " ⏳";
 
         return documentsContainer;
@@ -267,7 +306,7 @@ const RetrieveDocuments = {
         const claimId = response.claim_id;
 
         // replace button with documents container
-        let documentsContainer = document.getElementById(
+        let documentsContainer = InitializeDoppelcheck.getElementById(
             `doppelcheck-documents-container${claimId}`
         )
         if (!documentsContainer) {
@@ -287,14 +326,14 @@ const RetrieveDocuments = {
 
         if (lastSegment) {
             if (lastClaim) {
-                const claim = document.getElementById(`doppelcheck-claim${claimId}`);
+                const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
                 claim.textContent = claim.textContent.replace("⏳", "✅");
 
             } else {
                 _ = RetrieveDocuments.addDocument(claimId, documentCount, documentsContainer);
             }
 
-            const documentElement = document.getElementById(
+            const documentElement = InitializeDoppelcheck.getElementById(
                 `doppelcheck-document${claimId}-${documentCount - 1}`
             );
             documentElement.onclick = function () {
@@ -310,7 +349,7 @@ const RetrieveDocuments = {
 const CompareDocuments = {
     action(documentText, claimId, documentId) {
         alert(`comparison of claim ${claimId} with document ${documentId}`);
-        const documentElement = document.getElementById(
+        const documentElement = InitializeDoppelcheck.getElementById(
             `doppelcheck-document${claimId}-${documentId}`
         );
         documentElement.textContent = documentElement.textContent.replace("🧐", "⏳");
@@ -407,12 +446,16 @@ async function main() {
     } else {
         try {
             exchange("ping", null);
-            InitializeDoppelcheck.addDoppelcheckElements();
+            await InitializeDoppelcheck.addDoppelcheckElements();
 
         } catch (error) {
+            console.error('There was a problem connecting to the server:', error);
             ProxyUrlServices.redirect();
         }
     }
+    // todo:
+    //  monocle when clickable
+    //  replace checkmark with "done" emoji
 }
 
 

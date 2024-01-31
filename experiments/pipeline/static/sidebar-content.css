@@ -1,0 +1,41 @@
+#doppelcheck-shadow-container {
+    box-sizing: border-box;
+    padding: 1em 2em 1em 1em;
+    direction: ltr;
+}
+
+.doppelcheck-claim {
+    line-height: 1.5em;
+}
+
+/* Different semi-transparent highlight colors */
+#doppelcheck-shadow-container .doppelcheck-claim-0 {
+    background-color: rgba(255, 255, 0, 0.3); /* Light yellow */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-1 {
+    background-color: rgba(0, 255, 0, 0.3); /* Light green */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-2 {
+    background-color: rgba(0, 255, 255, 0.3); /* Light cyan */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-3 {
+    background-color: rgba(255, 0, 255, 0.3); /* Light magenta */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-4 {
+    background-color: rgba(255, 165, 0, 0.3); /* Light orange */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-5 {
+    background-color: rgba(0, 0, 255, 0.3); /* Light blue */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-6 {
+    background-color: rgba(160, 32, 240, 0.3); /* Light purple */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-7 {
+    background-color: rgba(255, 192, 203, 0.3); /* Light pink */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-8 {
+    background-color: rgba(64, 224, 208, 0.3); /* Light turquoise */
+}
+#doppelcheck-shadow-container .doppelcheck-claim-9 {
+    background-color: rgba(255, 69, 0, 0.3); /* Light red-orange */
+}

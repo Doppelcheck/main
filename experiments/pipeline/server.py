@@ -2,23 +2,26 @@ import asyncio
 import dataclasses
 import json
 import secrets
+import string
 from dataclasses import dataclass
-from typing import Generator, Callable, runtime_checkable, Protocol
+from typing import Generator, Callable
 from urllib.parse import urlparse
 
-from fastapi import WebSocket, WebSocketDisconnect, Body, Request, Cookie
+from fastapi import WebSocket, WebSocketDisconnect, Body
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from loguru import logger
 from nicegui import ui, app, Client
 
 from fastapi.middleware.cors import CORSMiddleware
 from nicegui.observables import ObservableDict
+from openai.types.chat import ChatCompletionChunk
 from pydantic import BaseModel
 
 from experiments.pipeline.prompts.agent_patterns import extraction
 from experiments.pipeline.tools.prompt_openai_chunks import PromptOpenAI
-from experiments.pipeline.tools.text_processing import text_node_generator, get_text_lines, lined_text, \
-    pipe_codeblock_content, CodeBlockSegment
+from experiments.pipeline.tools.text_processing import (
+    text_node_generator, get_text_lines, pipe_codeblock_content, CodeBlockSegment
+)
 from src.tools.bookmarklet import compile_bookmarklet
 
 app.add_middleware(
@@ -28,8 +31,6 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods
     allow_headers=["*"],  # Allows all headers
 )
-
-
 
 
 class User(BaseModel):
@@ -45,7 +46,9 @@ class MessageSegment:
 
 @dataclass
 class ClaimSegment(MessageSegment):
+    claim_id: int
     purpose: str = "extract"
+    highlight: str | None = None
 
 
 @dataclass
@@ -90,27 +93,59 @@ class Server:
                 message_segment = ClaimSegment(each_character, last_segment, last_claim)
                 yield message_segment
 
-    async def get_claims_from_html(self, websocket: WebSocket, body_html: str) -> Generator[ClaimSegment, None, None]:
-        def get_text(each_dict: dict[str, any]) -> str:
-            return each_dict['text']
+    async def get_claims_from_html(self, body_html: str) -> Generator[ClaimSegment, None, None]:
+        def get_range(range_str: str) -> tuple[int, int]:
+            if "-" in range_str:
+                from_str, to_str = range_str.strip().removesuffix(":").split("-")
+                return int(from_str), int(to_str)
 
-        async def send_codeblock_segment(codeblock_segment: CodeBlockSegment) -> None:
-            each_dict = {'purpose': "extract", 'data': {"delta": {"content": codeblock_segment.segment}}}
-            json_str = json.dumps(each_dict)
-            await websocket.send_text(json_str)
+            only_digits = "".join(each_char for each_char in range_str if each_char in string.digits)
+            from_line, to_line = int(only_digits), int(only_digits)
+            return from_line, to_line
 
         node_generator = text_node_generator(body_html)
         text_lines = list(get_text_lines(node_generator, line_length=20))
-        prompt = extraction(text_lines)
+        num_claims = 3
+        prompt = extraction(text_lines, num_claims=num_claims)
 
         response = self.llm_interface.stream_reply_to_prompt(prompt)
+        claim_count = 0
+        last_message_segment: CodeBlockSegment | None = None
+        in_num_range = True
+        num_range_str = ""
+        async for each_segment in pipe_codeblock_content(response, lambda chunk: chunk.choices[0].delta.content):
+            if in_num_range:
+                if each_segment.segment in string.digits + "-" + ":":
+                    num_range_str += each_segment.segment
+                else:
+                    print(f"parsing: {num_range_str}")
+                    try:
+                        line_range = get_range(num_range_str)
+                    except ValueError:
+                        logger.warning(f"failed to parse {num_range_str}")
+                        in_num_range = False
+                        continue
+                    highlight_text = "".join(text_lines[line_range[0] - 1:line_range[1] - 1])
+                    yield ClaimSegment("", False, False, claim_count, highlight=highlight_text)
+                    in_num_range = False
+                continue
 
-        last_message_segment = None
-        async for each_segment in pipe_codeblock_content(response, get_text):
-            if last_message_segment is not None and each_segment.block_count != last_message_segment.block_count:
-                yield ClaimSegment(last_message_segment.segment, True, False)
+            last_segment = each_segment.segment == "\n"
+            last_claim = claim_count >= num_claims
+            if last_message_segment is not None:
+                if last_segment:
+                    yield ClaimSegment(last_message_segment.segment, True, last_claim, claim_count)
+                    print(num_range_str)
+                    num_range_str = ""
+                    in_num_range = True
+                else:
+                    yield ClaimSegment(last_message_segment.segment, False, last_claim, claim_count)
+
+            claim_count += int(last_segment)
 
             last_message_segment = each_segment
+
+        # last_message_segment contains only \n, can be ignored
 
     async def get_documents_dummy(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
         # retrieve documents from claim_text
@@ -234,7 +269,8 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
-                        async for segment in self.get_claims_dummy(data):
+                        async for segment in self.get_claims_from_html(data):
+                        # async for segment in self.get_claims_dummy(data):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
@@ -263,27 +299,6 @@ class Server:
                         await websocket.send_text(json_str)
 
                 # await self.stream_from_llm(websocket, data, purpose)
-
-            except WebSocketDisconnect as e:
-                print(e)
-
-        @app.websocket("/ws")
-        async def websocket_endpoint(websocket: WebSocket):
-            await websocket.accept()
-            try:
-                while True:
-                    json_data = await websocket.receive_text()
-                    data = json.loads(json_data)
-                    message_id = data['id']
-                    message_content = data['data']
-
-                    response = self.llm_interface.stream_reply_to_prompt(message_content)
-                    async for each_chunk_dict in response:
-                        each_dict = {'id': message_id, 'data': each_chunk_dict}
-                        json_str = json.dumps(each_dict)
-                        await websocket.send_text(json_str)
-
-                    break
 
             except WebSocketDisconnect as e:
                 print(e)
