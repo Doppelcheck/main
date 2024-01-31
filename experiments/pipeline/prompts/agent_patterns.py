@@ -5,7 +5,11 @@ import num2words
 from experiments.pipeline.tools.text_processing import lined_text
 
 
-def extraction(lines: Iterable[str], num_claims: int = 3, words_per_claim: int = 20) -> str:
+def extraction(
+        lines: Iterable[str],
+        num_claims: int = 3, words_per_claim: int = 20, language: str | None = None
+) -> str:
+
     num_claims_str = f"{num_claims:d}" \
         if num_claims >= 13 \
         else num2words.num2words(num_claims)
@@ -13,6 +17,8 @@ def extraction(lines: Iterable[str], num_claims: int = 3, words_per_claim: int =
     words_per_claim_str = f"{words_per_claim:d}" \
         if words_per_claim >= 13 \
         else num2words.num2words(words_per_claim)
+
+    language_instruction = f" Answer in {language}." if language else " Answer in the language of the text."
 
     numbered_text = lined_text(lines)
 
@@ -38,5 +44,5 @@ def extraction(lines: Iterable[str], num_claims: int = 3, words_per_claim: int =
         f"```\n"
         f"\n"
         f"Answer in one triple single quote fenced code block with the keyword `key_claims` containing all "
-        f"{num_claims_str} key claims."
+        f"{num_claims_str} key claims. Ignore any text that is not part of the main topic.{language_instruction}"
     )

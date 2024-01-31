@@ -3,6 +3,7 @@ from typing import Generator, AsyncGenerator
 
 import openai
 from loguru import logger
+from openai.types.chat import ChatCompletionChunk
 
 
 class PromptOpenAI:
@@ -68,27 +69,17 @@ class PromptOpenAI:
         logger.info(reply)
         return reply.strip()
 
-    # async def stream_reply_to_prompt(self, prompt: str, **kwargs: any) -> Generator[dict[str, any], None, None]:
-    async def stream_reply_to_prompt(self, prompt: str, **kwargs: any) -> AsyncGenerator[dict[str, any], None, None]:
+    async def stream_reply_to_prompt(self, prompt: str, **kwargs: any) -> AsyncGenerator[ChatCompletionChunk, None]:
         logger.info(prompt)
 
         arguments = dict(self._config)
         arguments.update(kwargs)
 
-        while True:
-            try:
-                messages = [{"role": "user", "content": prompt}]
-                response = await self._client.chat.completions.create(messages=messages, **arguments, stream=True)
-                async for each_chunk in response:
-                    choice, = each_chunk.choices
-                    # delta = choice.delta
-                    # content = delta.content
-                    choice_dict = choice.model_dump(exclude_unset=True)
-                    yield choice_dict
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            response = await self._client.chat.completions.create(messages=messages, **arguments, stream=True)
+            async for each_chunk in response:
+                yield each_chunk
 
-                break
-
-            except Exception as e:
-                logger.error(e)
-                time.sleep(1)
-                continue
+        except Exception as e:
+            logger.error(e)
