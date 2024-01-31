@@ -1,5 +1,6 @@
 import dataclasses
 import re
+import string
 from typing import Generator, Iterable, AsyncGenerator, Callable
 from lxml import etree
 from lxml.etree import _Element
@@ -67,6 +68,16 @@ def get_text_lines(segment_generator: Iterable[str], line_length: int) -> Genera
 def lined_text(lines: Iterable[str]) -> str:
     numbered_lines = (f"{line_number+1:03d} {each_line}" for line_number, each_line in enumerate(lines))
     return "\n".join(numbered_lines)
+
+
+def get_range(range_str: str) -> tuple[int, int]:
+    if "-" in range_str:
+        from_str, to_str = range_str.strip().removesuffix(":").split("-")
+        return int(from_str), int(to_str)
+
+    only_digits = "".join(each_char for each_char in range_str if each_char in string.digits)
+    from_line, to_line = int(only_digits), int(only_digits)
+    return from_line, to_line
 
 
 @dataclasses.dataclass(frozen=True)

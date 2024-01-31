@@ -26,7 +26,3 @@
 #doppelcheck-sidebar.doppelcheck-sidebar-hidden {
     transform: translateX(100%);
 }
-
-#doppelcheck-sidebar .doppelcheck-document-clickable {
-    cursor: pointer;
-}

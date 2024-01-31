@@ -224,7 +224,7 @@ const ExtractClaims = {
             // console.log("highlighting: ", highlight);
             const markInstance = new Mark(document.querySelector("#doppelcheck-main-content"));
 
-            for (const regexPattern of ExtractClaims.segmentWords(highlight, 3)) {
+            for (const regexPattern of ExtractClaims.segmentWords(highlight, 5)) {
                 // console.log("regex pattern: ", regexPattern);
                 markInstance.markRegExp(regexPattern, {
                     "acrossElements": true,
@@ -301,9 +301,10 @@ const RetrieveDocuments = {
         console.log("retrieval");
 
         const documentSegment = response.segment;
-        const lastClaim = response.last_message;
-        const lastSegment = response.last_segment;
+        const lastMessage = response.last_message;
         const claimId = response.claim_id;
+        const documentId = response.document_id;
+        const documentUri = response.document_uri;
 
         // replace button with documents container
         let documentsContainer = InitializeDoppelcheck.getElementById(
@@ -313,37 +314,34 @@ const RetrieveDocuments = {
             documentsContainer = RetrieveDocuments.addDocumentsContainer(claimId);
         }
 
-        const documentCount = documentsContainer.childElementCount;
+        const documentElement = RetrieveDocuments.addDocument(claimId, documentId, documentsContainer);
+        documentElement.textContent += documentUri + " 🧐";
 
-        let documentElement;
-        if (documentCount < 1) {
-            documentElement = RetrieveDocuments.addDocument(claimId, 0, documentsContainer);
-        } else {
-            documentElement = documentsContainer.lastChild;
+        if (!documentSegment) {
+            documentElement.classList.add("doppelcheck-no-document");
         }
 
-        documentElement.textContent += documentSegment;
-
-        if (lastSegment) {
-            if (lastClaim) {
-                const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
+        if (lastMessage) {
+            const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
+            if (!claim.classList.contains("doppelcheck-no-document")) {
                 claim.textContent = claim.textContent.replace("⏳", "✅");
-
-            } else {
-                _ = RetrieveDocuments.addDocument(claimId, documentCount, documentsContainer);
+                documentElement.onclick = function () {
+                    CompareDocuments.action(documentElement.textContent, claimId, documentId);
+                }
+                documentElement.classList.add("doppelcheck-document-clickable");
             }
+        }
 
-            const documentElement = InitializeDoppelcheck.getElementById(
-                `doppelcheck-document${claimId}-${documentCount - 1}`
+        if (documentId >= 1) {
+            const lastDocumentElement = InitializeDoppelcheck.getElementById(
+                `doppelcheck-document${claimId}-${documentId - 1}`
             );
-            documentElement.onclick = function () {
-                CompareDocuments.action(documentElement.textContent, claimId, documentCount - 1);
+            lastDocumentElement.onclick = function () {
+                CompareDocuments.action(lastDocumentElement.textContent, claimId, documentId - 1);
             }
-            documentElement.textContent += " 🧐";
-            documentElement.classList.add("doppelcheck-document-clickable");
+            lastDocumentElement.classList.add("doppelcheck-document-clickable");
         }
     }
-
 }
 
 const CompareDocuments = {
