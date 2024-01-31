@@ -6,9 +6,7 @@ from experiments.pipeline.tools.text_processing import lined_text
 
 
 def extraction(
-        lines: Iterable[str],
-        num_claims: int = 3, words_per_claim: int = 20, language: str | None = None
-) -> str:
+        lines: Iterable[str], num_claims: int = 3, words_per_claim: int = 20, language: str | None = None) -> str:
 
     num_claims_str = f"{num_claims:d}" \
         if num_claims >= 13 \
@@ -18,7 +16,7 @@ def extraction(
         if words_per_claim >= 13 \
         else num2words.num2words(words_per_claim)
 
-    language_instruction = f" Answer in {language}." if language else " Answer in the language of the text."
+    language_instruction = f" Respond in {language}." if language else " Respond in the language of the text."
 
     numbered_text = lined_text(lines)
 
@@ -45,4 +43,34 @@ def extraction(
         f"\n"
         f"Answer in one triple single quote fenced code block with the keyword `key_claims` containing all "
         f"{num_claims_str} key claims. Ignore any text that is not part of the main topic.{language_instruction}"
+    )
+
+
+def google(claim: str, context: str | None = None, language: str | None = None) -> str:
+    context_instruction = (
+        f"\n"
+        f"```context\n"
+        f"{context}\n"
+        f"```\n"
+        f"\n"
+        f"Refine your query according to the provided context.\n"
+    ) if context else ""
+
+    language_instruction = f"Respond in {language}" if language else "Respond in the language of the claim"
+
+    return (
+        f"```claim\n"
+        f"{claim}\n"
+        f"```\n"
+        f"\n"
+        f"Generate the optimal Google search query to get results that allow for the verification of the claim "
+        f"above. Make use of any special Google search operators you deem necessary "
+        f"to improve result precision and recall.\n"
+        f"{context_instruction}"
+        f"\n"
+        f"{language_instruction} and exactly and only with the search query requested in a fenced code block according "
+        f"to the following pattern.\n"
+        f"```query\n"
+        f"[query]\n"
+        f"```\n"
     )

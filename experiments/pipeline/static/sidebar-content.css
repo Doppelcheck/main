@@ -39,3 +39,7 @@
 #doppelcheck-shadow-container .doppelcheck-claim-9 {
     background-color: rgba(255, 69, 0, 0.3); /* Light red-orange */
 }
+
+#doppelcheck-shadow-container .doppelcheck-document-clickable {
+    cursor: pointer;
+}
