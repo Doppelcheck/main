@@ -1,4 +1,4 @@
-![Logo](assets/images/logo_big.svg)
+![Logo](static/images/logo_big.svg)
 
 # Customized Press Reviews at the Touch of a Button
 
@@ -54,13 +54,13 @@ To start using Doppelcheck:
 Detailed user guides and API documentation will be added during project development to facilitate easy navigation and utilization of Doppelcheck's features.
 
 ### Installation
-[todo]
+![Installation](static/images/installation.png)
 
 ### Usage
-[todo]
+![Usage](static/images/usage.png)
 
 ### Review
-[todo]
+![Review](static/images/review.png)
 
 
 ## Contributing
