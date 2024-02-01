@@ -2,6 +2,8 @@ import dataclasses
 import re
 import string
 from typing import Generator, Iterable, AsyncGenerator, Callable
+from urllib import parse
+
 from lxml import etree
 from lxml.etree import _Element
 
@@ -154,3 +156,19 @@ async def pipe_codeblock_content[E](
                     codeblock_segment = CodeBlockSegment(block_index, block_type, "```" + each_char)
                     yield codeblock_segment
                     state = 5
+
+
+def extract_code_block(text: str, code_type: str = "") -> str:
+    """
+    Extracts the first code block from a string using regular expressions.
+    """
+    pattern = r"```" + code_type + r"\n(.*?)\n```"
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        found_match = match.group(1)
+        return found_match.removeprefix(f"```{code_type}").removeprefix("```").removesuffix("```").strip()
+    return ""
+
+
+def compile_bookmarklet(js: str) -> str:
+    return "javascript:void%20function(){" + parse.quote(js) + "}();"

@@ -1,0 +1,29 @@
+{
+  "nicegui": {
+    "host": "localhost",
+    "port": 8000,
+    "title": "Doppelcheck",
+    "uvicorn_logging_level": "debug",
+    "storage_secret": "[storage_secret]",
+    "dark": true,
+    "reload": true,
+    "tailwind": true,
+    "prod_js": false,
+    "ssl_keyfile": "./certificates/localhost.key",
+    "ssl_certfile": "./certificates/localhost.cert"
+
+  },
+  "agent_interface": {
+    "type": "openAI",
+    "key": "[openAI_key]",
+    "parameters": {
+      "model": "gpt-4-1106-preview",
+      "temperature": 0,
+      "top_p": null
+    }
+  },
+  "google": {
+    "custom_search_api_key": "[custom_search_api_key]",
+    "custom_search_engine_id": "[custom_search_engine_id]"
+  }
+}
