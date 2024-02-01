@@ -11,7 +11,7 @@
         width: 200px;
         height: 100px; /* Half of the outer circle's diameter */
         overflow: hidden; /* Hides the lower half of the circles */
-        border-top: 15px solid black;
+        border-top: 5px solid black;
         position: relative;
     }
 
@@ -24,27 +24,27 @@
     .outer-circle {
         width: 200px;
         height: 200px;
-        border: 15px solid black;
-        top: 0%;
+        border: 5px solid black;
+        top: 0;
         transform: translateY(-50%); /* Center vertically and cut in half */
         left: 0;
     }
 
     .inner-circle {
-        width: 50px; /* Smaller circle */
-        height: 50px;
-        border: 10px solid black;
+        width: 100px; /* Smaller circle */
+        height: 100px;
+        border: 3px solid black;
         top: 50%;
         transform: translateY(-50%); /* Center vertically within the outer circle */
-        animation: moveCircle 1.5s infinite linear; /* Adjust duration as needed */
+        animation: moveCircle 1s infinite linear; /* Adjust duration as needed */
     }
 
     @keyframes moveCircle {
         0%, 100% {
-            left: 10%; /* Starting position */
+            left: 40%; /* Starting position */
         }
         90% {
-            left: 65%; /* Move to the right edge */
+            left: 10%; /* Move to the right edge */
         }
     }
 
