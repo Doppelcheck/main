@@ -39,7 +39,8 @@ To start using Doppelcheck:
   4. Installing dependencies via pip:
      1. `pip install -r requirements.txt`
   5. Installing MS Playwright dependencies:
-     1. `python3 -m playwright install` 
+     1. `python3 -m playwright install`
+     2. `sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2`
   6. Copying the `config.example.py` file to `config.py` and configuring the following settings:
      1. `[storage_secret]`: random string used to encrypt client data
      2. `[custom_search_api_key]`: API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
@@ -47,7 +48,9 @@ To start using Doppelcheck:
      4. `[openAI_key]`: key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
   7. Running the server:
      1. `python3 main.py`
-  8. Open the Web UI at `https://localhost:8000` or whatever is set in `config.json['nicegui']['host']` and`config.json['nicegui']['port']` (take care to use HTTPS)
+  8. Open the Web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']` and `config.json['nicegui']['port']`
+     - use `https` if you provided `config.json['nicegui']['ssl_keyfile']` and `config.json['nicegui']['ssl_certfile']` (default)
+     - use `http` otherwise
 
 ## Documentation
 
