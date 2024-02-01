@@ -9,12 +9,12 @@ Doppelcheck is a cutting-edge, browser-based AI assistance system, uniquely desi
 
 ### Installation
 
-[![Doppelcheck Installation](https://markdown-videos-api.jorgenkh.no/url?url=https%3A%2F%2Fyoutu.be%2FaARmTlohcs0)](https://youtu.be/aARmTlohcs0)
+https://github.com/Doppelcheck/main/assets/9195325/b52a7ebc-014d-430d-aa22-f70b72342ab1
 
 
 ### Usage
 
-[![Doppelcheck Usage](https://markdown-videos-api.jorgenkh.no/url?url=https%3A%2F%2Fyoutu.be%2Fleuq1Vkaxck)](https://youtu.be/leuq1Vkaxck)
+[2024-02-01 11-56-59.webm](https://github.com/Doppelcheck/main/assets/9195325/2495d548-d7fa-4318-9591-96e81a3574da)
 
 
 ## Features
