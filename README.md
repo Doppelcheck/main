@@ -54,13 +54,13 @@ To start using Doppelcheck:
 Detailed user guides and API documentation will be added during project development to facilitate easy navigation and utilization of Doppelcheck's features.
 
 ### Installation
-![Installation](assets/images/installation.png)
+[todo]
 
 ### Usage
-![Usage](assets/images/usage.png)
+[todo]
 
 ### Review
-![Review](assets/images/review.png)
+[todo]
 
 
 ## Contributing
