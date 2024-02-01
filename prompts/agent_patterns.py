@@ -2,7 +2,7 @@ from typing import Iterable
 
 import num2words
 
-from experiments.pipeline.tools.text_processing import lined_text
+from tools.text_processing import lined_text
 
 
 def extraction(
