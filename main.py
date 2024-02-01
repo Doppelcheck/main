@@ -322,7 +322,26 @@ class Server:
                 text_input.classes(add="transition ease-out duration-500 ")
                 text_input.classes(remove="bg-warning ")
 
-        @ui.page("/")
+        @ui.page("/", dark=True)
+        async def main_page(client: Client) -> None:
+            address = await Server._get_address(client)
+
+            with ui.element("div") as container:
+                container.style(
+                    "width: 800px;"
+                    "margin: 0 auto;"
+                )
+
+                logo = ui.image("static/images/logo_big.svg")
+                logo.style(
+                    "width: 100%;"
+                )
+
+                ui.element("div").style("height: 100px;")
+
+                ui.label(f"Coming soon to {address}...")
+
+        @ui.page("/_test")
         async def bookmarklet(client: Client) -> None:
             address = await Server._get_address(client)
 
