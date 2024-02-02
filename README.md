@@ -13,7 +13,7 @@ Doppelcheck is a cutting-edge, browser-based AI assistance system, uniquely desi
 
 ## Features
 
-- **AI-Powered Analysis**: Leverages advanced Language Learning Models (LLMs) to extract key claims from content, cross-reference them with a vast array of sources, and detect biases in news content, ensuring that you receive a balanced view of the narrative.
+- **AI-Powered Analysis**: Leverages Large Language Models (LLMs) to extract key claims from content, cross-reference them with a vast array of sources, and detect biases in news content, ensuring that you receive a balanced view of the narrative.
 - **Automated Summaries**: Provides concise, bullet-pointed summaries of key claims from the content, enabling you to grasp the essence of the information quickly.
 - **Configurable Research**: Offers out-of-the-box support for Google search, with plans to integrate other search engines and news searches. Users can tailor their research experience through a user-friendly UI and config files, ensuring that the information retrieved is relevant and comprehensive.
 - **Intuitive UI**: Features a browser-based interface that makes configuration and result interpretation straightforward and user-friendly.
