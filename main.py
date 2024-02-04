@@ -275,13 +275,17 @@ class Server:
 
         @ui.page("/config/{userid}")
         async def config(userid: str):
-            key_name = "name"
-            label = "Name"
-            placeholder = "name for instance"
-
             with delayed_storage(
                     userid, ui.input,
-                    key_name=key_name, label=label, placeholder=placeholder) as text_input:
+                    "name_instance", label="Name", placeholder="name for instance"
+            ) as text_input:
+                pass
+
+            with delayed_storage(
+                    userid, ui.number,
+                    "claim_count", label="Claim Count", placeholder="number of claims",
+                    min=1, max=5, step=1, precision=0, format="%d"
+            ) as text_input:
                 pass
 
         @ui.page("/", dark=True)
