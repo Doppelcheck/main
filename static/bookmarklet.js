@@ -108,7 +108,7 @@ const InitializeDoppelcheck = {
         body.appendChild(container);
     },
 
-    async addDoppelcheckElements() {
+    async addDoppelcheckElements(config) {
         InitializeDoppelcheck.reduceZIndex(1000);
 
         const bodyWrapper = document.createElement("div");
@@ -128,17 +128,30 @@ const InitializeDoppelcheck = {
         heading.innerText = "Doppelcheck";
         sidebar.appendChild(heading);
 
-        const subheading = document.createElement("h2");
+        const nameInstance = document.createElement("h2");
+        nameInstance.id = "doppelcheck-name-instance";
+        nameInstance.innerText = config.name_instance;
+        sidebar.appendChild(nameInstance);
+
+        const subheading = document.createElement("h3");
         subheading.id = "doppelcheck-subheading";
         subheading.innerText = "Claims";
         sidebar.appendChild(subheading);
 
-        const config = document.createElement("a");
-        config.id = "doppelcheck-config";
-        config.innerText = "Config";
-        config.href = `https://${address}/config/${userID}`;
-        config.target = "_blank";
-        sidebar.appendChild(config);
+        const configure = document.createElement("a");
+        configure.id = "doppelcheck-config";
+        configure.innerText = "Config";
+        configure.href = `https://${address}/config/${userID}`;
+        configure.target = "_blank";
+        sidebar.appendChild(configure);
+
+        const claimCount = document.createElement("input");
+        claimCount.id = "doppelcheck-claim-count";
+        claimCount.type = "number";
+        claimCount.min = "1";
+        claimCount.max = "5";
+        claimCount.value = config.claim_count;
+        sidebar.appendChild(claimCount);
 
         const claimContainer = document.createElement("div");
         claimContainer.id = "doppelcheck-claims-container";
@@ -160,6 +173,9 @@ const InitializeDoppelcheck = {
                 console.log("configuration ", config)
                 subheading.textContent += " ⏳";
                 const fullHTML = document.documentElement.outerHTML;
+                // todo:
+                //  1. save new claim count
+                //  2. send claim count to extract
                 exchange("extract", fullHTML);
             }
             ).catch(function (error) {
@@ -448,7 +464,8 @@ async function main() {
     } else {
         try {
             exchange("ping", null);
-            await InitializeDoppelcheck.addDoppelcheckElements();
+            const config = await getConfig(userID);
+            await InitializeDoppelcheck.addDoppelcheckElements(config);
 
         } catch (error) {
             console.error('There was a problem connecting to the server:', error);
