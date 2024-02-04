@@ -3,6 +3,10 @@ const userID = "[unique user identification]";
 
 
 const ProxyUrlServices = {
+    localBypass(originalUrl) {
+        return `https://${address}/get_content/&url=${originalUrl}`;
+    },
+
     get12ftProxyUrl(originalUrl) {
         return `https://12ft.io/${originalUrl}`;
     },
@@ -27,14 +31,14 @@ const ProxyUrlServices = {
     },
 
     redirect() {
-        const proxyUrl = ProxyUrlServices.getPrintFriendlyProxyUrl(window.location.href);
+        const proxyUrl = ProxyUrlServices.localBypass(window.location.href);
         alert(
-            `Connection to doppelcheck server ${address} failed. This may be due to restrictive security settings ` +
-            `on the current website ${window.location.hostname}.\n\nWe'll try open the website on a proxy server\n\n` +
-            `${proxyUrl}\n\nPlease allow this one popup and retry doppelcheck there.`);
+            `Connection to Doppelcheck server @ ${address} failed. This may be due to restrictive security settings ` +
+            `on the current website ${window.location.hostname}.\n\nWe'll try open a minimal version of the ` +
+            `website.\n\n` +
+            `${proxyUrl}\n\nPlease allow the popup and retry Doppelcheck there.`);
         window.open(proxyUrl);
     }
-
 };
 
 const InitializeDoppelcheck = {

@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 import httpx
 from fastapi import WebSocket, WebSocketDisconnect, Body
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from loguru import logger
 from nicegui import ui, app, Client
 
@@ -21,9 +22,11 @@ from playwright._impl._errors import Error as PlaywrightError
 from pydantic import BaseModel
 
 from prompts.agent_patterns import extraction, google
+from tools import bypass
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, compile_bookmarklet
+from tools.ui_elements import delayed_storage
 
 app.add_middleware(
     CORSMiddleware,
@@ -255,6 +258,11 @@ class Server:
     def setup_routes(self) -> None:
         claims = list[str]()
 
+        @app.get("/get_content/")
+        async def get_content(url: str) -> HTMLResponse:
+            html_content = bypass.bypass_paywall(url)
+            return HTMLResponse(html_content)
+
         @app.post("/get_config/")
         async def get_config(user_data: User = Body(...)) -> dict:
             settings: ObservableDict = app.storage.general.get(user_data.user_id)
@@ -267,60 +275,14 @@ class Server:
 
         @ui.page("/config/{userid}")
         async def config(userid: str):
-            timer: ui.timer | None = None
+            key_name = "name"
+            label = "Name"
+            placeholder = "name for instance"
 
-            def update_timer(callback: Callable[..., any]) -> None:
-                nonlocal timer
-                if timer is not None:
-                    timer.cancel()
-                    del timer
-                timer = ui.timer(interval=1.0, active=True, once=True, callback=callback)
-
-            def delayed_set_storage(key: str, value: any) -> None:
-                text_input.classes(add="bg-warning ")
-
-                async def set_storage() -> None:
-                    settings = app.storage.general.get(userid)
-                    if settings is None:
-                        settings = {key: value}
-                        app.storage.general[userid] = settings
-                    else:
-                        settings[key] = value
-                    print(f"setting settings for {userid}: {app.storage.general.get(userid)}")
-                    text_input.classes(remove="bg-warning ")
-
-                update_timer(set_storage)
-
-            # interfaces
-            #   agents
-            #   data sources
-            # function
-            #   language
-            #   extraction
-            #       which agent interface?
-            #       how many claims?
-            #   retrieval
-            #       which data source?
-            #       how many documents?
-            #       score explanation
-            #   comparison
-            #       which agent interface?
-            #       range of match
-
-            # individual setting
-            key_name = "testkey"
-            label = "label"
-            placeholder = "placeholder"
-            # last_value = await Server.get_iframe_message(client, key_name)
-            last_value = ""
-            with ui.input(
-                    label=label,
-                    placeholder=placeholder,
-                    value=last_value,
-                    on_change=lambda event: delayed_set_storage(key_name, event.value),
-            ) as text_input:
-                text_input.classes(add="transition ease-out duration-500 ")
-                text_input.classes(remove="bg-warning ")
+            with delayed_storage(
+                    userid, ui.input,
+                    key_name=key_name, label=label, placeholder=placeholder) as text_input:
+                pass
 
         @ui.page("/", dark=True)
         async def main_page(client: Client) -> None:
