@@ -41,7 +41,13 @@ To start using Doppelcheck:
      3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine, add a new search engine [here](https://programmablesearchengine.google.com/controlpanel/all)
      4. `[openAI_key]`: key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
   7. Running the server:
-     1. `python3 main.py`
+    - once: `python3 main.py`
+    - as a systemd service:
+      1. `sudo cp doppelcheck.example.service doppelcheck.service`
+      2. set `User`, `WorkingDirectory`, `ExecStart`, and `Environment` in `doppelcheck.service` to your needs
+      3. `sudo cp doppelcheck.service /etc/systemd/system/`
+      4. `sudo systemctl enable doppelcheck`
+      5. `sudo systemctl start doppelcheck`
   8. Open the Web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']` and `config.json['nicegui']['port']`
      - use `https` if you provided `config.json['nicegui']['ssl_keyfile']` and `config.json['nicegui']['ssl_certfile']` (default)
      - use `http` otherwise
