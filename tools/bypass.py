@@ -1,4 +1,5 @@
 import requests
+import httpx
 
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -9,4 +10,9 @@ header = {
 def bypass_paywall(url: str) -> str:
     response = requests.get(url, headers=header)
     response.encoding = response.apparent_encoding
+    return response.text
+
+
+async def bypass_paywall_session(url: str, session: httpx.AsyncClient) -> str:
+    response = await session.get(url, headers=header)
     return response.text
