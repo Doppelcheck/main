@@ -9,7 +9,7 @@ def get_bookmarklet_template() -> str:
 
 
 def insert_server_address(js_template: str, server_address: str) -> str:
-    return js_template.replace("https://localhost:8000/", server_address.removesuffix("/") + "/")
+    return js_template.replace("[localhost:8000]", server_address.removesuffix("/") + "/")
 
 
 def compile_bookmarklet(js: str) -> str:

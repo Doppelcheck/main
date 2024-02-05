@@ -4,8 +4,9 @@ import string
 from typing import Generator, Iterable, AsyncGenerator, Callable
 from urllib import parse
 
+# noinspection PyProtectedMember
+from lxml.etree import _Element as XmlElement
 from lxml import etree
-from lxml.etree import _Element
 
 
 EXCLUDED_TAGS = {
@@ -19,7 +20,7 @@ EXCLUDED_IDS = {
 }
 
 
-def is_excluded(node: _Element) -> bool:
+def is_excluded(node: XmlElement) -> bool:
     """Check if any node in the absolute path is in EXCLUDED_TAGS"""
     if node.tag in EXCLUDED_TAGS or node.get("id") in EXCLUDED_IDS or node.tag == etree.Comment:  # Skip comments
         return True

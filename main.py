@@ -4,7 +4,7 @@ import json
 import secrets
 import string
 from dataclasses import dataclass
-from typing import Generator, Callable, Sequence, AsyncGenerator
+from typing import Generator, Sequence, AsyncGenerator
 from urllib.parse import urlparse
 
 import httpx
@@ -21,6 +21,7 @@ from playwright.async_api import async_playwright, BrowserContext
 from playwright._impl._errors import Error as PlaywrightError
 from pydantic import BaseModel
 
+from _deprecated.src.tools.bookmarklet import insert_server_address
 from prompts.agent_patterns import extraction, google
 from tools import bypass
 from tools.prompt_openai_chunks import PromptOpenAI
