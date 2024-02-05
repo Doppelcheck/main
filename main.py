@@ -312,21 +312,38 @@ class Server:
             return settings
 
         @ui.page("/config/{userid}")
-        async def config(userid: str):
+        async def config(userid: str, client: Client) -> None:
+            # address = await Server._get_address(client)
             settings = get_config_dict(userid)
 
-            with delayed_storage(
-                    userid, ui.input, "name_instance",
-                    value=settings["name_instance"], label="Name", placeholder="name for instance"
-            ) as text_input:
-                pass
+            with ui.element("div") as container:
+                container.style(
+                    "width: 800px;"
+                    "margin: 0 auto;"
+                )
 
-            with delayed_storage(
-                    userid, ui.number, "claim_count",
-                    value=settings["claim_count"], label="Claim Count", placeholder="number of claims",
-                    min=1, max=5, step=1, precision=0, format="%d"
-            ) as number_input:
-                pass
+                logo = ui.image("static/images/logo_big.svg")
+                logo.style(
+                    "width: 100%;"
+                )
+
+                ui.element("div").style("height: 100px;")
+
+                with ui.label("Configuration") as heading:
+                    heading.classes(add="text-2xl font-bold")
+
+                with delayed_storage(
+                        userid, ui.input, "name_instance",
+                        value=settings["name_instance"], label="Name", placeholder="name for instance"
+                ) as text_input:
+                    pass
+
+                with delayed_storage(
+                        userid, ui.number, "claim_count",
+                        value=settings["claim_count"], label="Claim Count", placeholder="number of claims",
+                        min=1, max=5, step=1, precision=0, format="%d"
+                ) as number_input:
+                    pass
 
         @ui.page("/", dark=True)
         async def main_page(client: Client) -> None:

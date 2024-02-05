@@ -153,7 +153,7 @@ const InitializeDoppelcheck = {
 
         const button = document.createElement("button");
         button.id = "doppelcheck-button-start";
-        button.innerText = "Start Extraction";
+        button.innerText = "🤨 Extract Claims";
 
         button.onclick = function () {
             button.remove();
@@ -246,7 +246,7 @@ const ExtractClaims = {
         return segments;
     },
 
-    extraction(response) {
+    processExtractionMessage(response) {
         console.log("extraction");
 
         const highlight = response.highlight;
@@ -333,7 +333,7 @@ const RetrieveDocuments = {
         return str;
     },
 
-    retrieval(response) {
+    processRetrievalMessage(response) {
         console.log("retrieval");
 
         const documentSegment = response.segment;
@@ -360,7 +360,7 @@ const RetrieveDocuments = {
         compareButton.onclick = function () {
             compareButton.textContent = "⏳";
             compareButton.disabled = true;
-            CompareDocuments.action(documentElement.textContent, claimId, documentId);
+            CompareDocuments.initiateComparison(documentElement.textContent, claimId, documentId);
         }
         documentElement.appendChild(compareButton);
 
@@ -395,12 +395,12 @@ const RetrieveDocuments = {
 }
 
 const CompareDocuments = {
-    action(documentText, claimId, documentId) {
+    initiateComparison(documentText, claimId, documentId) {
         alert(`comparison of claim ${claimId} with document ${documentId}`);
         // 🟢​ 🟡​ 🟠​ 🔴 🚨
     },
 
-    comparison(response){
+    processComparisonMessage(response){
         console.log("comparison");
         console.log(data);
     }
@@ -433,15 +433,15 @@ function exchange(purpose, data) {
                 break;
 
             case "extract":
-                ExtractClaims.extraction(response);
+                ExtractClaims.processExtractionMessage(response);
                 break;
 
             case "retrieve":
-                RetrieveDocuments.retrieval(response);
+                RetrieveDocuments.processRetrievalMessage(response);
                 break;
 
             case "compare":
-                CompareDocuments.comparison(response);
+                CompareDocuments.processComparisonMessage(response);
                 break;
 
             default:

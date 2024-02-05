@@ -62,3 +62,14 @@
 #doppelcheck-shadow-container .doppelcheck-document-clickable {
     cursor: pointer;
 }
+
+
+/* remove bullet points */
+#doppelcheck-shadow-container ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+#doppelcheck-shadow-container summary {
+    cursor: pointer;
+}
