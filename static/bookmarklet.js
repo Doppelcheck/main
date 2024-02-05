@@ -82,7 +82,6 @@ const InitializeDoppelcheck = {
 
         const shadowContainer = document.createElement("div");
         shadowContainer.id = "doppelcheck-shadow-container";
-        shadowContainer.setAttribute("data-theme", "light")
         InitializeDoppelcheck.shadowElement.appendChild(shadowContainer);
 
         const sidebarStyle = document.createElement("link");
@@ -90,10 +89,13 @@ const InitializeDoppelcheck = {
         sidebarStyle.href = `https://${address}/static/sidebar-content.css`;
         InitializeDoppelcheck.shadowElement.appendChild(sidebarStyle);
 
+        /*
         const picoStyle = document.createElement("link");
         picoStyle.rel = "stylesheet";
-        picoStyle.href = `https://${address}/static/pico.css`;
+        // picoStyle.href = `https://${address}/static/pico.css`;
+        picoStyle.href = "https://unpkg.com/mvp.css";
         InitializeDoppelcheck.shadowElement.appendChild(picoStyle);
+        */
 
         sidebar.id = "doppelcheck-sidebar";
         container.appendChild(sidebar);
@@ -145,22 +147,9 @@ const InitializeDoppelcheck = {
         configure.target = "_blank";
         sidebar.appendChild(configure);
 
-        const claimCount = document.createElement("input");
-        claimCount.id = "doppelcheck-claim-count";
-        claimCount.type = "number";
-        claimCount.min = "1";
-        claimCount.max = "5";
-        claimCount.value = config.claim_count;
-        sidebar.appendChild(claimCount);
-
         const claimContainer = document.createElement("div");
         claimContainer.id = "doppelcheck-claims-container";
         sidebar.appendChild(claimContainer);
-
-        const userIdField = document.createElement("div");
-        userIdField.id = "doppelcheck-user-id";
-        userIdField.innerText = userID;
-        sidebar.appendChild(userIdField);
 
         const button = document.createElement("button");
         button.id = "doppelcheck-button-start";
@@ -184,6 +173,13 @@ const InitializeDoppelcheck = {
             })
         }
         sidebar.appendChild(button);
+
+        /*
+        const userIdField = document.createElement("div");
+        userIdField.id = "doppelcheck-user-id";
+        userIdField.innerText = userID;
+        sidebar.appendChild(userIdField);
+         */
 
         const doppelcheckStyle = document.createElement("link");
         doppelcheckStyle.rel = "stylesheet";
@@ -220,6 +216,22 @@ const ExtractClaims = {
         claim.classList.add(`doppelcheck-claim-${claimId}`);
         eachClaimContainer.appendChild(claim);
 
+        const getDocumentsButton = document.createElement("button");
+        getDocumentsButton.innerText = "Retrieve Documents";
+        getDocumentsButton.onclick = function () {
+            getDocumentsButton.remove();
+
+            const progressImage = document.createElement("img");
+            progressImage.id = `doppelcheck-retrieval-progress-image${claimId}`;
+            progressImage.classList.add("doppelcheck-retrieval-progress-image");
+            progressImage.src = `https://${address}/static/images/processing_small.gif`;
+            progressImage.alt = "Retrieving documents...";
+            eachClaimContainer.appendChild(progressImage);
+
+            RetrieveDocuments.getDocuments(claimId);
+        }
+        eachClaimContainer.appendChild(getDocumentsButton);
+
         return claim;
     },
 
@@ -239,6 +251,7 @@ const ExtractClaims = {
 
         const highlight = response.highlight;
         const claimId = response.claim_id;
+        console.log(`claim id: ${claimId}, last message: ${response.last_message}, last segment: ${response.last_segment}`);
 
         if (highlight) {
             // console.log("highlighting: ", highlight);
@@ -268,16 +281,12 @@ const ExtractClaims = {
             if (lastSegment) {
                 if (lastClaim) {
                     const subheading = InitializeDoppelcheck.getElementById("doppelcheck-subheading");
-                    subheading.innerText = subheading.innerText.replace("⏳", "✅");
+                    subheading.innerText = subheading.innerText.replace("⏳", "✔️");
                 }
                 const eachClaimContainer = InitializeDoppelcheck.getElementById(
                     `doppelcheck-each-claim-container${claimId}`
                 );
                 eachClaimContainer.removeAttribute("onclick");
-                const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
-                claim.onclick = function () {
-                    RetrieveDocuments.getDocuments(claimId);
-                }
             }
         }
     }
@@ -309,12 +318,19 @@ const RetrieveDocuments = {
         const eachClaimContainer = InitializeDoppelcheck.getElementById(
             `doppelcheck-each-claim-container${claimId}`
         );
-        eachClaimContainer.appendChild(documentsContainer);
+        eachClaimContainer.prepend(documentsContainer);
 
         const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
         claim.textContent += " ⏳";
 
         return documentsContainer;
+    },
+
+    truncateString(str, n) {
+        if (n < str.length) {
+            return str.substring(0, n) + '...';
+        }
+        return str;
     },
 
     retrieval(response) {
@@ -325,6 +341,7 @@ const RetrieveDocuments = {
         const claimId = response.claim_id;
         const documentId = response.document_id;
         const documentUri = response.document_uri;
+        const success = response.success;
 
         // replace button with documents container
         let documentsContainer = InitializeDoppelcheck.getElementById(
@@ -335,31 +352,44 @@ const RetrieveDocuments = {
         }
 
         const documentElement = RetrieveDocuments.addDocument(claimId, documentId, documentsContainer);
-        documentElement.textContent += documentUri + " 🧐";
+
+        const compareButton = document.createElement("button");
+        compareButton.textContent = "🧐";
+        compareButton.id = `doppelcheck-compare-button${claimId}-${documentId}`;
+        compareButton.classList.add("doppelcheck-compare-button");
+        compareButton.onclick = function () {
+            compareButton.textContent = "⏳";
+            compareButton.disabled = true;
+            CompareDocuments.action(documentElement.textContent, claimId, documentId);
+        }
+        documentElement.appendChild(compareButton);
+
+        if (success) {
+            const link = document.createElement("a");
+            link.href = documentUri;
+            link.target = "_blank";
+            link.textContent = RetrieveDocuments.truncateString(documentUri, 20);
+            documentElement.appendChild(link);
+
+        } else {
+            compareButton.disabled = true;
+            const text = document.createElement("span");
+            text.textContent = RetrieveDocuments.truncateString(documentUri, 20);
+            documentElement.appendChild(text);
+        }
 
         if (!documentSegment) {
             documentElement.classList.add("doppelcheck-no-document");
         }
 
         if (lastMessage) {
+            const progressImage = InitializeDoppelcheck.getElementById(`doppelcheck-retrieval-progress-image${claimId}`);
+            progressImage.remove();
+
             const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
             if (!claim.classList.contains("doppelcheck-no-document")) {
-                claim.textContent = claim.textContent.replace("⏳", "✅");
-                documentElement.onclick = function () {
-                    CompareDocuments.action(documentElement.textContent, claimId, documentId);
-                }
-                documentElement.classList.add("doppelcheck-document-clickable");
+                claim.textContent = claim.textContent.replace("⏳", "✔️");
             }
-        }
-
-        if (documentId >= 1) {
-            const lastDocumentElement = InitializeDoppelcheck.getElementById(
-                `doppelcheck-document${claimId}-${documentId - 1}`
-            );
-            lastDocumentElement.onclick = function () {
-                CompareDocuments.action(lastDocumentElement.textContent, claimId, documentId - 1);
-            }
-            lastDocumentElement.classList.add("doppelcheck-document-clickable");
         }
     }
 }
@@ -367,12 +397,6 @@ const RetrieveDocuments = {
 const CompareDocuments = {
     action(documentText, claimId, documentId) {
         alert(`comparison of claim ${claimId} with document ${documentId}`);
-        const documentElement = InitializeDoppelcheck.getElementById(
-            `doppelcheck-document${claimId}-${documentId}`
-        );
-        documentElement.textContent = documentElement.textContent.replace("🧐", "⏳");
-        documentElement.onclick = null;
-        documentElement.classList.remove("doppelcheck-document-clickable");
         // 🟢​ 🟡​ 🟠​ 🔴 🚨
     },
 
@@ -387,12 +411,13 @@ function exchange(purpose, data) {
 
     const message = {
         purpose: purpose,
-        data: data
+        data: data,
+        user_id: userID
     };
     const messageStr = JSON.stringify(message);
 
     ws.onopen = function(event) {
-        console.log(`sending for ${purpose}`);
+        console.log(`sending for ${purpose} `, message);
         ws.send(messageStr);
     }
 
@@ -463,7 +488,7 @@ async function main() {
 
     } else {
         try {
-            exchange("ping", null);
+            // exchange("ping", null);
             const config = await getConfig(userID);
             await InitializeDoppelcheck.addDoppelcheckElements(config);
 

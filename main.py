@@ -15,19 +15,17 @@ from loguru import logger
 from nicegui import ui, app, Client
 
 from fastapi.middleware.cors import CORSMiddleware
-from nicegui.observables import ObservableDict
 from openai.types.chat import ChatCompletionChunk
 from playwright.async_api import async_playwright, BrowserContext
-from playwright._impl._errors import Error as PlaywrightError
+from playwright._impl._errors import TimeoutError, Error as PlaywrightError
 from pydantic import BaseModel
 
-from _deprecated.src.tools.bookmarklet import insert_server_address
 from prompts.agent_patterns import extraction, google
 from tools import bypass
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, compile_bookmarklet
-from tools.ui_elements import delayed_storage
+from tools.configuration import delayed_storage, get_config_dict
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,6 +67,7 @@ class DocumentSegment(MessageSegment):
     claim_id: int
     document_id: int
     document_uri: str
+    success: bool = True
     purpose: str = "retrieve"
 
 
@@ -111,10 +110,11 @@ class Server:
             response: AsyncGenerator[ChatCompletionChunk, None], text_lines: Sequence[str], num_claims: int
     ) -> Generator[ClaimSegment, None, None]:
 
-        claim_count = 0
+        claim_count = 1
         last_message_segment: CodeBlockSegment | None = None
         in_num_range = True
         num_range_str = ""
+
         async for each_segment in pipe_codeblock_content(response, lambda chunk: chunk.choices[0].delta.content):
             if in_num_range:
                 if each_segment.segment in string.digits + "-" + ":":
@@ -122,6 +122,7 @@ class Server:
                 else:
                     try:
                         line_range = get_range(num_range_str)
+
                     except ValueError as e:
                         logger.warning(f"failed to parse {num_range_str}: {e}")
                         in_num_range = False
@@ -135,6 +136,7 @@ class Server:
 
             last_segment = each_segment.segment == "\n"
             last_claim = claim_count >= num_claims
+            logger.info(f"claims: {claim_count} >= {num_claims}, last_claim {last_claim}, last_segment {last_segment}, claim_count {claim_count}")
             if last_message_segment is not None:
                 if last_segment:
                     yield ClaimSegment(last_message_segment.segment, True, last_claim, claim_count)
@@ -151,6 +153,22 @@ class Server:
     def __init__(self, agent_config: dict[str, any], google_config: dict[str, any]) -> None:
         self.llm_interface = PromptOpenAI(agent_config)
         self.google_config = google_config
+        self.browser = None
+        self.playwright = None
+        self.httpx_session = httpx.AsyncClient()
+
+    async def start_browser(self) -> None:
+        if self.playwright is None:
+            self.playwright = await async_playwright().start()
+        if self.browser is None:
+            self.browser = await self.playwright.firefox.launch(headless=True)
+            # self.browser = await self.playwright.firefox.launch(headless=False)
+
+    async def stop_browser(self) -> None:
+        if self.browser:
+            await self.browser.close()
+        if self.playwright:
+            await self.playwright.stop()
 
     async def get_claims_from_selection(self, text: str) -> Generator[ClaimSegment, None, None]:
         pass
@@ -172,10 +190,9 @@ class Server:
                 message_segment = ClaimSegment(each_character, last_segment, last_claim, i)
                 yield message_segment
 
-    async def get_claims_from_html(self, body_html: str) -> Generator[ClaimSegment, None, None]:
+    async def get_claims_from_html(self, body_html: str, num_claims: int) -> Generator[ClaimSegment, None, None]:
         node_generator = text_node_generator(body_html)
         text_lines = list(get_text_lines(node_generator, line_length=20))
-        num_claims = 3
         prompt = extraction(text_lines, num_claims=num_claims)
         response = self.llm_interface.stream_reply_to_prompt(prompt)
 
@@ -207,9 +224,8 @@ class Server:
 
         items = result.get("items")
         if items is None:
-            raise ReceiveGoogleResultsException(
-                f"Google did not return results for {search_query}"
-            )
+            return tuple()
+            # raise ReceiveGoogleResultsException(f"Google did not return results for {search_query}")
 
         # https://developers.google.com/custom-search/v1/reference/rest/v1/Search#Result
         return tuple(each_item['link'] for each_item in items)
@@ -228,23 +244,48 @@ class Server:
         query = extract_code_block(response, "query")
         uris = await self._get_urls_from_google_query(query)
         logger.info(uris)
-        if len(uris) < 1:
-            raise logger.warning(f"no uris found for {query}")
 
-        async with async_playwright() as driver:
-            # browser = await driver.firefox.launch(headless=False)
-            browser = await driver.firefox.launch(headless=True)
-            context = await browser.new_context()
-            tasks = [asyncio.create_task(Server._retrieve_text(claim_id, context, each_url)) for each_url in uris]
-            for document_id, task in enumerate(asyncio.as_completed(tasks)):
+        if len(uris) < 1:
+            yield DocumentSegment("No documents found", True, True, claim_id, 0, "No documents found", success=False)
+            return
+
+        for document_id, each_uri in enumerate(uris):
+            last_document = document_id >= len(uris) - 1
+            try:
+                content = await bypass.bypass_paywall_session(each_uri, self.httpx_session)
+                yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
+            except httpx.HTTPError as e:
+                yield DocumentSegment(str(e), True, last_document, claim_id, document_id, each_uri, success=False)
+
+    async def get_documents_old(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
+        prompt = google(claim_text)
+        response = await self.llm_interface.reply_to_prompt(prompt)
+        query = extract_code_block(response, "query")
+        uris = await self._get_urls_from_google_query(query)
+        logger.info(uris)
+
+        if len(uris) < 1:
+            yield DocumentSegment("No documents found", True, True, claim_id, 0, "[no document found]", success=False)
+            return
+
+        await self.start_browser()
+        context = await self.browser.new_context()
+        tasks = [asyncio.create_task(self._retrieve_text(claim_id, context, each_url)) for each_url in uris]
+
+        for document_id, task in enumerate(asyncio.as_completed(tasks)):
+            last_document = document_id >= len(uris) - 1
+
+            try:
                 each_doc: Doc = await task
-                last_document = document_id >= len(uris) - 1
                 document = DocumentSegment(each_doc.content, True, last_document, claim_id, document_id, each_doc.uri)
                 yield document
 
-            await asyncio.sleep(1)
-            await context.close()
-            await browser.close()
+            except TimeoutError as e:
+                logger.warning(f"timeout for {uris[document_id]}: {e}")
+                yield DocumentSegment("[timeout]", True, last_document, claim_id, document_id, uris[document_id], success=False)
+
+        # await asyncio.sleep(1)
+        # await context.close()
 
     async def get_comparisons_dummy(self, claim_id: int, claim: str, document_uri: str) -> Generator[ComparisonSegment, None, None]:
         for i in range(5):
@@ -261,32 +302,30 @@ class Server:
 
         @app.get("/get_content/")
         async def get_content(url: str) -> HTMLResponse:
-            html_content = bypass.bypass_paywall(url)
+            html_content = bypass.bypass_paywall_session(url, self.httpx_session)
             return HTMLResponse(html_content)
 
         @app.post("/get_config/")
         async def get_config(user_data: User = Body(...)) -> dict:
-            settings: ObservableDict = app.storage.general.get(user_data.user_id)
-            if settings is None:
-                print(f"getting settings for {user_data.user_id}: No settings")
-                return dict()
-
-            print(f"getting settings for {user_data.user_id}: {settings}")
-            return {key: value for key, value in settings.items()}
+            logger.info(f"getting settings for {user_data.user_id}")
+            settings = get_config_dict(user_data.user_id)
+            return settings
 
         @ui.page("/config/{userid}")
         async def config(userid: str):
+            settings = get_config_dict(userid)
+
             with delayed_storage(
-                    userid, ui.input,
-                    "name_instance", label="Name", placeholder="name for instance"
+                    userid, ui.input, "name_instance",
+                    value=settings["name_instance"], label="Name", placeholder="name for instance"
             ) as text_input:
                 pass
 
             with delayed_storage(
-                    userid, ui.number,
-                    "claim_count", label="Claim Count", placeholder="number of claims",
+                    userid, ui.number, "claim_count",
+                    value=settings["claim_count"], label="Claim Count", placeholder="number of claims",
                     min=1, max=5, step=1, precision=0, format="%d"
-            ) as text_input:
+            ) as number_input:
                 pass
 
         @ui.page("/", dark=True)
@@ -331,6 +370,7 @@ class Server:
                 message = json.loads(message_str)
                 purpose = message['purpose']
                 data = message['data']
+                user_id = message['user_id']
 
                 match purpose:
                     case "ping":
@@ -339,8 +379,9 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
-                        async for segment in self.get_claims_from_html(data):
-                        # async for segment in self.get_claims_dummy(data):
+                        settings = get_config_dict(user_id)
+                        claim_count = settings["claim_count"]
+                        async for segment in self.get_claims_from_html(data, claim_count):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
@@ -385,9 +426,11 @@ def main() -> None:
     nicegui_config = config.pop("nicegui")
 
     server = Server(config["agent_interface"], config["google"])
-    server.setup_routes()
 
+    server.setup_routes()
     ui.run(**nicegui_config)
+
+    # asyncio.run(server.stop_browser())
 
 
 if __name__ in {"__main__", "__mp_main__"}:

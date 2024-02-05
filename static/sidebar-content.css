@@ -2,10 +2,29 @@
     box-sizing: border-box;
     padding: 1em 2em 1em 1em;
     direction: ltr;
+    height: 100%;
+}
+
+#doppelcheck-user-id {
+    /* move to bottom of parent element */
+    position: absolute;
+    bottom: 0;
+    font-size: .5em;
 }
 
 .doppelcheck-claim {
     line-height: 1.5em;
+}
+
+.doppelcheck-retrieval-progress-image {
+    width: 3em;
+    height: 3em;
+    object-fit: contain;
+}
+
+.doppelcheck-compare-button {
+    width: 2em;
+    height: 2em;
 }
 
 /* Different semi-transparent highlight colors */
