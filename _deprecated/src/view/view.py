@@ -13,12 +13,12 @@ from fastapi.responses import JSONResponse, Response
 from fastapi import WebSocket
 import validators
 
-from experiments.navi_str import XpathSlice, index_html_new
-from src.agents.extraction import Extract
-from src.dataobjects import ViewCallbacks, Source
-from src.view.landing_page import LandingPage
-from src.view.processing_page import ProcessingPage
-from src.view.test_page import TestPage
+from _deprecated.src.agents.extraction import Extract
+from _deprecated.src.dataobjects import ViewCallbacks, Source
+from _deprecated.src.view.landing_page import LandingPage
+from _deprecated.src.view.processing_page import ProcessingPage
+from _deprecated.src.view.test_page import TestPage
+from _experiments.navi_str import XpathSlice, index_html_new
 
 app.add_middleware(
     CORSMiddleware,

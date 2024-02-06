@@ -1,10 +1,10 @@
-from src.agents.comparison import AgentComparison
-from src.agents.extraction import AgentExtraction
-from src.agents.retrieval import AgentRetrieval
-from src.dataobjects import ViewCallbacks
-from src.model.model import Model
-from src.tools.bookmarklet import get_bookmarklet_template
-from src.view.view import View
+from _deprecated.src.agents.comparison import AgentComparison
+from _deprecated.src.agents.extraction import AgentExtraction
+from _deprecated.src.agents.retrieval import AgentRetrieval
+from _deprecated.src.dataobjects import ViewCallbacks
+from _deprecated.src.model.model import Model
+from _deprecated.src.tools.bookmarklet import get_bookmarklet_template
+from _deprecated.src.view.view import View
 
 
 class Controller:

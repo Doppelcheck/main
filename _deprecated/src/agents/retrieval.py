@@ -10,9 +10,9 @@ from lxml import etree
 import asyncio
 from playwright.async_api import async_playwright
 
-from experiments.navi_str import get_text_xpaths
-from src.tools.misc import generate_block, extract_code_block
-from src.tools.prompt_openai import PromptOpenAI
+from _deprecated.src.tools.misc import generate_block, extract_code_block
+from _deprecated.src.tools.prompt_openai import PromptOpenAI
+from _experiments.navi_str import get_text_xpaths
 
 
 class ReceiveGoogleResultsException(Exception):

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from src.agents.retrieval import Document
-from src.tools.misc import extract_code_block
-from src.tools.prompt_openai import PromptOpenAI
+from _deprecated.src.agents.retrieval import Document
+from _deprecated.src.tools.misc import extract_code_block
+from _deprecated.src.tools.prompt_openai import PromptOpenAI
 
 
 @dataclass(frozen=True)

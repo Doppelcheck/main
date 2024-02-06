@@ -1,7 +1,7 @@
 from nicegui import ui, Client
 
-from src.dataobjects import ViewCallbacks
-from src.view.content_class import ContentPage
+from _deprecated.src.dataobjects import ViewCallbacks
+from _deprecated.src.view.content_class import ContentPage
 
 
 class DummyContent(ContentPage):

@@ -15,6 +15,7 @@ from loguru import logger
 from nicegui import ui, app, Client
 
 from fastapi.middleware.cors import CORSMiddleware
+from nicegui.element import Element
 from openai.types.chat import ChatCompletionChunk
 from playwright.async_api import async_playwright, BrowserContext
 from playwright._impl._errors import TimeoutError, Error as PlaywrightError
@@ -25,7 +26,7 @@ from tools import bypass
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, compile_bookmarklet
-from tools.configuration import delayed_storage, get_config_dict
+from tools.configuration import delayed_storage, get_config_dict, update_llm_config, update_data_config
 
 app.add_middleware(
     CORSMiddleware,
@@ -169,7 +170,7 @@ class Server:
         link_html = (
             f'Drag this <a href="{compiled_bookmarklet}" class="bg-blue-500 hover:bg-blue-700 text-white '
             f'font-bold py-2 px-4 mx-2 rounded inline-block" onclick="return false;">Doppelcheck</a> to your '
-            f'bookmarks bar to use it on any website.'
+            f'bookmarks to use it on any website.'
         )
         with ui.html(link_html) as bookmarklet_text:
             bookmarklet_text.classes(add="text-center")
@@ -223,13 +224,16 @@ class Server:
                 message_segment = ClaimSegment(each_character, last_segment, last_claim, i)
                 yield message_segment
 
-    async def get_claims_from_html(self, body_html: str, num_claims: int) -> Generator[ClaimSegment, None, None]:
+    async def get_claims_from_html(self, body_html: str, user_id: str) -> Generator[ClaimSegment, None, None]:
+        settings = get_config_dict(user_id)
+        claim_count = settings["claim_count"]
+
         node_generator = text_node_generator(body_html)
         text_lines = list(get_text_lines(node_generator, line_length=20))
-        prompt = extraction(text_lines, num_claims=num_claims)
+        prompt = extraction(text_lines, num_claims=claim_count)
         response = self.llm_interface.stream_reply_to_prompt(prompt)
 
-        async for each_segment in Server._stream_claims_to_browser(response, text_lines, num_claims):
+        async for each_segment in Server._stream_claims_to_browser(response, text_lines, claim_count):
             yield each_segment
 
     async def _get_urls_from_google_query(self, search_query: str) -> tuple[str, ...]:
@@ -331,8 +335,6 @@ class Server:
                 yield message_segment
 
     def setup_routes(self) -> None:
-        claims = list[str]()
-
         @app.get("/get_content/")
         async def get_content(url: str) -> HTMLResponse:
             html_content = bypass.bypass_paywall_session(url, self.httpx_session)
@@ -354,24 +356,45 @@ class Server:
 
                 Server._install_section(userid, address, video=False)
 
-                with ui.element("div") as spacer:
-                    spacer.classes(add="h-24")
-
                 with ui.label("Configuration") as heading:
-                    heading.classes(add="text-2xl font-bold")
+                    heading.classes(add="text-2xl font-bold mt-16")
 
                 with delayed_storage(
-                        userid, ui.input, "name_instance",
-                        value=settings["name_instance"], label="Name", placeholder="name for instance"
+                    userid, ui.input, "name_instance",
+                    label="Name", placeholder="name for instance"
                 ) as text_input:
                     pass
 
                 with delayed_storage(
-                        userid, ui.number, "claim_count",
-                        value=settings["claim_count"], label="Claim Count", placeholder="number of claims",
-                        min=1, max=5, step=1, precision=0, format="%d"
+                    userid, ui.number, "claim_count",
+                    label="Claim Count", placeholder="number of claims",
+                    min=1, max=5, step=1, precision=0, format="%d"
                 ) as number_input:
                     pass
+
+                with ui.label("LLM Interface") as heading:
+                    heading.classes(add="text-2xl font-bold mt-16")
+                with ui.select(
+                    options=["OpenAI", "Mistral", "Anthropic", "ollama"],
+                    on_change=lambda event: update_llm_config(userid, llm_config, event.value)
+                ) as llm_select:
+                    pass
+                with ui.element("div") as llm_config:
+                    pass
+                llm_select.set_value("OpenAI")
+                llm_select.disable()
+
+                with ui.label("Data Source") as heading:
+                    heading.classes(add="text-2xl font-bold mt-16")
+                with ui.select(
+                    options=["Google", "Bing", "DuckDuckGo"],
+                    on_change=lambda event: update_data_config(userid, data_source_config, event.value)
+                ) as data_source_select:
+                    pass
+                with ui.element("div") as data_source_config:
+                    pass
+                data_source_select.set_value("Google")
+                data_source_select.disable()
 
         @ui.page("/", dark=True)
         async def main_page(client: Client) -> None:
@@ -426,9 +449,7 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
-                        settings = get_config_dict(user_id)
-                        claim_count = settings["claim_count"]
-                        async for segment in self.get_claims_from_html(data, claim_count):
+                        async for segment in self.get_claims_from_html(data, user_id):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
@@ -436,7 +457,6 @@ class Server:
                     case "retrieve":
                         claim_id = data['id']
                         claim_text = data['text']
-                        # async for segment in self.get_documents_dummy(claim_id, claim_text):
                         async for segment in self.get_documents(claim_id, claim_text):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)

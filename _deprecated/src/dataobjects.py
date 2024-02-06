@@ -3,9 +3,9 @@ from typing import Callable
 
 from pydantic import BaseModel
 
-from src.agents.comparison import AgentComparison
-from src.agents.extraction import AgentExtraction
-from src.agents.retrieval import AgentRetrieval
+from _deprecated.src.agents.comparison import AgentComparison
+from _deprecated.src.agents.extraction import AgentExtraction
+from _deprecated.src.agents.retrieval import AgentRetrieval
 
 
 @dataclasses.dataclass(frozen=True)
