@@ -378,7 +378,7 @@ class Server:
             address = await Server._get_address(client)
 
             with ui.element("div") as container:
-                container.classes(add="w-full max-w-2xl m-auto")
+                container.classes(add="w-full max-w-4xl m-auto")
 
                 logo = ui.image("static/images/logo_big.svg")
                 logo.classes(add="w-full")
@@ -394,7 +394,10 @@ class Server:
 
                 ui.element("div").classes(add="h-8")
 
-                ui.label("Funded by the Media Tech Lab.").classes(add="text-center")
+                ui.link(
+                    text="Funded by the Media Tech Lab",
+                    target="https://www.media-lab.de/de/media-tech-lab/Doppelcheck",
+                    new_tab=True).classes(add="text-center block ")
 
         @ui.page("/_test")
         async def bookmarklet(client: Client) -> None:
