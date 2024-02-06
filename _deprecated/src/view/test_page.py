@@ -1,13 +1,12 @@
 import os
 import random
 from typing import Callable
-from urllib.parse import urlparse
 
 from nicegui import ui, app, Client
 
-from src.dataobjects import ViewCallbacks, Source
-from src.tools.bookmarklet import insert_server_address, compile_bookmarklet
-from src.view.content_class import ContentPage
+from _deprecated.src.dataobjects import ViewCallbacks, Source
+from _deprecated.src.tools.bookmarklet import insert_server_address, compile_bookmarklet
+from _deprecated.src.view.content_class import ContentPage
 
 
 class TestPage(ContentPage):

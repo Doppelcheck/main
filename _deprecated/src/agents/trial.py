@@ -4,8 +4,8 @@ import json
 from pprint import pprint
 from typing import Generator
 
-from src.agents.comparison import AgentComparison, Match
-from src.agents.retrieval import AgentRetrieval
+from _deprecated.src.agents.comparison import AgentComparison, Match
+from _deprecated.src.agents.retrieval import AgentRetrieval
 
 
 async def press_opinions(

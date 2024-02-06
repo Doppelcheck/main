@@ -8,10 +8,9 @@ import nltk
 import num2words
 from loguru import logger
 
-from experiments.navi_str import XpathSlice
-from src.tools.misc import extract_code_block
-from src.tools.prompt_openai import PromptOpenAI
-
+from _deprecated.src.tools.misc import extract_code_block
+from _deprecated.src.tools.prompt_openai import PromptOpenAI
+from _experiments.navi_str import XpathSlice
 
 Extract = tuple[list[XpathSlice], str]
 
