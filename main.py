@@ -150,6 +150,48 @@ class Server:
             last_message_segment = each_segment
         # last_message_segment contains only \n, can be ignored
 
+    @staticmethod
+    def _install_section(userid: str, address: str, video: bool = True) -> None:
+        with open("static/bookmarklet.js") as file:
+            bookmarklet_js = file.read()
+
+        bookmarklet_js = bookmarklet_js.replace("[localhost:8000]", address)
+        bookmarklet_js = bookmarklet_js.replace("[unique user identification]", userid)
+
+        compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
+        # todo:
+        #   see max width here: https://tailwindcss.com/docs/max-width
+
+        logo = ui.image("static/images/logo_big.svg")
+        logo.classes(add="w-full")
+        with ui.element("div") as spacer:
+            spacer.classes(add="h-16")
+        link_html = (
+            f'Drag this <a href="{compiled_bookmarklet}" class="bg-blue-500 hover:bg-blue-700 text-white '
+            f'font-bold py-2 px-4 mx-2 rounded inline-block" onclick="return false;">Doppelcheck</a> to your '
+            f'bookmarks bar to use it on any website.'
+        )
+        with ui.html(link_html) as bookmarklet_text:
+            bookmarklet_text.classes(add="text-center")
+
+        if video:
+            with ui.element("div") as spacer:
+                spacer.classes(add="h-8")
+
+            with ui.video(
+                    "https://private-user-images.githubusercontent.com/9195325/301484470-96b4468f-b12c-4e6c-baae-"
+                    "2b860c93c710.webm?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkI"
+                    "joicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MDcyMDE4NjIsIm5iZiI6MTcwN"
+                    "zIwMTU2MiwicGF0aCI6Ii85MTk1MzI1LzMwMTQ4NDQ3MC05NmI0NDY4Zi1iMTJjLTRlNmMtYmFhZS0yYjg2MGM5M2M3M"
+                    "TAud2VibT9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQ"
+                    "TUzUFFLNFpBJTJGMjAyNDAyMDYlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwM"
+                    "jA2VDA2MzkyMlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWY3ZjVkY2YxNzk5MmNhMGQ0ZDk2NjMyZ"
+                    "jg5NTE4ODU1YjQ5N2JiODg0MTFiNWNjYjc0MjkyYzU2NGY4ZGRkNTEmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjd"
+                    "G9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.cB7vwI5sdaXu4Zk0gio-CU1RxfbavrZDNHQjUOSX2oc",
+                    autoplay=True, loop=True, muted=True, controls=False
+            ) as video:
+                video.classes(add="w-full max-w-2xl m-auto")
+
     def __init__(self, agent_config: dict[str, any], google_config: dict[str, any]) -> None:
         self.llm_interface = PromptOpenAI(agent_config)
         self.google_config = google_config
@@ -313,21 +355,16 @@ class Server:
 
         @ui.page("/config/{userid}")
         async def config(userid: str, client: Client) -> None:
-            # address = await Server._get_address(client)
             settings = get_config_dict(userid)
+            address = await Server._get_address(client)
 
             with ui.element("div") as container:
-                container.style(
-                    "width: 800px;"
-                    "margin: 0 auto;"
-                )
+                container.classes(add="w-full max-w-2xl m-auto")
 
-                logo = ui.image("static/images/logo_big.svg")
-                logo.style(
-                    "width: 100%;"
-                )
+                Server._install_section(userid, address, video=False)
 
-                ui.element("div").style("height: 100px;")
+                with ui.element("div") as spacer:
+                    spacer.classes(add="h-24")
 
                 with ui.label("Configuration") as heading:
                     heading.classes(add="text-2xl font-bold")
@@ -350,34 +387,44 @@ class Server:
             address = await Server._get_address(client)
 
             with ui.element("div") as container:
-                container.style(
-                    "width: 800px;"
-                    "margin: 0 auto;"
-                )
+                container.classes(add="w-full max-w-2xl m-auto")
 
                 logo = ui.image("static/images/logo_big.svg")
-                logo.style(
-                    "width: 100%;"
-                )
+                logo.classes(add="w-full")
 
-                ui.element("div").style("height: 100px;")
+                ui.element("div").classes(add="h-16")
 
-                ui.label(f"Coming soon to {address}...")
+                ui.label(f"Coming soon to {address}.").classes(add="text-2xl font-bold text-center")
+
+                ui.element("div").classes(add="h-16")
+
+                with ui.video(
+                        "https://private-user-images.githubusercontent.com/9195325/301484506-bb4a3237-87f2-4536-9fa7-"
+                        "dc936dcce6d1.webm?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkI"
+                        "joicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MDcyMDMzNjcsIm5iZiI6MTcwN"
+                        "zIwMzA2NywicGF0aCI6Ii85MTk1MzI1LzMwMTQ4NDUwNi1iYjRhMzIzNy04N2YyLTQ1MzYtOWZhNy1kYzkzNmRjY2U2Z"
+                        "DEud2VibT9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQ"
+                        "TUzUFFLNFpBJTJGMjAyNDAyMDYlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwM"
+                        "jA2VDA3MDQyN1omWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWIzM2ZiYzBkYWU2YzA2MWU5Y2Y4OTk1Y"
+                        "zA0NWQyMzdkZDg2ZDRlYTQwZTdlMDBhNDgyNTJhYTkxOTI5ZjJlNDgmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjd"
+                        "G9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.IRjcGejDSmuORE3JEq-XRErF3WMs59f83BId_4fqRSM",
+                        autoplay=True, loop=True, muted=True
+                ) as video:
+                    video.classes(add="w-full max-w-2xl m-auto")
+
+                ui.element("div").classes(add="h-8")
+
+                ui.label("Funded by the Media Tech Lab.").classes(add="text-center")
 
         @ui.page("/_test")
         async def bookmarklet(client: Client) -> None:
             address = await Server._get_address(client)
-
-            with open("static/bookmarklet.js") as file:
-                bookmarklet_js = file.read()
-
-            bookmarklet_js = bookmarklet_js.replace("[localhost:8000]", address)
-
             secret = secrets.token_urlsafe(32)
-            bookmarklet_js = bookmarklet_js.replace("[unique user identification]", secret)
 
-            compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
-            ui.link("test bookmarklet", target=compiled_bookmarklet)
+            with ui.element("div") as container:
+                container.classes(add="w-full max-w-2xl m-auto")
+
+                Server._install_section(secret, address)
 
         @app.websocket("/talk")
         async def websocket_endpoint(websocket: WebSocket):
