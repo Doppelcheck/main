@@ -151,28 +151,36 @@ const InitializeDoppelcheck = {
         claimContainer.id = "doppelcheck-claims-container";
         sidebar.appendChild(claimContainer);
 
-        const button = document.createElement("button");
-        button.id = "doppelcheck-button-start";
-        button.innerText = "🤨 Extract Claims";
+        if(!(config.openai_api_key && config.google_custom_search.api_key && config.google_custom_search.engine_id)){
+            const warning = document.createElement("div");
+            warning.id = "doppelcheck-warning";
+            warning.innerHTML = "Please click 'Config' to set up your API keys. Then <a href='javascript:location.reload()'>refresh</a> the page.";
+            sidebar.appendChild(warning);
 
-        button.onclick = function () {
-            button.remove();
-            const configPromise = getConfig(userID)
-            configPromise.then(function (config) {
-                console.log("configuration ", config)
-                subheading.textContent += " ⏳";
-                const fullHTML = document.documentElement.outerHTML;
-                // todo:
-                //  1. save new claim count
-                //  2. send claim count to extract
-                exchange("extract", fullHTML);
+        } else {
+            const button = document.createElement("button");
+            button.id = "doppelcheck-button-start";
+            button.innerText = "🤨 Extract Claims";
+
+            button.onclick = function () {
+                button.remove();
+                const configPromise = getConfig(userID)
+                configPromise.then(function (config) {
+                        console.log("configuration ", config)
+                        subheading.textContent += " ⏳";
+                        const fullHTML = document.documentElement.outerHTML;
+                        // todo:
+                        //  1. save new claim count
+                        //  2. send claim count to extract
+                        exchange("extract", fullHTML);
+                    }
+                ).catch(function (error) {
+                    console.error('There was a problem retrieving the config:', error);
+                    ProxyUrlServices.redirect();
+                })
             }
-            ).catch(function (error) {
-                console.error('There was a problem retrieving the config:', error);
-                ProxyUrlServices.redirect();
-            })
+            sidebar.appendChild(button);
         }
-        sidebar.appendChild(button);
 
         /*
         const userIdField = document.createElement("div");

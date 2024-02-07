@@ -1,9 +1,11 @@
 import asyncio
 import dataclasses
 import json
+import pathlib
 import secrets
 import string
 from dataclasses import dataclass
+from os import path
 from typing import Generator, Sequence, AsyncGenerator
 from urllib.parse import urlparse
 
@@ -15,10 +17,7 @@ from loguru import logger
 from nicegui import ui, app, Client
 
 from fastapi.middleware.cors import CORSMiddleware
-from nicegui.element import Element
 from openai.types.chat import ChatCompletionChunk
-from playwright.async_api import async_playwright, BrowserContext
-from playwright._impl._errors import TimeoutError, Error as PlaywrightError
 from pydantic import BaseModel
 
 from prompts.agent_patterns import extraction, google
@@ -26,7 +25,9 @@ from tools import bypass
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, compile_bookmarklet
-from tools.configuration import delayed_storage, get_config_dict, update_llm_config, update_data_config
+from tools.configuration import delayed_storage, get_user_config, update_llm_config, update_data_config, \
+    GoogleCustomSearch, asdict_recusive, UserConfig
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -85,20 +86,6 @@ class Doc:
 
 
 class Server:
-    @staticmethod
-    async def _retrieve_text(claim_id: int, context: BrowserContext, url: str) -> Doc:
-        page = await context.new_page()
-        try:
-            await page.goto(url)
-        except PlaywrightError as e:
-            return Doc(claim_id=claim_id, uri=url, content=None)
-
-        html = await page.content()
-        await page.wait_for_load_state("domcontentloaded")
-        await page.wait_for_load_state("networkidle")
-        full_text_lines = "".join(text_node_generator(html))
-        return Doc(claim_id=claim_id, uri=url, content=full_text_lines)
-
     @staticmethod
     async def _get_address(client: Client) -> str:
         await client.connected()
@@ -184,66 +171,60 @@ class Server:
                     autoplay=True, loop=True, muted=True, controls=False) as video:
                 video.classes(add="w-full max-w-2xl m-auto")
 
-    def __init__(self, agent_config: dict[str, any], google_config: dict[str, any]) -> None:
-        self.llm_interface = PromptOpenAI(agent_config)
-        self.google_config = google_config
-        self.browser = None
-        self.playwright = None
+    def __init__(self) -> None:
+        self.default_openai_key = ""
+        default_openai_key_file = pathlib.Path("default_openai.json")
+        if default_openai_key_file.exists():
+            with open(default_openai_key_file) as file:
+                default_openai_key = json.load(file)
+                self.default_openai_key = default_openai_key.get("openai_key", "")
+
+        self.default_google_key = ""
+        self.default_google_id = ""
+        default_google_key_file = pathlib.Path("default_google.json")
+        if default_google_key_file.exists():
+            with open(default_google_key_file) as file:
+                default_google_key = json.load(file)
+                self.default_google_key = default_google_key.get("custom_search_api_key", "")
+                self.default_google_id = default_google_key.get("custom_search_engine_id", "")
+
         self.httpx_session = httpx.AsyncClient()
-
-    async def start_browser(self) -> None:
-        if self.playwright is None:
-            self.playwright = await async_playwright().start()
-        if self.browser is None:
-            self.browser = await self.playwright.firefox.launch(headless=True)
-            # self.browser = await self.playwright.firefox.launch(headless=False)
-
-    async def stop_browser(self) -> None:
-        if self.browser:
-            await self.browser.close()
-        if self.playwright:
-            await self.playwright.stop()
 
     async def get_claims_from_selection(self, text: str) -> Generator[ClaimSegment, None, None]:
         pass
 
-    async def reference_stream_from_llm(self, websocket: WebSocket, data: str, purpose: str) -> None:
-        response = self.llm_interface.stream_reply_to_prompt(data)
-        async for each_chunk_dict in response:
-            each_dict = {'purpose': purpose, 'data': each_chunk_dict}
-            json_str = json.dumps(each_dict)
-            await websocket.send_text(json_str)
-
-    async def get_claims_dummy(self, body_html: str) -> Generator[ClaimSegment, None, None]:
-        for i in range(5):
-            text = f"Claim {i}, ({len(body_html)})"
-            last_claim = i >= 4
-            for j, each_character in enumerate(text):
-                await asyncio.sleep(.1)
-                last_segment = j >= len(text) - 1
-                message_segment = ClaimSegment(each_character, last_segment, last_claim, i)
-                yield message_segment
-
     async def get_claims_from_html(self, body_html: str, user_id: str) -> Generator[ClaimSegment, None, None]:
-        settings = get_config_dict(user_id)
-        claim_count = settings["claim_count"]
+        settings = get_user_config(user_id)
+        openai_key = settings.openai_api_key
+        if openai_key is None or len(openai_key) < 1:
+            openai_key = self.default_openai_key
+
+        parameters = settings.openai_parameters
+
+        llm_interface = PromptOpenAI(openai_key, parameters)
+
+        claim_count = settings.claim_count
+        language = settings.language
 
         node_generator = text_node_generator(body_html)
         text_lines = list(get_text_lines(node_generator, line_length=20))
-        prompt = extraction(text_lines, num_claims=claim_count)
-        response = self.llm_interface.stream_reply_to_prompt(prompt)
+        prompt = extraction(text_lines, num_claims=claim_count, language=language)
+        response = llm_interface.stream_reply_to_prompt(prompt)
 
         async for each_segment in Server._stream_claims_to_browser(response, text_lines, claim_count):
             yield each_segment
 
-    async def _get_urls_from_google_query(self, search_query: str) -> tuple[str, ...]:
+    async def _get_urls_from_google_query(
+            self, search_query: str, custom_search: GoogleCustomSearch
+    ) -> tuple[str, ...]:
         url = "https://www.googleapis.com/customsearch/v1"
         # https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list#response
         # todo: use llm to craft parameter dict
+
         params = {
             "q": search_query,
-            "key": self.google_config["custom_search_api_key"],
-            "cx": self.google_config["custom_search_engine_id"],
+            "key": custom_search.api_key,
+            "cx": custom_search.engine_id,
         }
 
         #async with httpx.AsyncClient() as httpx_session:
@@ -267,19 +248,26 @@ class Server:
         # https://developers.google.com/custom-search/v1/reference/rest/v1/Search#Result
         return tuple(each_item['link'] for each_item in items)
 
-    async def get_documents_dummy(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
-        # retrieve documents from claim_text
-        for i in range(5):
-            text = f"Document {i}, (id {claim_id})"
-            last_document = i >= 4
-            await asyncio.sleep(.1)
-            yield DocumentSegment(text, True, last_document, claim_id, i, f"url {i}")
+    async def get_documents(self, claim_id: int, claim_text: str, user_id: str) -> Generator[DocumentSegment, None, None]:
+        settings = get_user_config(user_id)
 
-    async def get_documents(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
+        openai_key = settings.openai_api_key
+        if openai_key is None or len(openai_key) < 1:
+            openai_key = self.default_openai_key
+
+        parameters = settings.openai_parameters
+
+        custom_search = settings.google_custom_search
+        if custom_search is None:
+            custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
+
+        llm_interface = PromptOpenAI(openai_key, parameters)
+
         prompt = google(claim_text)
-        response = await self.llm_interface.reply_to_prompt(prompt)
+        response = await llm_interface.reply_to_prompt(prompt)
         query = extract_code_block(response, "query")
-        uris = await self._get_urls_from_google_query(query)
+
+        uris = await self._get_urls_from_google_query(query, custom_search)
         logger.info(uris)
 
         if len(uris) < 1:
@@ -293,36 +281,6 @@ class Server:
                 yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
             except httpx.HTTPError as e:
                 yield DocumentSegment(str(e), True, last_document, claim_id, document_id, each_uri, success=False)
-
-    async def get_documents_old(self, claim_id: int, claim_text: str) -> Generator[DocumentSegment, None, None]:
-        prompt = google(claim_text)
-        response = await self.llm_interface.reply_to_prompt(prompt)
-        query = extract_code_block(response, "query")
-        uris = await self._get_urls_from_google_query(query)
-        logger.info(uris)
-
-        if len(uris) < 1:
-            yield DocumentSegment("No documents found", True, True, claim_id, 0, "[no document found]", success=False)
-            return
-
-        await self.start_browser()
-        context = await self.browser.new_context()
-        tasks = [asyncio.create_task(self._retrieve_text(claim_id, context, each_url)) for each_url in uris]
-
-        for document_id, task in enumerate(asyncio.as_completed(tasks)):
-            last_document = document_id >= len(uris) - 1
-
-            try:
-                each_doc: Doc = await task
-                document = DocumentSegment(each_doc.content, True, last_document, claim_id, document_id, each_doc.uri)
-                yield document
-
-            except TimeoutError as e:
-                logger.warning(f"timeout for {uris[document_id]}: {e}")
-                yield DocumentSegment("[timeout]", True, last_document, claim_id, document_id, uris[document_id], success=False)
-
-        # await asyncio.sleep(1)
-        # await context.close()
 
     async def get_comparisons_dummy(self, claim_id: int, claim: str, document_uri: str) -> Generator[ComparisonSegment, None, None]:
         for i in range(5):
@@ -343,13 +301,21 @@ class Server:
         @app.post("/get_config/")
         async def get_config(user_data: User = Body(...)) -> dict:
             logger.info(f"getting settings for {user_data.user_id}")
-            settings = get_config_dict(user_data.user_id)
-            return settings
+            settings = get_user_config(user_data.user_id)
+            if settings.google_custom_search is None:
+                settings.google_custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
+
+            if settings.openai_api_key is None:
+                settings.openai_api_key = self.default_openai_key
+
+            settings_dict = asdict_recusive(settings)
+            return settings_dict
 
         @ui.page("/config/{userid}")
         async def config(userid: str, client: Client) -> None:
-            settings = get_config_dict(userid)
             address = await Server._get_address(client)
+
+            default_config = UserConfig()
 
             with ui.element("div") as container:
                 container.classes(add="w-full max-w-2xl m-auto")
@@ -360,16 +326,23 @@ class Server:
                     heading.classes(add="text-2xl font-bold mt-16")
 
                 with delayed_storage(
-                    userid, ui.input, "name_instance",
-                    label="Name", placeholder="name for instance"
+                    userid, ui.input, ("name_instance",),
+                    label="Name", placeholder="name for instance", default=default_config.name_instance
                 ) as text_input:
                     pass
 
                 with delayed_storage(
-                    userid, ui.number, "claim_count",
+                    userid, ui.number, ("claim_count",),
                     label="Claim Count", placeholder="number of claims",
-                    min=1, max=5, step=1, precision=0, format="%d"
+                    min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
                 ) as number_input:
+                    pass
+
+                with delayed_storage(
+                    userid, ui.select, ("language",),
+                    label="Language", options=["default", "English", "German", "French", "Spanish"],
+                    default=default_config.language
+                ) as language_select:
                     pass
 
                 with ui.label("LLM Interface") as heading:
@@ -457,7 +430,7 @@ class Server:
                     case "retrieve":
                         claim_id = data['id']
                         claim_text = data['text']
-                        async for segment in self.get_documents(claim_id, claim_text):
+                        async for segment in self.get_documents(claim_id, claim_text, user_id):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
@@ -492,12 +465,11 @@ def main() -> None:
 
     nicegui_config = config.pop("nicegui")
 
-    server = Server(config["agent_interface"], config["google"])
+    server = Server()
 
     server.setup_routes()
     ui.run(**nicegui_config)
-
-    # asyncio.run(server.stop_browser())
+    # todo: use gunicorn or uvicorn instead
 
 
 if __name__ in {"__main__", "__mp_main__"}:

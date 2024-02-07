@@ -14,4 +14,5 @@ beautifulsoup4~=4.12.2
 lxml~=4.9.3
 httpx~=0.25.2
 webdriver-manager~=4.0.1
-playwright~=1.40.0
+pip-system-certs~=4.0
+python-certifi-win32~=1.6.1

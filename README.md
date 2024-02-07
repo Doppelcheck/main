@@ -31,16 +31,14 @@ To start using Doppelcheck:
      2. `python3 -m venv venv`
      3. activating it with `source venv/bin/activate`
   4. Installing dependencies via pip:
-     1. `pip install -r requirements.txt`
-  5. Installing MS Playwright dependencies:
-     1. `python3 -m playwright install`
-     2. `sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2`
-  6. Copying the `config.example.py` file to `config.py` and configuring the following settings:
+     1. `pip install --upgrade pip`
+     2. `pip install -r requirements.txt`
+  5. Copying the `config.example.py` file to `config.py` and configuring the following settings:
      1. `[storage_secret]`: random string used to encrypt client data
      2. `[custom_search_api_key]`: API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
      3. `[custom_search_engine_id]`: ID of the Google Custom Search Engine, add a new search engine [here](https://programmablesearchengine.google.com/controlpanel/all)
      4. `[openAI_key]`: key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
-  7. Running the server:
+  6. Running the server:
     - once: `python3 main.py`
     - as a systemd service:
       1. `sudo cp doppelcheck.example.service doppelcheck.service`
@@ -48,6 +46,7 @@ To start using Doppelcheck:
       3. `sudo cp doppelcheck.service /etc/systemd/system/`
       4. `sudo systemctl enable doppelcheck`
       5. `sudo systemctl start doppelcheck`
+  7. [optional] Set up certbot [todo]
   8. Open the Web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']` and `config.json['nicegui']['port']`
      - use `https` if you provided `config.json['nicegui']['ssl_keyfile']` and `config.json['nicegui']['ssl_certfile']` (default)
      - use `http` otherwise

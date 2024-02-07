@@ -1,9 +1,12 @@
+import dataclasses
 import time
 from typing import Generator, AsyncGenerator
 
 import openai
 from loguru import logger
 from openai.types.chat import ChatCompletionChunk
+
+from tools.configuration import OpenAIParameters
 
 
 class PromptOpenAI:
@@ -20,9 +23,9 @@ class PromptOpenAI:
             start += max_len - overlap
             end += max_len - overlap
 
-    def __init__(self, config: dict[str, any]) -> None:
-        self._client = openai.AsyncOpenAI(api_key=config["key"])
-        self._config = config["parameters"]
+    def __init__(self, key: str, parameters: OpenAIParameters) -> None:
+        self._client = openai.AsyncOpenAI(api_key=key)
+        self._parameters = parameters
 
     async def summarize(self, text: str, max_len_input: int = 10_000, max_len_summary: int = 500) -> str:
         len_text = len(text)
@@ -48,7 +51,7 @@ class PromptOpenAI:
     async def reply_to_prompt(self, prompt: str, **kwargs: any) -> str:
         logger.info(prompt)
 
-        arguments = dict(self._config)
+        arguments = dataclasses.asdict(self._parameters)
         arguments.update(kwargs)
 
         reply = ""
@@ -72,7 +75,7 @@ class PromptOpenAI:
     async def stream_reply_to_prompt(self, prompt: str, **kwargs: any) -> AsyncGenerator[ChatCompletionChunk, None]:
         logger.info(prompt)
 
-        arguments = dict(self._config)
+        arguments = dataclasses.asdict(self._parameters)
         arguments.update(kwargs)
 
         try:
