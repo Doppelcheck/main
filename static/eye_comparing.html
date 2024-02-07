@@ -23,6 +23,15 @@
         overflow: hidden;
     }
 
+    .doppelcheck-title {
+        position: absolute;
+        top: 80px;
+        left: 320px;
+        font-size: 50px;
+        font-weight: bold;
+        color: black;
+    }
+
     .outer-circle, .inner-circle {
         border-radius: 50%;
         position: absolute;
@@ -141,32 +150,36 @@
       }
     }
 </style>
-
-<div class="animation">
-    <!-- todo: https://chat.openai.com/c/8cc1ce34-a76b-4ae6-b319-7f8595624dce/ -->
-    <div class="outer-circle"></div>
-    <div class="inner-circle"></div>
-    <div class="veins">
-        <div class="vein vein1">
-            <div class="veinRoot"></div>
-            <div class="veinBranch"></div>
-            <div class="veinDot"></div>
+<div class="doppelcheck-title-container">
+    <div class="animation">
+        <!-- todo: https://chat.openai.com/c/8cc1ce34-a76b-4ae6-b319-7f8595624dce/ -->
+        <div class="outer-circle"></div>
+        <div class="inner-circle"></div>
+        <div class="veins">
+            <div class="vein vein1">
+                <div class="veinRoot"></div>
+                <div class="veinBranch"></div>
+                <div class="veinDot"></div>
+            </div>
+            <div class="vein veinOffset vein2">
+                <div class="veinRoot veinRootShort"></div>
+                <div class="veinBranch veinBranchShort"></div>
+                <div class="veinDot"></div>
+            </div>
+            <div class="vein veinOffset veinMirrored vein3">
+                <div class="veinRoot veinRootShort"></div>
+                <div class="veinBranch veinBranchShort"></div>
+                <div class="veinDot"></div>
+            </div>
+            <div class="vein veinMirrored vein4">
+                <div class="veinRoot"></div>
+                <div class="veinBranch"></div>
+                <div class="veinDot"></div>
+            </div>
         </div>
-        <div class="vein veinOffset vein2">
-            <div class="veinRoot veinRootShort"></div>
-            <div class="veinBranch veinBranchShort"></div>
-            <div class="veinDot"></div>
-        </div>
-        <div class="vein veinOffset veinMirrored vein3">
-            <div class="veinRoot veinRootShort"></div>
-            <div class="veinBranch veinBranchShort"></div>
-            <div class="veinDot"></div>
-        </div>
-        <div class="vein veinMirrored vein4">
-            <div class="veinRoot"></div>
-            <div class="veinBranch"></div>
-            <div class="veinDot"></div>
-        </div>
+    </div>
+    <div class="doppelcheck-title">
+        oppelcheck
     </div>
 </div>
 

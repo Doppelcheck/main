@@ -28,7 +28,6 @@ from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_co
 from tools.configuration import delayed_storage, get_user_config, update_llm_config, update_data_config, \
     GoogleCustomSearch, asdict_recusive, UserConfig
 
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -124,7 +123,8 @@ class Server:
 
             last_segment = each_segment.segment == "\n"
             last_claim = claim_count >= num_claims
-            logger.info(f"claims: {claim_count} >= {num_claims}, last_claim {last_claim}, last_segment {last_segment}, claim_count {claim_count}")
+            logger.info(
+                f"claims: {claim_count} >= {num_claims}, last_claim {last_claim}, last_segment {last_segment}, claim_count {claim_count}")
             if last_message_segment is not None:
                 if last_segment:
                     yield ClaimSegment(last_message_segment.segment, True, last_claim, claim_count)
@@ -172,21 +172,21 @@ class Server:
                 video.classes(add="w-full max-w-2xl m-auto")
 
     def __init__(self) -> None:
-        self.default_openai_key = ""
+        self.default_openai_key = None
         default_openai_key_file = pathlib.Path("default_openai.json")
         if default_openai_key_file.exists():
             with open(default_openai_key_file) as file:
                 default_openai_key = json.load(file)
-                self.default_openai_key = default_openai_key.get("openai_key", "")
+                self.default_openai_key = default_openai_key.get("openai_key")
 
-        self.default_google_key = ""
-        self.default_google_id = ""
+        self.default_google_key = None
+        self.default_google_id = None
         default_google_key_file = pathlib.Path("default_google.json")
         if default_google_key_file.exists():
             with open(default_google_key_file) as file:
                 default_google_key = json.load(file)
-                self.default_google_key = default_google_key.get("custom_search_api_key", "")
-                self.default_google_id = default_google_key.get("custom_search_engine_id", "")
+                self.default_google_key = default_google_key.get("custom_search_api_key")
+                self.default_google_id = default_google_key.get("custom_search_engine_id")
 
         self.httpx_session = httpx.AsyncClient()
 
@@ -227,7 +227,7 @@ class Server:
             "cx": custom_search.engine_id,
         }
 
-        #async with httpx.AsyncClient() as httpx_session:
+        # async with httpx.AsyncClient() as httpx_session:
         #    response = await httpx_session.get(url, params=params)
 
         response = httpx.get(url, params=params)
@@ -248,7 +248,8 @@ class Server:
         # https://developers.google.com/custom-search/v1/reference/rest/v1/Search#Result
         return tuple(each_item['link'] for each_item in items)
 
-    async def get_documents(self, claim_id: int, claim_text: str, user_id: str) -> Generator[DocumentSegment, None, None]:
+    async def get_documents(self, claim_id: int, claim_text: str, user_id: str) -> Generator[
+        DocumentSegment, None, None]:
         settings = get_user_config(user_id)
 
         openai_key = settings.openai_api_key
@@ -282,7 +283,8 @@ class Server:
             except httpx.HTTPError as e:
                 yield DocumentSegment(str(e), True, last_document, claim_id, document_id, each_uri, success=False)
 
-    async def get_comparisons_dummy(self, claim_id: int, claim: str, document_uri: str) -> Generator[ComparisonSegment, None, None]:
+    async def get_comparisons_dummy(self, claim_id: int, claim: str, document_uri: str) -> Generator[
+        ComparisonSegment, None, None]:
         for i in range(5):
             text = f"Comparison {i}, ({document_uri} vs {claim_id})"
             last_comparison = i >= 4
@@ -302,10 +304,15 @@ class Server:
         async def get_config(user_data: User = Body(...)) -> dict:
             logger.info(f"getting settings for {user_data.user_id}")
             settings = get_user_config(user_data.user_id)
-            if settings.google_custom_search is None:
-                settings.google_custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
+            if (
+                    settings.google_custom_search is None and
+                    self.default_google_key is not None and
+                    self.default_google_id is not None):
 
-            if settings.openai_api_key is None:
+                settings.google_custom_search = GoogleCustomSearch(
+                    api_key=self.default_google_key, engine_id=self.default_google_id)
+
+            if settings.openai_api_key is None and self.default_openai_key is not None:
                 settings.openai_api_key = self.default_openai_key
 
             settings_dict = asdict_recusive(settings)
@@ -326,30 +333,30 @@ class Server:
                     heading.classes(add="text-2xl font-bold mt-16")
 
                 with delayed_storage(
-                    userid, ui.input, ("name_instance",),
-                    label="Name", placeholder="name for instance", default=default_config.name_instance
+                        userid, ui.input, ("name_instance",),
+                        label="Name", placeholder="name for instance", default=default_config.name_instance
                 ) as text_input:
                     pass
 
                 with delayed_storage(
-                    userid, ui.number, ("claim_count",),
-                    label="Claim Count", placeholder="number of claims",
-                    min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
+                        userid, ui.number, ("claim_count",),
+                        label="Claim Count", placeholder="number of claims",
+                        min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
                 ) as number_input:
                     pass
 
                 with delayed_storage(
-                    userid, ui.select, ("language",),
-                    label="Language", options=["default", "English", "German", "French", "Spanish"],
-                    default=default_config.language
+                        userid, ui.select, ("language",),
+                        label="Language", options=["default", "English", "German", "French", "Spanish"],
+                        default=default_config.language
                 ) as language_select:
                     pass
 
                 with ui.label("LLM Interface") as heading:
                     heading.classes(add="text-2xl font-bold mt-16")
                 with ui.select(
-                    options=["OpenAI", "Mistral", "Anthropic", "ollama"],
-                    on_change=lambda event: update_llm_config(userid, llm_config, event.value)
+                        options=["OpenAI", "Mistral", "Anthropic", "ollama"],
+                        on_change=lambda event: update_llm_config(userid, llm_config, event.value)
                 ) as llm_select:
                     pass
                 with ui.element("div") as llm_config:
@@ -360,8 +367,8 @@ class Server:
                 with ui.label("Data Source") as heading:
                     heading.classes(add="text-2xl font-bold mt-16")
                 with ui.select(
-                    options=["Google", "Bing", "DuckDuckGo"],
-                    on_change=lambda event: update_data_config(userid, data_source_config, event.value)
+                        options=["Google", "Bing", "DuckDuckGo"],
+                        on_change=lambda event: update_data_config(userid, data_source_config, event.value)
                 ) as data_source_select:
                     pass
                 with ui.element("div") as data_source_config:
