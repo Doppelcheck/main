@@ -160,3 +160,5 @@ cython_debug/
 #.idea/
 
 config.json
+/config.deprecated.json
+/default_*.json

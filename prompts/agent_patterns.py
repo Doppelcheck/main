@@ -16,7 +16,10 @@ def extraction(
         if words_per_claim >= 13 \
         else num2words.num2words(words_per_claim)
 
-    language_instruction = f" Respond in {language}." if language else " Respond in the language of the text."
+    if language is None or language == "default":
+        language_instruction = " Respond in the language of the text."
+    else:
+        language_instruction = f" Respond in {language}."
 
     numbered_text = lined_text(lines)
 
