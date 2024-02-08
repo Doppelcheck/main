@@ -507,6 +507,7 @@ def main() -> None:
 
     server.setup_routes()
     ui.run(**nicegui_config)
+
     # todo: use gunicorn or uvicorn instead
 
 
