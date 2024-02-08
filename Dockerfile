@@ -10,11 +10,7 @@ COPY . /app
 # Install dependencies via pip
 RUN pip install --upgrade pip && pip install -r requirements.txt
 
-# Copy the config.example.json to config.json and
-# Here you would manually add the [storage_secret] to config.json
-# Since Dockerfile doesn't support interactive inputs or secret management at build time,
-# You should handle secrets using environment variables or Docker secrets in Swarm mode.
-# This step is left as a placeholder to remind you to configure your secrets appropriately.
+# Copy the config.example.json to config.json
 COPY config.example.json config.json
 
 # Expose the port the app runs on
