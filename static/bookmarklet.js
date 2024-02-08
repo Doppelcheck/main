@@ -4,7 +4,8 @@ const userID = "[unique user identification]";
 
 const ProxyUrlServices = {
     localBypass(originalUrl) {
-        return `https://${address}/get_content/&url=${originalUrl}`;
+        const urlEncoded = encodeURIComponent(originalUrl);
+        return `https://${address}/get_content/?url=${urlEncoded}`;
     },
 
     get12ftProxyUrl(originalUrl) {
@@ -30,8 +31,11 @@ const ProxyUrlServices = {
         return `https://www.darkread.io/${response.uid}`;
     },
 
-    redirect() {
+    async redirect() {
         const proxyUrl = ProxyUrlServices.localBypass(window.location.href);
+        // const proxyUrl = ProxyUrlServices.get12ftProxyUrl(window.location.href);
+        // const proxyUrl = ProxyUrlServices.getOutlineTTSProxyUrl(window.location.href);
+        // const proxyUrl = ProxyUrlServices.getPrintFriendlyProxyUrl(window.location.href);
         alert(
             `Connection to Doppelcheck server @ ${address} failed. This may be due to restrictive security settings ` +
             `on the current website ${window.location.hostname}.\n\nWe'll try open a minimal version of the ` +
@@ -162,22 +166,21 @@ const InitializeDoppelcheck = {
             button.id = "doppelcheck-button-start";
             button.innerText = "🤨 Extract Claims";
 
-            button.onclick = function () {
+            button.onclick = async function () {
                 button.remove();
-                const configPromise = getConfig(userID)
-                configPromise.then(function (config) {
-                        console.log("configuration ", config)
-                        subheading.textContent += " ⏳";
-                        const fullHTML = document.documentElement.outerHTML;
-                        // todo:
-                        //  1. save new claim count
-                        //  2. send claim count to extract
-                        exchange("extract", fullHTML);
-                    }
-                ).catch(function (error) {
-                    console.error('There was a problem retrieving the config:', error);
-                    ProxyUrlServices.redirect();
-                })
+                const config = await getConfig(userID);
+                console.log("configuration ", config);
+                subheading.textContent += " ⏳";
+                const fullHTML = document.documentElement.outerHTML;
+                // todo:
+                //  1. save new claim count
+                //  2. send claim count to extract
+                try {
+                    exchange("extract", fullHTML);
+                } catch (error) {
+                    console.error('Failed to extract claims:', error);
+                    await ProxyUrlServices.redirect();
+                }
             }
             sidebar.appendChild(button);
         }
@@ -341,6 +344,10 @@ const RetrieveDocuments = {
         return str;
     },
 
+    shortenUrl(url) {
+         return url.replace(/^(https?:\/\/)?(www\.)?/, '');
+    },
+
     processRetrievalMessage(response) {
         console.log("retrieval");
 
@@ -362,29 +369,39 @@ const RetrieveDocuments = {
         const documentElement = RetrieveDocuments.addDocument(claimId, documentId, documentsContainer);
 
         const compareButton = document.createElement("button");
-        compareButton.textContent = "🧐";
         compareButton.id = `doppelcheck-compare-button${claimId}-${documentId}`;
         compareButton.classList.add("doppelcheck-compare-button");
-        compareButton.onclick = function () {
-            compareButton.textContent = "⏳";
-            compareButton.disabled = true;
-            CompareDocuments.initiateComparison(documentElement.textContent, claimId, documentId);
-        }
         documentElement.appendChild(compareButton);
 
         if (success) {
+            compareButton.textContent = "🧐";
+            compareButton.onclick = function () {
+                compareButton.textContent = "⏳";
+                compareButton.disabled = true;
+                CompareDocuments.initiateComparison(documentElement.textContent, claimId, documentId);
+            }
             const link = document.createElement("a");
+            link.classList.add("doppelcheck-document");
             link.href = documentUri;
             link.target = "_blank";
-            link.textContent = RetrieveDocuments.truncateString(documentUri, 20);
+            // link.textContent = RetrieveDocuments.truncateString(documentUri, 20);
+            link.textContent = RetrieveDocuments.shortenUrl(documentUri);
             documentElement.appendChild(link);
 
         } else {
+            compareButton.textContent = "🚫";
             compareButton.disabled = true;
             const text = document.createElement("span");
-            text.textContent = RetrieveDocuments.truncateString(documentUri, 20);
+            text.classList.add("doppelcheck-document");
+            text.textContent = RetrieveDocuments.shortenUrl(documentUri);
             documentElement.appendChild(text);
         }
+
+        const documentContent = document.createElement("div");
+        documentContent.classList.add(`doppelcheck-document-content-${claimId}-${documentId}`);
+        documentContent.textContent = documentSegment;
+        documentContent.style.display = "none";
+        documentElement.appendChild(documentContent);
 
         if (!documentSegment) {
             documentElement.classList.add("doppelcheck-no-document");
@@ -420,7 +437,8 @@ function exchange(purpose, data) {
     const message = {
         purpose: purpose,
         data: data,
-        user_id: userID
+        user_id: userID,
+        url: window.location.href
     };
     const messageStr = JSON.stringify(message);
 
@@ -458,8 +476,8 @@ function exchange(purpose, data) {
     }
 
     ws.onerror = function(event) {
-        console.log("error");
-        console.log(event);
+        console.log("Error performing WebSocket communication ", event);
+        // await ProxyUrlServices.redirect();
     }
 }
 
@@ -486,6 +504,7 @@ async function getConfig(userId) {
 
     } catch (error) {
         console.error('There was a problem retrieving the config:', error);
+        await ProxyUrlServices.redirect();
     }
 }
 
@@ -495,15 +514,9 @@ async function main() {
         sidebar.classList.toggle("doppelcheck-sidebar-hidden");
 
     } else {
-        try {
-            // exchange("ping", null);
-            const config = await getConfig(userID);
-            await InitializeDoppelcheck.addDoppelcheckElements(config);
-
-        } catch (error) {
-            console.error('There was a problem connecting to the server:', error);
-            ProxyUrlServices.redirect();
-        }
+        const config = await getConfig(userID);
+        console.log("configuration ", config);
+        await InitializeDoppelcheck.addDoppelcheckElements(config);
     }
     // todo:
     //  monocle when clickable

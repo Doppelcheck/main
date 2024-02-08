@@ -6,7 +6,7 @@ import openai
 from loguru import logger
 from openai.types.chat import ChatCompletionChunk
 
-from tools.configuration import OpenAIParameters
+from tools.data_objects import OpenAIParameters
 
 
 class PromptOpenAI:
@@ -82,6 +82,7 @@ class PromptOpenAI:
             messages = [{"role": "user", "content": prompt}]
             response = await self._client.chat.completions.create(messages=messages, **arguments, stream=True)
             async for each_chunk in response:
+                logger.info(each_chunk)
                 yield each_chunk
 
         except Exception as e:
