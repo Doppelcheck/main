@@ -32,6 +32,10 @@ To start using Doppelcheck:
 
 - Users can always access [doppelcheck.com](https://doppelcheck.com) for immediate use.
 - For enhanced data security or accessibility, users have the option to set up their own server. This involves:
+  - Providing your own API keys:
+    - API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
+    - ID of the Google Custom Search Engine, add a new search engine and get the ID [here](https://programmablesearchengine.google.com/controlpanel/all)
+    - key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
   - ***Either*** getting the latest Docker image from [Docker Hub](https://hub.docker.com/repository/docker/wehnsdaefflae/doppelcheck_main/general) and running it with:
       1. `docker pull wehnsdaefflae/doppelcheck_main`
       2. `docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main`
