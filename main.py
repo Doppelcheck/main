@@ -5,11 +5,12 @@ import pathlib
 import secrets
 import string
 from dataclasses import dataclass
-from os import path
 from typing import Generator, Sequence, AsyncGenerator
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 import httpx
+import lingua
+import nltk
 from fastapi import WebSocket, WebSocketDisconnect, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
@@ -20,13 +21,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai.types.chat import ChatCompletionChunk
 from pydantic import BaseModel
 
+from tools.content_retrieval import bypass_paywall_session, get_context
 from prompts.agent_patterns import extraction, google
-from tools import bypass
+from tools.data_objects import GoogleCustomSearch, UserConfig
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, compile_bookmarklet
-from tools.configuration import delayed_storage, get_user_config, update_llm_config, update_data_config, \
-    GoogleCustomSearch, asdict_recusive, UserConfig
+from tools.configuration import delayed_storage, update_llm_config, update_data_config, \
+    asdict_recusive
+from tools.data_access import get_user_config, set_data_value, get_data_value
 
 app.add_middleware(
     CORSMiddleware,
@@ -123,8 +126,11 @@ class Server:
 
             last_segment = each_segment.segment == "\n"
             last_claim = claim_count >= num_claims
-            logger.info(
-                f"claims: {claim_count} >= {num_claims}, last_claim {last_claim}, last_segment {last_segment}, claim_count {claim_count}")
+            #logger.info(
+            #    f"claims: {claim_count} >= {num_claims}, "
+            #    f"last_claim {last_claim}, "
+            #    f"last_segment {last_segment}, "
+            #    f"claim_count {claim_count}")
             if last_message_segment is not None:
                 if last_segment:
                     yield ClaimSegment(last_message_segment.segment, True, last_claim, claim_count)
@@ -155,9 +161,9 @@ class Server:
         with ui.element("div") as spacer:
             spacer.classes(add="h-16")
         link_html = (
-            f'Drag this <a href="{compiled_bookmarklet}" class="bg-blue-500 hover:bg-blue-700 text-white '
-            f'font-bold py-2 px-4 mx-2 rounded inline-block" onclick="return false;">Doppelcheck</a> to your '
-            f'bookmarks to use it on any website.'
+            f'Drag this <a href="{compiled_bookmarklet}" id="doppelcheck-bookmarklet-name" class="bg-blue-500 '
+            f'hover:bg-blue-700 text-white font-bold py-2 px-4 mx-2 rounded inline-block" onclick="return false;">'
+            f'Doppelcheck</a> to your bookmarks to use it on any website.'
         )
         with ui.html(link_html) as bookmarklet_text:
             bookmarklet_text.classes(add="text-center")
@@ -188,7 +194,19 @@ class Server:
                 self.default_google_key = default_google_key.get("custom_search_api_key")
                 self.default_google_id = default_google_key.get("custom_search_engine_id")
 
+        nltk.download('punkt')
+        detector = lingua.LanguageDetectorBuilder.from_all_languages()
+        self._detector_built = detector.build()
+
         self.httpx_session = httpx.AsyncClient()
+
+    def _detect_language(self, text: str) -> str:
+
+        language = self._detector_built.detect_language_of(text)
+        if language is None:
+            return "en"
+
+        return language.iso_code_639_1.name.lower()
 
     async def get_claims_from_selection(self, text: str) -> Generator[ClaimSegment, None, None]:
         pass
@@ -248,8 +266,10 @@ class Server:
         # https://developers.google.com/custom-search/v1/reference/rest/v1/Search#Result
         return tuple(each_item['link'] for each_item in items)
 
-    async def get_documents(self, claim_id: int, claim_text: str, user_id: str) -> Generator[
-        DocumentSegment, None, None]:
+    async def get_documents(
+            self, claim_id: int, claim_text: str, user_id: str, original_url: str
+    ) -> Generator[DocumentSegment, None, None]:
+
         settings = get_user_config(user_id)
 
         openai_key = settings.openai_api_key
@@ -264,9 +284,10 @@ class Server:
 
         llm_interface = PromptOpenAI(openai_key, parameters)
 
-        prompt = google(claim_text)
+        context = get_data_value(user_id, ("context", original_url))
+        prompt = google(claim_text, context=context)
         response = await llm_interface.reply_to_prompt(prompt)
-        query = extract_code_block(response, "query")
+        query = extract_code_block(response)
 
         uris = await self._get_urls_from_google_query(query, custom_search)
         logger.info(uris)
@@ -278,8 +299,9 @@ class Server:
         for document_id, each_uri in enumerate(uris):
             last_document = document_id >= len(uris) - 1
             try:
-                content = await bypass.bypass_paywall_session(each_uri, self.httpx_session)
+                content = await bypass_paywall_session(each_uri, self.httpx_session)
                 yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
+
             except httpx.HTTPError as e:
                 yield DocumentSegment(str(e), True, last_document, claim_id, document_id, each_uri, success=False)
 
@@ -297,7 +319,8 @@ class Server:
     def setup_routes(self) -> None:
         @app.get("/get_content/")
         async def get_content(url: str) -> HTMLResponse:
-            html_content = bypass.bypass_paywall_session(url, self.httpx_session)
+            url_parsed = unquote(url)
+            html_content = await bypass_paywall_session(url_parsed, self.httpx_session)
             return HTMLResponse(html_content)
 
         @app.post("/get_config/")
@@ -308,7 +331,6 @@ class Server:
                     settings.google_custom_search is None and
                     self.default_google_key is not None and
                     self.default_google_id is not None):
-
                 settings.google_custom_search = GoogleCustomSearch(
                     api_key=self.default_google_key, engine_id=self.default_google_id)
 
@@ -333,20 +355,20 @@ class Server:
                     heading.classes(add="text-2xl font-bold mt-16")
 
                 with delayed_storage(
-                        userid, ui.input, ("name_instance",),
+                        userid, ui.input, ("config", "name_instance"),
                         label="Name", placeholder="name for instance", default=default_config.name_instance
                 ) as text_input:
                     pass
 
                 with delayed_storage(
-                        userid, ui.number, ("claim_count",),
+                        userid, ui.number, ("config", "claim_count"),
                         label="Claim Count", placeholder="number of claims",
                         min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
                 ) as number_input:
                     pass
 
                 with delayed_storage(
-                        userid, ui.select, ("language",),
+                        userid, ui.select, ("config", "language"),
                         label="Language", options=["default", "English", "German", "French", "Spanish"],
                         default=default_config.language
                 ) as language_select:
@@ -419,8 +441,9 @@ class Server:
                 message_str = await websocket.receive_text()
                 message = json.loads(message_str)
                 purpose = message['purpose']
-                data = message['data']
                 user_id = message['user_id']
+                original_url = message['url']
+                data = message['data']
 
                 match purpose:
                     case "ping":
@@ -429,6 +452,13 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
+                        context = await get_context(original_url, self._detect_language)
+                        if context is None:
+                            logger.warning(f"no context for {original_url}")
+                        else:
+                            logger.info(f"context for {original_url}: {context}")
+                            set_data_value(user_id, ("context", original_url), context)
+
                         async for segment in self.get_claims_from_html(data, user_id):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
@@ -437,7 +467,8 @@ class Server:
                     case "retrieve":
                         claim_id = data['id']
                         claim_text = data['text']
-                        async for segment in self.get_documents(claim_id, claim_text, user_id):
+
+                        async for segment in self.get_documents(claim_id, claim_text, user_id, original_url):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)

@@ -1,7 +1,7 @@
 import dataclasses
 import re
 import string
-from typing import Generator, Iterable, AsyncGenerator, Callable
+from typing import Generator, Iterable, AsyncGenerator, Callable, TypeVar
 from urllib import parse
 
 # noinspection PyProtectedMember
@@ -90,8 +90,11 @@ class CodeBlockSegment:
     segment: str
 
 
-async def pipe_codeblock_content[E](
-        stream: AsyncGenerator[E, None], get_text: Callable[[E], str]) -> AsyncGenerator[CodeBlockSegment, None]:
+T = TypeVar("T")
+
+
+async def pipe_codeblock_content(
+        stream: AsyncGenerator[T, None], get_text: Callable[[T], str]) -> AsyncGenerator[CodeBlockSegment, None]:
 
     block_type = ""
     block_index = 0
@@ -159,17 +162,34 @@ async def pipe_codeblock_content[E](
                     state = 5
 
 
-def extract_code_block(text: str, code_type: str = "") -> str:
-    """
-    Extracts the first code block from a string using regular expressions.
-    """
-    pattern = r"```" + code_type + r"\n(.*?)\n```"
-    match = re.search(pattern, text, re.DOTALL)
-    if match:
-        found_match = match.group(1)
-        return found_match.removeprefix(f"```{code_type}").removeprefix("```").removesuffix("```").strip()
-    return ""
-
-
 def compile_bookmarklet(js: str) -> str:
     return "javascript:void%20function(){" + parse.quote(js) + "}();"
+
+
+def extract_code_block(text: str, code_type: str | None = None) -> str:
+    """
+    Extracts the first code block from a string using regular expressions.
+    If code_type is None, it will match any code block.
+    If code_type is an empty string, it will only match code blocks without a specified language.
+    Otherwise, it matches code blocks of the specified type.
+
+    Parameters:
+        text (str): The text from which to extract the code block.
+        code_type (Optional[str]): The type of code block to extract. If None, any code block type will be matched.
+                                   If an empty string, only code blocks without a specified language will be matched.
+
+    Returns:
+        str: The extracted code block content, or an empty string if no match is found.
+    """
+    if code_type is None:
+        pattern = r"```(?:\w*\n)?(.*?)\n```"
+    elif code_type == "":
+        pattern = r"```\n(.*?)\n```"
+    else:
+        code_type = re.escape(code_type)
+        pattern = rf"```{code_type}\n(.*?)\n```"
+
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return ""

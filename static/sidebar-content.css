@@ -64,6 +64,14 @@
 }
 
 
+.doppelcheck-document {
+    /* make the text expand the full width and truncate it with ... if necessary */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
 /* remove bullet points */
 #doppelcheck-shadow-container ul {
     list-style-type: none;
