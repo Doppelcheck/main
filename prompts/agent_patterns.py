@@ -58,7 +58,7 @@ def google(claim: str, context: str | None = None, language: str | None = None) 
     ) if context else ""
 
     context_instruction = (
-        f"Refine your query according to the provided context."
+        f" Refine your query according to the provided context."
     ) if context else ""
 
     language_instruction = f"Respond in {language}" if language else "Respond in the language of the claim"
