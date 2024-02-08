@@ -32,32 +32,37 @@ To start using Doppelcheck:
 
 - Users can always access [doppelcheck.com](https://doppelcheck.com) for immediate use.
 - For enhanced data security or accessibility, users have the option to set up their own server. This involves:
-    1. Installing Python 3.11.6 or higher
-    2. Cloning the repository:
-        1. `git clone https://github.com/Doppelcheck/main`
-    3. (Optional) Creating a virtual environment:
-        1. `cd main`
-        2. `python3 -m venv venv`
-        3. activating it with `source venv/bin/activate`
-    4. Installing dependencies via pip:
-        1. `pip install --upgrade pip`
-        2. `pip install -r requirements.txt`
-    5. Copying the `config.example.json` file to `config.json` and configuring the following settings:
-        1. `[storage_secret]`: random string used to encrypt client data
-    6. Running the server:
-    - once: `python3 main.py`
-    - as a systemd service:
-        1. `sudo cp doppelcheck.example.service doppelcheck.service`
-        2. set `User`, `WorkingDirectory`, `ExecStart`, and `Environment` in `doppelcheck.service` to your needs
-        3. `sudo cp doppelcheck.service /etc/systemd/system/`
-        4. `sudo systemctl enable doppelcheck`
-        5. `sudo systemctl start doppelcheck`
-    7. (Optional) Setting up certbot
-    8. Opening the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
-       and `config.json['nicegui']['port']`
-        - use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
-          and `config.json['nicegui']['ssl_certfile']` (default)
-        - use `http` otherwise
+  - ***Either*** getting the latest Docker image from [Docker Hub](https://hub.docker.com/repository/docker/wehnsdaefflae/doppelcheck_main/general) and running it with:
+      1. `docker pull wehnsdaefflae/doppelcheck_main`
+      2. `docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main`
+      3. Opening the web UI at `https://localhost:8000`
+  - ***Or*** setting up the server manually:
+     1. Installing Python 3.11.6 or higher
+     2. Cloning the repository:
+         1. `git clone https://github.com/Doppelcheck/main`
+     3. (Optional) Creating a virtual environment:
+         1. `cd main`
+         2. `python3 -m venv venv`
+         3. activating it with `source venv/bin/activate`
+     4. Installing dependencies via pip:
+         1. `pip install --upgrade pip`
+         2. `pip install -r requirements.txt`
+     5. Copying the `config.example.json` file to `config.json` and configuring the following settings:
+         1. `[storage_secret]`: random string used to encrypt client data
+     6. Running the server:
+     - once: `python3 main.py`
+     - as a systemd service:
+         1. `sudo cp doppelcheck.example.service doppelcheck.service`
+         2. set `User`, `WorkingDirectory`, `ExecStart`, and `Environment` in `doppelcheck.service` to your needs
+         3. `sudo cp doppelcheck.service /etc/systemd/system/`
+         4. `sudo systemctl enable doppelcheck`
+         5. `sudo systemctl start doppelcheck`
+     7. (Optional) Setting up certbot
+     8. Opening the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
+        and `config.json['nicegui']['port']`
+         - use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
+           and `config.json['nicegui']['ssl_certfile']` (default)
+         - use `http` otherwise
 
 ## Documentation
 
