@@ -299,7 +299,8 @@ class Server:
         for document_id, each_uri in enumerate(uris):
             last_document = document_id >= len(uris) - 1
             try:
-                content = await bypass_paywall_session(each_uri, self.httpx_session)
+                content = "content"
+                # content = await bypass_paywall_session(each_uri, self.httpx_session)
                 yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
 
             except httpx.HTTPError as e:
