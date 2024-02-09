@@ -434,9 +434,6 @@ const CompareDocuments = {
         exchange("compare",
             {claim_id: claimId, claim_text: claimText, document_id: documentId, document_uri: documentUri}
         );
-
-        // alert(`comparison of claim ${claimId} with document ${documentId}`);
-        // when finished set button text to 🟢​ 🟡​ 🟠​ 🔴 🚨
     },
 
     processComparisonMessage(response){
@@ -450,13 +447,27 @@ const CompareDocuments = {
         const matchValue = response.match_value;
 
         const documentSummary = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${claimId}-${documentId}`);
-        documentSummary.textContent = `⏳ match: ${matchValue}`;
+
+        // when finished set button text to 🟢​ 🟡​ 🟠​ 🔴 🚨
+
+        if (matchValue >= 2) {
+            // todo: add fitting emoji
+            documentSummary.textContent = "⏳ 🟩 Strong support";
+        } else if (matchValue >= 1) {
+            documentSummary.textContent = "⏳ 🟨 Some support";
+        } else if (matchValue >= 0) {
+            documentSummary.textContent = "⏳ ⬜️ No mention";
+        } else if (matchValue >= -1) {
+            documentSummary.textContent = "⏳ 🟧​ Some contradiction";
+        } else {
+            documentSummary.textContent = "⏳ 🟥 Strong contradiction";
+        }
 
         const documentExplanation = InitializeDoppelcheck.getElementById(`doppelcheck-document-explanation${claimId}-${documentId}`);
         documentExplanation.textContent += segment;
 
         if (lastSegment && lastMessage) {
-            documentSummary.textContent = `✔️ match: ${matchValue}`;
+            documentSummary.textContent = documentSummary.textContent.replace("⏳ ", "");
         }
     }
 }
