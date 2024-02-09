@@ -44,18 +44,20 @@ To start using Doppelcheck:
      1. Installing Python 3.11.6 or higher
      2. Cloning the repository:
          1. `git clone https://github.com/Doppelcheck/main`
-     3. (Optional) Creating a virtual environment:
+     3. Installing Playwright dependencies: 
+         1. `sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2`
+     4. (Optional) Creating a virtual environment:
          1. `cd main`
          2. `python3 -m venv venv`
          3. activating it with `source venv/bin/activate`
-     4. Installing dependencies via pip:
+     5. Installing dependencies via pip:
          1. `pip install --upgrade pip`
          2. `pip install -r requirements.txt`
-     5. Installing PLaywright browsers:
+     6. Installing PLaywright browsers:
          1. `playwright install`
-     6. Copying the `config.example.json` file to `config.json` and configuring the following settings:
+     7. Copying the `config.example.json` file to `config.json` and configuring the following settings:
          1. `[storage_secret]`: random string used to encrypt client data
-     7. Running the server:
+     8. Running the server:
      - once: `python3 main.py`
      - as a systemd service:
          1. `sudo cp doppelcheck.example.service doppelcheck.service`
@@ -63,8 +65,8 @@ To start using Doppelcheck:
          3. `sudo cp doppelcheck.service /etc/systemd/system/`
          4. `sudo systemctl enable doppelcheck`
          5. `sudo systemctl start doppelcheck`
-     8. (Optional) Setting up certbot
-     9. Opening the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
+     9. (Optional) Setting up certbot
+     10. Opening the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
         and `config.json['nicegui']['port']`
          - use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
            and `config.json['nicegui']['ssl_certfile']` (default)

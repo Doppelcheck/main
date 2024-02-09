@@ -72,8 +72,8 @@ def google(claim: str, context: str | None = None, language: str | None = None) 
         f"Generate the optimal Google search query to get results that allow for the verification of the claim "
         f"above.{context_instruction}\n"
         f"\n"
-        f"Make use of special Google search operators to improve retrieval precision and recall. Do not restrict "
-        f"the query to particular top-level domains like with `site:ru` or similar.\n"
+        f"Make use of special Google search operators to improve result quality. Do not restrict the query to "
+        f"particular top-level domains like with `site:ru` or similar and make sure not to make it too specific.\n"
         f"\n"
         f"IMPORTANT: Split up compound words.\n"
         f"\n"
@@ -86,7 +86,7 @@ def google(claim: str, context: str | None = None, language: str | None = None) 
 
 
 def compare(claim: str, text: str, language: str | None = None) -> str:
-    if language is None:
+    if language is None or language == "default":
         language_instruction = "the language of the claim"
     else:
         language_instruction = language
