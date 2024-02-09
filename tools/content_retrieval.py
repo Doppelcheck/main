@@ -221,7 +221,13 @@ async def get_html_content_from_playwright(document_uri: str) -> str:
         browser = await playwright.firefox.launch()
         context = await browser.new_context(ignore_https_errors=True)
         page = await context.new_page()
-        await page.goto(document_uri)
+        try:
+            await page.goto(document_uri)
+        except playwright._impl._errors.Error as e:
+            logger.error(f"Failed to load page: {e}")
+            await context.close()
+            await browser.close()
+            return ""
         html_content = await page.content()
         await context.close()
         await browser.close()
