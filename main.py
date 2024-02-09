@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import json
 import pathlib
+import random
 import secrets
 import string
 from dataclasses import dataclass
@@ -21,12 +22,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from openai.types.chat import ChatCompletionChunk
 from pydantic import BaseModel
 
-from tools.content_retrieval import bypass_paywall_session, get_context
-from prompts.agent_patterns import extraction, google
+from tools.content_retrieval import bypass_paywall_session, get_context, get_html_content_from_playwright
+from prompts.agent_patterns import extraction, google, compare
 from tools.data_objects import GoogleCustomSearch, UserConfig
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
-    get_text_lines, extract_code_block, compile_bookmarklet
+    get_text_lines, extract_code_block, compile_bookmarklet, shorten_url
 from tools.configuration import delayed_storage, update_llm_config, update_data_config, \
     asdict_recusive
 from tools.data_access import get_user_config, set_data_value, get_data_value
@@ -77,6 +78,9 @@ class DocumentSegment(MessageSegment):
 
 @dataclass
 class ComparisonSegment(MessageSegment):
+    claim_id: int
+    document_id: int
+    match_value: int
     purpose: str = "compare"
 
 
@@ -126,11 +130,6 @@ class Server:
 
             last_segment = each_segment.segment == "\n"
             last_claim = claim_count >= num_claims
-            #logger.info(
-            #    f"claims: {claim_count} >= {num_claims}, "
-            #    f"last_claim {last_claim}, "
-            #    f"last_segment {last_segment}, "
-            #    f"claim_count {claim_count}")
             if last_message_segment is not None:
                 if last_segment:
                     yield ClaimSegment(last_message_segment.segment, True, last_claim, claim_count)
@@ -140,9 +139,34 @@ class Server:
                     yield ClaimSegment(last_message_segment.segment, False, last_claim, claim_count)
 
             claim_count += int(last_segment)
+            last_message_segment = each_segment        # last_message_segment contains only \n, can be ignored
 
-            last_message_segment = each_segment
-        # last_message_segment contains only \n, can be ignored
+    @staticmethod
+    async def _stream_matches_to_browser(
+            response: AsyncGenerator[ChatCompletionChunk, None], claim_id: int, document_id: int
+    ) -> Generator[ComparisonSegment, None, None]:
+
+        last_segment = None
+
+        match_value = 0
+        match_value_str = ""
+        match_found = False
+        async for each_segment in pipe_codeblock_content(response, lambda chunk: chunk.choices[0].delta.content):
+            for each_char in each_segment.segment:
+                if each_char == "\n":
+                    match_found = True
+                    match_value = int(match_value_str.strip())
+
+                elif not match_found:
+                    match_value_str += each_char
+
+                elif last_segment is not None:
+                    yield last_segment
+
+                last_segment = ComparisonSegment(each_char, False, True, claim_id, document_id, match_value)
+
+        last_segment.last_segment = True
+        yield last_segment
 
     @staticmethod
     def _install_section(userid: str, address: str, video: bool = True) -> None:
@@ -198,10 +222,24 @@ class Server:
         detector = lingua.LanguageDetectorBuilder.from_all_languages()
         self._detector_built = detector.build()
 
-        self.httpx_session = httpx.AsyncClient()
+        # self.httpx_session = httpx.AsyncClient()
+
+    def _get_llm(self, settings: UserConfig) -> PromptOpenAI:
+        openai_key = settings.openai_api_key
+        if openai_key is None or len(openai_key) < 1:
+            openai_key = self.default_openai_key
+        parameters = settings.openai_parameters
+        llm_interface = PromptOpenAI(openai_key, parameters)
+        return llm_interface
+
+    async def _get_uris(self, query: str, settings: UserConfig) -> tuple[str, ...]:
+        custom_search = settings.google_custom_search
+        if custom_search is None:
+            custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
+        uris = await self._get_urls_from_google_query(query, custom_search)
+        return uris
 
     def _detect_language(self, text: str) -> str:
-
         language = self._detector_built.detect_language_of(text)
         if language is None:
             return "en"
@@ -213,13 +251,7 @@ class Server:
 
     async def get_claims_from_html(self, body_html: str, user_id: str) -> Generator[ClaimSegment, None, None]:
         settings = get_user_config(user_id)
-        openai_key = settings.openai_api_key
-        if openai_key is None or len(openai_key) < 1:
-            openai_key = self.default_openai_key
-
-        parameters = settings.openai_parameters
-
-        llm_interface = PromptOpenAI(openai_key, parameters)
+        llm_interface = self._get_llm(settings)
 
         claim_count = settings.claim_count
         language = settings.language
@@ -233,8 +265,8 @@ class Server:
             yield each_segment
 
     async def _get_urls_from_google_query(
-            self, search_query: str, custom_search: GoogleCustomSearch
-    ) -> tuple[str, ...]:
+            self, search_query: str, custom_search: GoogleCustomSearch) -> tuple[str, ...]:
+
         url = "https://www.googleapis.com/customsearch/v1"
         # https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list#response
         # todo: use llm to craft parameter dict
@@ -271,25 +303,16 @@ class Server:
     ) -> Generator[DocumentSegment, None, None]:
 
         settings = get_user_config(user_id)
-
-        openai_key = settings.openai_api_key
-        if openai_key is None or len(openai_key) < 1:
-            openai_key = self.default_openai_key
-
-        parameters = settings.openai_parameters
-
-        custom_search = settings.google_custom_search
-        if custom_search is None:
-            custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
-
-        llm_interface = PromptOpenAI(openai_key, parameters)
+        llm_interface = self._get_llm(settings)
 
         context = get_data_value(user_id, ("context", original_url))
-        prompt = google(claim_text, context=context)
+        language = settings.language
+        prompt = google(claim_text, context=context, language=language)
         response = await llm_interface.reply_to_prompt(prompt)
         query = extract_code_block(response)
 
-        uris = await self._get_urls_from_google_query(query, custom_search)
+        uris = await self._get_uris(query, settings)
+        uris = tuple(each_uri for each_uri in uris if each_uri != original_url)
         logger.info(uris)
 
         if len(uris) < 1:
@@ -298,30 +321,60 @@ class Server:
 
         for document_id, each_uri in enumerate(uris):
             last_document = document_id >= len(uris) - 1
-            try:
-                content = "content"
-                # content = await bypass_paywall_session(each_uri, self.httpx_session)
-                yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
+            content = shorten_url(each_uri)
+            yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
 
-            except httpx.HTTPError as e:
-                yield DocumentSegment(str(e), True, last_document, claim_id, document_id, each_uri, success=False)
+    async def _get_uris(self, query: str, settings: UserConfig) -> tuple[str, ...]:
+        custom_search = settings.google_custom_search
+        if custom_search is None:
+            custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
+        uris = await self._get_urls_from_google_query(query, custom_search)
+        return uris
 
-    async def get_comparisons_dummy(self, claim_id: int, claim: str, document_uri: str) -> Generator[
-        ComparisonSegment, None, None]:
-        for i in range(5):
-            text = f"Comparison {i}, ({document_uri} vs {claim_id})"
-            last_comparison = i >= 4
-            for j, each_character in enumerate(text):
-                await asyncio.sleep(.1)
-                last_segment = j >= len(text) - 1
-                message_segment = ComparisonSegment(each_character, last_segment, last_comparison)
-                yield message_segment
+    async def get_matches_dummy(
+            self, user_id: str, claim_id: int, claim: str, document_id: int, document_uri: str
+    ) -> Generator[ComparisonSegment, None, None]:
+        """
+        ```
+        +1
+        <explanation>
+        ```
+        """
+
+        text = f"Comparison: [{document_uri}] vs [{claim_id}]"
+        each_match = random.randint(-2, 2)
+
+        for j, each_character in enumerate(text):
+            await asyncio.sleep(.1)
+            last_segment = j >= len(text) - 1
+            message_segment = ComparisonSegment(
+                each_character, last_segment, True, claim_id, document_id, each_match
+            )
+            yield message_segment
+
+    async def get_matches(
+            self, user_id: str, claim_id: int, claim: str, document_id: int, document_uri: str
+    ) -> Generator[ComparisonSegment, None, None]:
+        settings = get_user_config(user_id)
+        language = settings.language
+
+        document_html = await get_html_content_from_playwright(document_uri)
+
+        node_generator = text_node_generator(document_html)
+        document_text = "".join(node_generator)
+
+        prompt = compare(claim, document_text, language=language)
+        llm_interface = self._get_llm(settings)
+        response = llm_interface.stream_reply_to_prompt(prompt)
+
+        async for each_segment in Server._stream_matches_to_browser(response, claim_id, document_id):
+            yield each_segment
 
     def setup_routes(self) -> None:
         @app.get("/get_content/")
         async def get_content(url: str) -> HTMLResponse:
             url_parsed = unquote(url)
-            html_content = await bypass_paywall_session(url_parsed, self.httpx_session)
+            html_content = await bypass_paywall_session(url_parsed)
             return HTMLResponse(html_content)
 
         @app.post("/get_config/")
@@ -477,8 +530,10 @@ class Server:
                     case "compare":
                         claim_id = data['claim_id']
                         claim_text = data['claim_text']
-                        document_uri = data['document_id']
-                        async for segment in self.get_comparisons_dummy(claim_id, claim_text, document_uri):
+                        document_id = data['document_id']
+                        document_uri = data['document_uri']
+                        async for segment in self.get_matches(
+                                user_id, claim_id, claim_text, document_id, document_uri):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)

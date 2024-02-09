@@ -81,6 +81,13 @@ def update_llm_config(user_id: str, llm_config: Element, value: str) -> None:
             pass
 
         case "ollama":
+            # https://github.com/ollama/ollama-python
+            # https://github.com/ollama/ollama/blob/main/docs/api.md
+            # https://github.com/ollama/ollama
+            pass
+
+        case "llamafile":
+            # https://github.com/Mozilla-Ocho/llamafile
             pass
 
     with llm_config:

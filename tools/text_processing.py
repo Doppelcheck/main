@@ -4,9 +4,11 @@ import string
 from typing import Generator, Iterable, AsyncGenerator, Callable, TypeVar
 from urllib import parse
 
+from loguru import logger
 # noinspection PyProtectedMember
 from lxml.etree import _Element as XmlElement
 from lxml import etree
+import re
 
 
 EXCLUDED_TAGS = {
@@ -36,6 +38,9 @@ def is_excluded(node: XmlElement) -> bool:
 def text_node_generator(html_content: str) -> Generator[str, None, None]:
     parser = etree.HTMLParser()
     tree = etree.fromstring(html_content, parser=parser)
+    if tree is None:
+        logger.error("Failed to parse HTML content")
+        return
 
     for node in tree.iter():
         if is_excluded(node):
@@ -193,3 +198,7 @@ def extract_code_block(text: str, code_type: str | None = None) -> str:
     if match:
         return match.group(1).strip()
     return ""
+
+
+def shorten_url(url: str) -> str:
+    return re.sub(r'^(https?://)?(www\.)?', '', url)

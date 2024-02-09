@@ -229,15 +229,10 @@ const ExtractClaims = {
 
         const getDocumentsButton = document.createElement("button");
         getDocumentsButton.innerText = "Retrieve Documents";
+        getDocumentsButton.id = `doppelcheck-retrieve-buttom${claimId}`;
         getDocumentsButton.onclick = function () {
-            getDocumentsButton.remove();
-
-            const progressImage = document.createElement("img");
-            progressImage.id = `doppelcheck-retrieval-progress-image${claimId}`;
-            progressImage.classList.add("doppelcheck-retrieval-progress-image");
-            progressImage.src = `https://${address}/static/images/processing_small.gif`;
-            progressImage.alt = "Retrieving documents...";
-            eachClaimContainer.appendChild(progressImage);
+            getDocumentsButton.disabled = true;
+            getDocumentsButton.innerText = "Retrieving Documents...";
 
             RetrieveDocuments.getDocuments(claimId);
         }
@@ -305,11 +300,11 @@ const ExtractClaims = {
 
 const RetrieveDocuments = {
     addDocument(claimId, documentId, documentsContainer) {
-        const documentElement = document.createElement("li");
-        documentElement.classList.add("doppelcheck-document");
-        documentElement.id = `doppelcheck-document${claimId}-${documentId}`;
-        documentsContainer.appendChild(documentElement);
-        return documentElement;
+        const documentContainer = document.createElement("li");
+        documentContainer.classList.add("doppelcheck-document-container");
+        documentContainer.id = `doppelcheck-document${claimId}-${documentId}`;
+        documentsContainer.appendChild(documentContainer);
+        return documentContainer;
     },
 
     getDocuments(claimId) {
@@ -337,17 +332,6 @@ const RetrieveDocuments = {
         return documentsContainer;
     },
 
-    truncateString(str, n) {
-        if (n < str.length) {
-            return str.substring(0, n) + '...';
-        }
-        return str;
-    },
-
-    shortenUrl(url) {
-         return url.replace(/^(https?:\/\/)?(www\.)?/, '');
-    },
-
     processRetrievalMessage(response) {
         console.log("retrieval");
 
@@ -366,50 +350,47 @@ const RetrieveDocuments = {
             documentsContainer = RetrieveDocuments.addDocumentsContainer(claimId);
         }
 
-        const documentElement = RetrieveDocuments.addDocument(claimId, documentId, documentsContainer);
-
-        const compareButton = document.createElement("button");
-        compareButton.id = `doppelcheck-compare-button${claimId}-${documentId}`;
-        compareButton.classList.add("doppelcheck-compare-button");
-        documentElement.appendChild(compareButton);
+        const documentContainer = RetrieveDocuments.addDocument(claimId, documentId, documentsContainer);
+        const buttonContainer = document.createElement("div");
+        buttonContainer.id = `doppelcheck-button-container${claimId}-${documentId}`;
 
         if (success) {
-            compareButton.textContent = "🧐";
-            compareButton.onclick = function () {
-                compareButton.textContent = "⏳";
-                compareButton.disabled = true;
-                CompareDocuments.initiateComparison(documentElement.textContent, claimId, documentId);
-            }
             const link = document.createElement("a");
-            link.classList.add("doppelcheck-document");
+            link.id = `doppelcheck-document-link${claimId}-${documentId}`;
             link.href = documentUri;
             link.target = "_blank";
-            // link.textContent = RetrieveDocuments.truncateString(documentUri, 20);
-            link.textContent = RetrieveDocuments.shortenUrl(documentUri);
-            documentElement.appendChild(link);
+            link.textContent = documentSegment;
+            documentContainer.appendChild(link);
+
+            const compareButton = document.createElement("button");
+            compareButton.id = `doppelcheck-compare-button${claimId}-${documentId}`;
+            compareButton.classList.add("doppelcheck-compare-button");
+            buttonContainer.appendChild(compareButton);
+            compareButton.textContent = "Compare to claim";
+            compareButton.onclick = function () {
+                compareButton.disabled = true;
+                CompareDocuments.initiateComparison(claimId, documentId);
+            }
 
         } else {
-            compareButton.textContent = "🚫";
-            compareButton.disabled = true;
             const text = document.createElement("span");
             text.classList.add("doppelcheck-document");
-            text.textContent = RetrieveDocuments.shortenUrl(documentUri);
-            documentElement.appendChild(text);
+            text.textContent = documentSegment;
+            buttonContainer.appendChild(text);
+
+            const compareButton = document.createElement("button");
+            compareButton.id = `doppelcheck-compare-button${claimId}-${documentId}`;
+            compareButton.classList.add("doppelcheck-compare-button");
+            documentContainer.appendChild(compareButton);
+            compareButton.textContent = "Document content cannot be retrieved";
+            compareButton.disabled = true;
         }
 
-        const documentContent = document.createElement("div");
-        documentContent.classList.add(`doppelcheck-document-content-${claimId}-${documentId}`);
-        documentContent.textContent = documentSegment;
-        documentContent.style.display = "none";
-        documentElement.appendChild(documentContent);
-
-        if (!documentSegment) {
-            documentElement.classList.add("doppelcheck-no-document");
-        }
+        documentContainer.appendChild(buttonContainer);
 
         if (lastMessage) {
-            const progressImage = InitializeDoppelcheck.getElementById(`doppelcheck-retrieval-progress-image${claimId}`);
-            progressImage.remove();
+            const retrieveButton = InitializeDoppelcheck.getElementById(`doppelcheck-retrieve-buttom${claimId}`);
+            retrieveButton.remove();
 
             const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
             if (!claim.classList.contains("doppelcheck-no-document")) {
@@ -420,14 +401,63 @@ const RetrieveDocuments = {
 }
 
 const CompareDocuments = {
-    initiateComparison(documentText, claimId, documentId) {
-        alert(`comparison of claim ${claimId} with document ${documentId}`);
-        // 🟢​ 🟡​ 🟠​ 🔴 🚨
+    initiateComparison(claimId, documentId) {
+        const documentContainer = InitializeDoppelcheck.getElementById(`doppelcheck-document${claimId}-${documentId}`);
+        const claimContainer = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
+        const buttonContainer = InitializeDoppelcheck.getElementById(`doppelcheck-button-container${claimId}-${documentId}`);
+        buttonContainer.remove();
+
+        const documentDetails = document.createElement("details");
+        documentDetails.id = `doppelcheck-document-details${claimId}-${documentId}`;
+        documentDetails.classList.add("doppelcheck-document-details");
+        documentContainer.appendChild(documentDetails);
+
+        const documentSummary = document.createElement("summary");
+        documentSummary.id = `doppelcheck-document-summary${claimId}-${documentId}`;
+        documentSummary.classList.add("doppelcheck-document-summary");
+        documentSummary.textContent = "⏳";
+        documentDetails.appendChild(documentSummary);
+
+        const documentExplanation = document.createElement("div");
+        documentExplanation.id = `doppelcheck-document-explanation${claimId}-${documentId}`;
+        documentExplanation.classList.add("doppelcheck-document-explanation", "doppelcheck-explanation-container");
+        documentDetails.appendChild(documentExplanation);
+
+        const documentLink = InitializeDoppelcheck.getElementById(`doppelcheck-document-link${claimId}-${documentId}`);
+        if (!documentLink) {
+            alert(`Document URI not found for claim ${claimId} and document ${documentId}`);
+            return;
+        }
+        const documentUri = documentLink.href;
+
+        const claimText = claimContainer.textContent;
+        exchange("compare",
+            {claim_id: claimId, claim_text: claimText, document_id: documentId, document_uri: documentUri}
+        );
+
+        // alert(`comparison of claim ${claimId} with document ${documentId}`);
+        // when finished set button text to 🟢​ 🟡​ 🟠​ 🔴 🚨
     },
 
     processComparisonMessage(response){
         console.log("comparison");
-        console.log(data);
+
+        const segment = response.segment;
+        const lastSegment = response.last_segment;
+        const lastMessage = response.last_message;
+        const claimId = response.claim_id;
+        const documentId = response.document_id;
+        const matchValue = response.match_value;
+
+        const documentSummary = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${claimId}-${documentId}`);
+        documentSummary.textContent = `⏳ match: ${matchValue}`;
+
+        const documentExplanation = InitializeDoppelcheck.getElementById(`doppelcheck-document-explanation${claimId}-${documentId}`);
+        documentExplanation.textContent += segment;
+
+        if (lastSegment && lastMessage) {
+            documentSummary.textContent = `✔️ match: ${matchValue}`;
+        }
     }
 }
 
