@@ -23,8 +23,6 @@
 }
 
 .doppelcheck-compare-button {
-    width: 2em;
-    height: 2em;
 }
 
 /* Different semi-transparent highlight colors */
@@ -63,19 +61,17 @@
     cursor: pointer;
 }
 
-
-.doppelcheck-document {
+.doppelcheck-document-container {
     /* make the text expand the full width and truncate it with ... if necessary */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100%;
+    margin-top: 1em;
 }
 
-/* remove bullet points */
-#doppelcheck-shadow-container ul {
-    list-style-type: none;
-    padding: 0;
+.doppelcheck-explanation-container {
+    white-space: break-spaces;
 }
 
 #doppelcheck-shadow-container summary {

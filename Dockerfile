@@ -8,7 +8,7 @@ WORKDIR /app
 COPY . /app
 
 # Install dependencies via pip
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt && playwright install
 
 # Copy the config.example.json to config.json
 COPY config.example.json config.json

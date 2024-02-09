@@ -16,3 +16,7 @@ httpx~=0.25.2
 webdriver-manager~=4.0.1
 pip-system-certs~=4.0
 python-certifi-win32~=1.6.1
+requests-html~=0.10.0
+playwright~=1.41.2
+fastapi~=0.109.2
+bs4~=0.0.2

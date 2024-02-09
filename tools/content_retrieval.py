@@ -1,6 +1,7 @@
-import asyncio
 from typing import Callable
 from urllib.parse import quote, urlparse
+
+import bs4
 
 import httpx
 import newspaper
@@ -9,6 +10,7 @@ from loguru import logger
 from newspaper import network
 from newspaper.article import ArticleDownloadState
 from newspaper.utils import extract_meta_refresh
+from playwright.async_api import async_playwright, Playwright
 
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -17,7 +19,7 @@ header = {
 
 
 class AsyncArticle(newspaper.Article):
-    async def async_download(self, session: httpx.AsyncClient, input_html=None, title=None, recursion_counter=0) -> None:
+    async def async_download(self, input_html=None, title=None, recursion_counter=0) -> None:
         """Downloads the link's HTML content asynchronously, don't use if you are batch async
         downloading articles
 
@@ -26,7 +28,7 @@ class AsyncArticle(newspaper.Article):
         """
         if input_html is None:
             try:
-                html = await bypass_paywall_session(self.url, session)
+                html = await bypass_paywall_session(self.url)
             except httpx.HTTPError as e:
                 self.download_state = ArticleDownloadState.FAILED_RESPONSE
                 self.download_exception_msg = str(e)
@@ -50,8 +52,7 @@ async def parse_url(url: str, detect_language: Callable[[str], str]) -> newspape
     # article = newspaper.Article(url, fetch_images=False)
     article = AsyncArticle(url, fetch_images=False)
     # article.download()
-    session = httpx.AsyncClient()
-    await article.async_download(session)
+    await article.async_download()
 
     article.parse()
     language = detect_language(article.text)
@@ -184,10 +185,24 @@ def bypass_paywall(url: str) -> str:
     return response.text
 
 
-async def bypass_paywall_session(url: str, session: httpx.AsyncClient) -> str:
+async def bypass_paywall_session(url: str) -> str:
+    html_content = await get_html_content_from_playwright(url)
+    return remove_images(html_content)
+
+
+def remove_images(html: str) -> str:
+    soup = bs4.BeautifulSoup(html, 'html.parser')
+    for each_element in soup.find_all('img'):
+        each_element.decompose()
+
+    for each_element in soup.find_all('svg'):
+        each_element.decompose()
+
+    return str(soup)
+
+
+async def use_googlebot(url: str, session: httpx.AsyncClient) -> str:
     response = await session.get(url, headers=header)
-    # new_url = outline_12ft(url)
-    # response = await session.get(new_url)
     return response.text
 
 
@@ -199,3 +214,15 @@ async def get_context(original_url: str, detect_language: Callable[[str], str]) 
     if article.publish_date is not None:
         context += f"\n\npublished on {article.publish_date}"
     return context
+
+
+async def get_html_content_from_playwright(document_uri: str) -> str:
+    async with async_playwright() as playwright:
+        browser = await playwright.firefox.launch()
+        context = await browser.new_context(ignore_https_errors=True)
+        page = await context.new_page()
+        await page.goto(document_uri)
+        html_content = await page.content()
+        await context.close()
+        await browser.close()
+        return html_content

@@ -51,9 +51,11 @@ To start using Doppelcheck:
      4. Installing dependencies via pip:
          1. `pip install --upgrade pip`
          2. `pip install -r requirements.txt`
-     5. Copying the `config.example.json` file to `config.json` and configuring the following settings:
+     5. Installing PLaywright browsers:
+         1. `playwright install`
+     6. Copying the `config.example.json` file to `config.json` and configuring the following settings:
          1. `[storage_secret]`: random string used to encrypt client data
-     6. Running the server:
+     7. Running the server:
      - once: `python3 main.py`
      - as a systemd service:
          1. `sudo cp doppelcheck.example.service doppelcheck.service`
@@ -61,8 +63,8 @@ To start using Doppelcheck:
          3. `sudo cp doppelcheck.service /etc/systemd/system/`
          4. `sudo systemctl enable doppelcheck`
          5. `sudo systemctl start doppelcheck`
-     7. (Optional) Setting up certbot
-     8. Opening the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
+     8. (Optional) Setting up certbot
+     9. Opening the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
         and `config.json['nicegui']['port']`
          - use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
            and `config.json['nicegui']['ssl_certfile']` (default)

@@ -83,3 +83,39 @@ def google(claim: str, context: str | None = None, language: str | None = None) 
         f"[query]\n"
         f"```\n"
     )
+
+
+def compare(claim: str, text: str, language: str | None = None) -> str:
+    if language is None:
+        language_instruction = "the language of the claim"
+    else:
+        language_instruction = language
+
+    return (
+        f"Carefully read the following claim and text. Your task is to assess how well the text matches the claim.\n"
+        f"\n"
+        f"```claim\n"
+        f"{claim}\n"
+        f"```\n"
+        f"\n"
+        f"```text\n"
+        f"{text}\n"
+        f"```\n"
+        f"\n"
+        f"Assign a score based on the following scale:\n"
+        f"  +2: The text strongly supports the claim\n"
+        f"  +1: The text generally supports the claim, with some limitations or minor contradictions\n"
+        f"   0: The text neither clearly supports nor contradicts the claim, or it's unclear\n"
+        f"  -1: The text contradicts the claim but not completely\n"
+        f"  -2: The text is in strong opposition to the claim\n"
+        f"\n"
+        f"IMPORTANT: Do not assess the correctness of the claim itself or of the text, determine only the semantic "
+        f"match between claim and text!\n"
+        f"\n"
+        f"Also provide one sentence of explanation for your rating. Respond in {language_instruction} and answer with "
+        f"a single triple single quote fenced code block according to the following pattern.\n"
+        f"```\n"
+        f"+1\n"
+        f"<explanation>\n"
+        f"```\n"
+    )
