@@ -7,6 +7,10 @@ WORKDIR /app
 # Copies the local code to the container
 COPY . /app
 
+# Install the required dependencies
+RUN apt-get update && apt-get install -y libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0  \
+    libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2
+
 # Install dependencies via pip
 RUN pip install --upgrade pip && pip install -r requirements.txt && playwright install
 
