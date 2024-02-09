@@ -20,7 +20,10 @@ from nicegui import ui, app, Client
 
 from fastapi.middleware.cors import CORSMiddleware
 from openai.types.chat import ChatCompletionChunk
+from playwright.async_api import async_playwright, BrowserContext
 from pydantic import BaseModel
+
+from playwright._impl._errors import Error as PlaywrightError
 
 from tools.content_retrieval import bypass_paywall_session, get_context, get_html_content_from_playwright
 from prompts.agent_patterns import extraction, google, compare
@@ -92,6 +95,20 @@ class Doc:
 
 
 class Server:
+    @staticmethod
+    async def _retrieve_text_deprecated(claim_id: int, context: BrowserContext, url: str) -> Doc:
+        page = await context.new_page()
+        try:
+            await page.goto(url)
+        except PlaywrightError as e:
+            return Doc(claim_id=claim_id, uri=url, content=None)
+
+        html = await page.content()
+        await page.wait_for_load_state("domcontentloaded")
+        await page.wait_for_load_state("networkidle")
+        full_text_lines = "".join(text_node_generator(html))
+        return Doc(claim_id=claim_id, uri=url, content=full_text_lines)
+
     @staticmethod
     async def _get_address(client: Client) -> str:
         await client.connected()
@@ -297,6 +314,38 @@ class Server:
 
         # https://developers.google.com/custom-search/v1/reference/rest/v1/Search#Result
         return tuple(each_item['link'] for each_item in items)
+
+    async def get_documents_deprecated(
+            self, user_id: str, claim_id: int, claim_text: str, original_url: str
+    ) -> Generator[DocumentSegment, None, None]:
+        settings = get_user_config(user_id)
+        llm_interface = self._get_llm(settings)
+
+        prompt = google(claim_text)
+        response = await llm_interface.reply_to_prompt(prompt)
+        query = extract_code_block(response, "query")
+
+        uris = await self._get_uris(query, settings)
+        uris = tuple(each_uri for each_uri in uris if each_uri != original_url)
+
+        logger.info(uris)
+        if len(uris) < 1:
+            raise logger.warning(f"no uris found for {query}")
+
+        async with async_playwright() as driver:
+            # browser = await driver.firefox.launch(headless=False)
+            browser = await driver.firefox.launch(headless=True)
+            context = await browser.new_context()
+            tasks = [asyncio.create_task(Server._retrieve_text_deprecated(claim_id, context, each_url)) for each_url in uris]
+            for document_id, task in enumerate(asyncio.as_completed(tasks)):
+                each_doc: Doc = await task
+                last_document = document_id >= len(uris) - 1
+                document = DocumentSegment(each_doc.content, True, last_document, claim_id, document_id, each_doc.uri)
+                yield document
+
+            await asyncio.sleep(1)
+            await context.close()
+            await browser.close()
 
     async def get_documents(
             self, claim_id: int, claim_text: str, user_id: str, original_url: str
