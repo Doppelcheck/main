@@ -1,5 +1,6 @@
 const address = "[localhost:8000]";
 const userID = "[unique user identification]";
+const versionClient = "0.1.0";
 
 
 const ProxyUrlServices = {
@@ -525,7 +526,7 @@ function exchange(purpose, data) {
 
 async function getConfig(userId) {
     const configUrl = `https://${address}/get_config/`;
-    const userData = { user_id: userId };
+    const userData = { user_id: userId, version: versionClient };
 
     try {
         const response = await fetch(configUrl, {
@@ -557,11 +558,21 @@ async function main() {
     } else {
         const config = await getConfig(userID);
         console.log("configuration ", config);
-        await InitializeDoppelcheck.addDoppelcheckElements(config);
+
+        if (config.errorVersionMismatch || config.versionServer !== versionClient) {
+            alert(
+                `Doppelcheck version mismatch.\n
+                \n
+                Server version: ${config.versionServer}, bookmarklet version: ${versionClient}.\n
+                \n
+                Please update your bookmarklet from https://${address}/config/${userID}.`);
+
+            window.open(`https://${address}/config/${userID}`);
+
+        } else {
+            await InitializeDoppelcheck.addDoppelcheckElements(config);
+        }
     }
-    // todo:
-    //  monocle when clickable
-    //  replace checkmark with "done" emoji
 }
 
 

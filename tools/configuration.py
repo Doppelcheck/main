@@ -2,6 +2,8 @@ import dataclasses
 from contextlib import contextmanager
 from typing import Callable, Sequence
 
+from fastapi.responses import RedirectResponse
+
 from loguru import logger
 from nicegui import ui
 from nicegui.element import Element
