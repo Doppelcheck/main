@@ -35,6 +35,10 @@ from tools.configuration import delayed_storage, update_llm_config, update_data_
     asdict_recusive
 from tools.data_access import get_user_config, set_data_value, get_data_value
 
+
+VERSION = "0.0.1"
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -422,14 +426,31 @@ class Server:
     def setup_routes(self) -> None:
         @app.get("/get_content/")
         async def get_content(url: str) -> HTMLResponse:
+            """
+            const urlEncoded = encodeURIComponent(originalUrl);
+            return `https://${address}/get_content/?url=${urlEncoded}`;
+            """
             url_parsed = unquote(url)
             html_content = await bypass_paywall_session(url_parsed)
             return HTMLResponse(html_content)
 
         @app.post("/get_config/")
         async def get_config(user_data: User = Body(...)) -> dict:
+            """
+            const configUrl = `https://${address}/get_config/`;
+            const userData = { user_id: userId };
+            """
             logger.info(f"getting settings for {user_data.user_id}")
             settings = get_user_config(user_data.user_id)
+            client_version = user_data.version
+            if client_version != VERSION:
+                logger.warning(f"client version {client_version} does not match server version {VERSION}")
+                return {
+                    "errorVersionMismatch": "client version does not match server version",
+                    "versionServer": VERSION,
+                }
+
+            # todo: check if settings are complete, get from system settings if not
             if (
                     settings.google_custom_search is None and
                     self.default_google_key is not None and
@@ -441,10 +462,14 @@ class Server:
                 settings.openai_api_key = self.default_openai_key
 
             settings_dict = asdict_recusive(settings)
+            settings_dict["version"] = VERSION
             return settings_dict
 
         @ui.page("/config/{userid}")
         async def config(userid: str, client: Client) -> None:
+            """
+            configure.href = `https://${address}/config/${userID}`;
+            """
             address = await Server._get_address(client)
 
             default_config = UserConfig()
@@ -531,6 +556,13 @@ class Server:
         async def bookmarklet(client: Client) -> None:
             address = await Server._get_address(client)
             secret = secrets.token_urlsafe(32)
+
+            with ui.header() as header:
+                header.classes(add="bg-transparent text-white flex justify-end")
+                with ui.button("Admin Login") as login_button:
+                    # connect to login
+                    # https://github.com/zauberzeug/nicegui/blob/main/examples/authentication/main.py
+                    pass
 
             with ui.element("div") as container:
                 container.classes(add="w-full max-w-2xl m-auto")
