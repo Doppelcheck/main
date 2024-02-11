@@ -10,7 +10,8 @@ from loguru import logger
 from newspaper import network
 from newspaper.article import ArticleDownloadState
 from newspaper.utils import extract_meta_refresh
-from playwright.async_api import async_playwright, Playwright
+from playwright.async_api import async_playwright
+from playwright._impl._errors import Error as PlaywrightError
 
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -223,11 +224,11 @@ async def get_html_content_from_playwright(document_uri: str) -> str:
         page = await context.new_page()
         try:
             await page.goto(document_uri)
-        except playwright._impl._errors.Error as e:
+        except PlaywrightError as e:
             logger.error(f"Failed to load page: {e}")
             await context.close()
             await browser.close()
-            return ""
+            return str(e)
         html_content = await page.content()
         await context.close()
         await browser.close()

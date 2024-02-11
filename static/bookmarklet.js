@@ -1,6 +1,6 @@
 const address = "[localhost:8000]";
 const userID = "[unique user identification]";
-const versionClient = "0.1.0";
+const versionClient = "[version number]";
 
 
 const ProxyUrlServices = {
@@ -527,6 +527,7 @@ function exchange(purpose, data) {
 async function getConfig(userId) {
     const configUrl = `https://${address}/get_config/`;
     const userData = { user_id: userId, version: versionClient };
+    console.log("user data ", userData)
 
     try {
         const response = await fetch(configUrl, {
@@ -560,12 +561,7 @@ async function main() {
         console.log("configuration ", config);
 
         if (config.errorVersionMismatch || config.versionServer !== versionClient) {
-            alert(
-                `Doppelcheck version mismatch.\n
-                \n
-                Server version: ${config.versionServer}, bookmarklet version: ${versionClient}.\n
-                \n
-                Please update your bookmarklet from https://${address}/config/${userID}.`);
+            alert(`Doppelcheck version mismatch.\n\nServer version: ${config.versionServer}, bookmarklet version: ${versionClient}.\n\nPlease update your bookmarklet from https://${address}/config/${userID}.`);
 
             window.open(`https://${address}/config/${userID}`);
 
