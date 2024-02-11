@@ -34,6 +34,7 @@ from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_co
 from tools.configuration import delayed_storage, update_llm_config, update_data_config, \
     asdict_recusive
 from tools.data_access import get_user_config, set_data_value, get_data_value
+import uvicorn
 
 
 VERSION = "0.0.1"

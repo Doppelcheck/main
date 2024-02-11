@@ -20,3 +20,4 @@ requests-html~=0.10.0
 playwright~=1.41.2
 fastapi~=0.109.2
 bs4~=0.0.2
+uvicorn~=0.27.1
