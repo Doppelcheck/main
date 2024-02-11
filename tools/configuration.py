@@ -5,7 +5,7 @@ from typing import Callable, Sequence
 from fastapi.responses import RedirectResponse
 
 from loguru import logger
-from nicegui import ui
+from nicegui import ui, Client
 from nicegui.element import Element
 
 from dataclasses import dataclass
