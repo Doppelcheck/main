@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from typing import Generator, Sequence, AsyncGenerator
 from urllib.parse import urlparse, unquote
 
+from playwright._impl._errors import Error as PlaywrightError
+
 import httpx
 import lingua
 import nltk
@@ -23,8 +25,7 @@ from openai.types.chat import ChatCompletionChunk
 from playwright.async_api import async_playwright, BrowserContext
 from pydantic import BaseModel
 
-from playwright._impl._errors import Error as PlaywrightError
-
+from _experiments.pw import PlaywrightBrowser
 from tools.content_retrieval import bypass_paywall_session, get_context, get_html_content_from_playwright
 from prompts.agent_patterns import extraction, google, compare
 from tools.data_objects import GoogleCustomSearch, UserConfig
@@ -245,6 +246,7 @@ class Server:
         nltk.download('punkt')
         detector = lingua.LanguageDetectorBuilder.from_all_languages()
         self._detector_built = detector.build()
+        self.browser = PlaywrightBrowser()
 
         # self.httpx_session = httpx.AsyncClient()
 
@@ -379,13 +381,6 @@ class Server:
             last_document = document_id >= len(uris) - 1
             content = shorten_url(each_uri)
             yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
-
-    async def _get_uris(self, query: str, settings: UserConfig) -> tuple[str, ...]:
-        custom_search = settings.google_custom_search
-        if custom_search is None:
-            custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
-        uris = await self._get_urls_from_google_query(query, custom_search)
-        return uris
 
     async def get_matches_dummy(
             self, user_id: str, claim_id: int, claim: str, document_id: int, document_uri: str
