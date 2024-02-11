@@ -58,6 +58,7 @@ class RetrieveDocumentException(Exception):
 
 class User(BaseModel):
     user_id: str
+    version: str
 
 
 @dataclass
@@ -196,6 +197,7 @@ class Server:
 
         bookmarklet_js = bookmarklet_js.replace("[localhost:8000]", address)
         bookmarklet_js = bookmarklet_js.replace("[unique user identification]", userid)
+        bookmarklet_js = bookmarklet_js.replace("[version number]", VERSION)
 
         compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
         # todo:
@@ -438,13 +440,13 @@ class Server:
         async def get_config(user_data: User = Body(...)) -> dict:
             """
             const configUrl = `https://${address}/get_config/`;
-            const userData = { user_id: userId };
+            const userData = { user_id: userId, version: versionClient };
             """
+            print(user_data)
             logger.info(f"getting settings for {user_data.user_id}")
             settings = get_user_config(user_data.user_id)
-            client_version = user_data.version
-            if client_version != VERSION:
-                logger.warning(f"client version {client_version} does not match server version {VERSION}")
+            if user_data.version is None:
+                logger.warning(f"client version {user_data.version} does not match server version {VERSION}")
                 return {
                     "errorVersionMismatch": "client version does not match server version",
                     "versionServer": VERSION,
@@ -462,7 +464,7 @@ class Server:
                 settings.openai_api_key = self.default_openai_key
 
             settings_dict = asdict_recusive(settings)
-            settings_dict["version"] = VERSION
+            settings_dict["versionServer"] = VERSION
             return settings_dict
 
         @ui.page("/config/{userid}")
