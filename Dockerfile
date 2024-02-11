@@ -21,6 +21,4 @@ COPY config.example.json config.json
 EXPOSE 8000
 
 # Command to run the server
-# Replace this CMD with the command to run your app, e.g., python3 main.py
-# Note: Using CMD here as you mentioned running once; adjust if you need the app to be restarted automatically.
 CMD ["python3", "main.py"]
