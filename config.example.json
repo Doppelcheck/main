@@ -1,6 +1,7 @@
 {
   "nicegui": {
     "host": "0.0.0.0",
+    "favicon": "./static/images/android-chrome-512x512.png",
     "port": 8000,
     "title": "Doppelcheck",
     "uvicorn_logging_level": "debug",
