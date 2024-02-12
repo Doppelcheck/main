@@ -13,6 +13,8 @@ from newspaper.utils import extract_meta_refresh
 from playwright.async_api import async_playwright
 from playwright._impl._errors import Error as PlaywrightError
 
+from _experiments.pw import PlaywrightBrowser
+
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/W.X.Y.Z Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
@@ -20,7 +22,7 @@ header = {
 
 
 class AsyncArticle(newspaper.Article):
-    async def async_download(self, input_html=None, title=None, recursion_counter=0) -> None:
+    async def async_download(self, browser: PlaywrightBrowser, input_html=None, title=None, recursion_counter=0) -> None:
         """Downloads the link's HTML content asynchronously, don't use if you are batch async
         downloading articles
 
@@ -29,7 +31,9 @@ class AsyncArticle(newspaper.Article):
         """
         if input_html is None:
             try:
-                html = await bypass_paywall_session(self.url)
+                source = await browser.get_html_content_from_playwright(self.url)
+                html = source.content
+
             except httpx.HTTPError as e:
                 self.download_state = ArticleDownloadState.FAILED_RESPONSE
                 self.download_exception_msg = str(e)
@@ -49,11 +53,11 @@ class AsyncArticle(newspaper.Article):
         self.set_title(title)
 
 
-async def parse_url(url: str, detect_language: Callable[[str], str]) -> newspaper.Article:
+async def parse_url(browser: PlaywrightBrowser, url: str, detect_language: Callable[[str], str]) -> newspaper.Article:
     # article = newspaper.Article(url, fetch_images=False)
     article = AsyncArticle(url, fetch_images=False)
     # article.download()
-    await article.async_download()
+    await article.async_download(browser)
 
     article.parse()
     language = detect_language(article.text)
@@ -186,11 +190,6 @@ def bypass_paywall(url: str) -> str:
     return response.text
 
 
-async def bypass_paywall_session(url: str) -> str:
-    html_content = await get_html_content_from_playwright(url)
-    return remove_images(html_content)
-
-
 def remove_images(html: str) -> str:
     soup = bs4.BeautifulSoup(html, 'html.parser')
     for each_element in soup.find_all('img'):
@@ -207,8 +206,8 @@ async def use_googlebot(url: str, session: httpx.AsyncClient) -> str:
     return response.text
 
 
-async def get_context(original_url: str, detect_language: Callable[[str], str]) -> str | None:
-    article = await parse_url(original_url, detect_language)
+async def get_context(browser: PlaywrightBrowser, original_url: str, detect_language: Callable[[str], str]) -> str | None:
+    article = await parse_url(browser, original_url, detect_language)
     context = f"{article.title.upper()}\n\n{article.summary}"
     if len(context.strip()) < 20:
         return None

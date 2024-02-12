@@ -25,8 +25,8 @@ from openai.types.chat import ChatCompletionChunk
 from playwright.async_api import async_playwright, BrowserContext
 from pydantic import BaseModel
 
-from _experiments.pw import PlaywrightBrowser
-from tools.content_retrieval import bypass_paywall_session, get_context, get_html_content_from_playwright
+from _experiments.pw import PlaywrightBrowser, Source
+from tools.content_retrieval import get_context
 from prompts.agent_patterns import extraction, google, compare
 from tools.data_objects import GoogleCustomSearch, UserConfig
 from tools.prompt_openai_chunks import PromptOpenAI
@@ -35,7 +35,6 @@ from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_co
 from tools.configuration import delayed_storage, update_llm_config, update_data_config, \
     asdict_recusive
 from tools.data_access import get_user_config, set_data_value, get_data_value
-import uvicorn
 
 
 VERSION = "0.0.1"
@@ -409,7 +408,8 @@ class Server:
         settings = get_user_config(user_id)
         language = settings.language
 
-        document_html = await get_html_content_from_playwright(document_uri)
+        source = await self.browser.get_html_content_from_playwright(document_uri)
+        document_html = source.content
 
         node_generator = text_node_generator(document_html)
         document_text = "".join(node_generator)
@@ -429,7 +429,10 @@ class Server:
             return `https://${address}/get_content/?url=${urlEncoded}`;
             """
             url_parsed = unquote(url)
-            html_content = await bypass_paywall_session(url_parsed)
+
+            source = await self.browser.get_html_content_from_playwright(url_parsed)
+            html_content = source.content
+
             return HTMLResponse(html_content)
 
         @app.post("/get_config/")
@@ -585,7 +588,7 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
-                        context = await get_context(original_url, self._detect_language)
+                        context = await get_context(self.browser, original_url, self._detect_language)
                         if context is None:
                             logger.warning(f"no context for {original_url}")
                         else:
