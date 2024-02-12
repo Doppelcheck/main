@@ -9,9 +9,9 @@ professionals. Leveraging advanced AI models, Doppelcheck automates the process 
 biases in news content. It simplifies the identification of strategic disinformation, enabling users to receive
 customized press reviews efficiently and effortlessly.
 
-[installation.webm](https://github.com/Doppelcheck/main/assets/9195325/96b4468f-b12c-4e6c-baae-2b860c93c710)
+[Installation](https://github.com/Doppelcheck/main/raw/main/static/videos/installation.webm)
 
-[usage.webm](https://github.com/Doppelcheck/main/assets/9195325/bb4a3237-87f2-4536-9fa7-dc936dcce6d1)
+[Use](https://github.com/Doppelcheck/main/raw/main/static/videos/usage.webm)
 
 ## Features
 
@@ -28,54 +28,64 @@ customized press reviews efficiently and effortlessly.
 
 ## Getting Started
 
-To start using Doppelcheck:
+Doppelcheck requires the following API keys:
+- API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
+- ID of the Google Custom Search Engine, add a new search engine and get the ID [here](https://programmablesearchengine.google.com/controlpanel/all)
+- key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
 
-- Users can always access [doppelcheck.com](https://doppelcheck.com) for immediate use.
-- For enhanced data security or accessibility, users have the option to set up their own server. This involves:
-  - Providing your own API keys:
-    - API key for the Google Custom Search API, get it [here](https://developers.google.com/custom-search/v1/introduction)
-    - ID of the Google Custom Search Engine, add a new search engine and get the ID [here](https://programmablesearchengine.google.com/controlpanel/all)
-    - key for the OpenAI API, create one [here](https://platform.openai.com/api-keys)
-  - ***Either*** getting the latest Docker image from [Docker Hub](https://hub.docker.com/repository/docker/wehnsdaefflae/doppelcheck_main/general) and running it with:
-      1. `docker pull wehnsdaefflae/doppelcheck_main`
-      2. `docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main`
-      3. Opening the web UI at `https://localhost:8000`
-  - ***Or*** setting up the server manually:
-     1. Installing Python 3.11.6 or higher
-     2. Cloning the repository:
-         1. `git clone https://github.com/Doppelcheck/main`
-     3. Installing Playwright dependencies: 
-         1. `sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2`
-     4. (Optional) Creating a virtual environment:
-         1. `cd main`
-         2. `python3 -m venv venv`
-         3. activating it with `source venv/bin/activate`
-     5. Installing dependencies via pip:
-         1. `pip install --upgrade pip`
-         2. `pip install -r requirements.txt`
-     6. Installing PLaywright browsers:
-         1. `playwright install`
-     7. Copying the `config.example.json` file to `config.json` and configuring the following settings:
-         1. `[storage_secret]`: random string used to encrypt client data
-     8. Running the server:
-     - once: `python3 main.py`
-     - as a systemd service:
-         1. `sudo cp doppelcheck.example.service doppelcheck.service`
-         2. set `User`, `WorkingDirectory`, `ExecStart`, and `Environment` in `doppelcheck.service` to your needs
-         3. `sudo cp doppelcheck.service /etc/systemd/system/`
-         4. `sudo systemctl enable doppelcheck`
-         5. `sudo systemctl start doppelcheck`
-     9. (Optional) Setting up certbot
-     10. Opening the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
-        and `config.json['nicegui']['port']`
-         - use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
-           and `config.json['nicegui']['ssl_certfile']` (default)
-         - use `http` otherwise
+
+### Public Server
+Users can always access [doppelcheck.com](https://doppelcheck.com) for immediate use.
+
+Take care not to input sensitive data as data transfer and storage are not secure.
+
+### Private Server
+For enhanced data security or accessibility, users have the option to set up their own server.
+
+#### Docker image
+1. Get the latest Docker image from [Docker Hub](https://hub.docker.com/repository/docker/wehnsdaefflae/doppelcheck_main/general)
+   - `docker pull wehnsdaefflae/doppelcheck_main`
+2. Run it with:
+    - `docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main`
+3. Open the web UI at `https://localhost:8000`
+4. Install the bookmarklet
+
+#### Manual setup
+   1. Install Python 3.11.6 or higher (e.g. with `pyenv`)
+   2. Clone the repository:
+      - `git clone https://github.com/Doppelcheck/main`
+   3. Install Playwright dependencies: 
+      - `sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2`
+   4. (Optional) Create a virtual environment:
+      1. `cd main`
+      2. `python3 -m venv venv`
+      3. activating it with `source venv/bin/activate`
+   5. Install dependencies via pip:
+      1. `pip install --upgrade pip`
+      2. `pip install -r requirements.txt`
+   6. Install Playwright browsers:
+      - `playwright install`
+   7. Copy the `config.example.json` file to `config.json` and configure the following settings:
+      - `[storage_secret]`: random string used to encrypt client data
+   8. Run the server:
+      - once: `python3 main.py`
+      - as a systemd service:
+          1. `sudo cp doppelcheck.example.service doppelcheck.service`
+          2. set `User`, `WorkingDirectory`, `ExecStart`, and `Environment` in `doppelcheck.service` to your needs
+          3. `sudo cp doppelcheck.service /etc/systemd/system/`
+          4. `sudo systemctl enable doppelcheck`
+          5. `sudo systemctl start doppelcheck`
+   9. (Optional) Set up certbot
+   10. Open the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
+      and `config.json['nicegui']['port']`
+       - use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
+         and `config.json['nicegui']['ssl_certfile']` (default)
+       - use `http` otherwise
+    11. Install the bookmarklet
 
 ## Documentation
 
-Detailed user guides and API documentation will be added during project development to facilitate easy navigation and
-utilization of Doppelcheck's features.
+Detailed user guides and API documentation on configuration and architecture will be added during project development to facilitate easy navigation and utilization of Doppelcheck's features.
 
 ### Installation
 

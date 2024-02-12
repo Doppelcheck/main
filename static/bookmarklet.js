@@ -367,7 +367,7 @@ const RetrieveDocuments = {
             compareButton.id = `doppelcheck-compare-button${claimId}-${documentId}`;
             compareButton.classList.add("doppelcheck-compare-button");
             buttonContainer.appendChild(compareButton);
-            compareButton.textContent = "Compare to claim";
+            compareButton.textContent = "Compare with claim";
             compareButton.onclick = function () {
                 compareButton.disabled = true;
                 CompareDocuments.initiateComparison(claimId, documentId);
