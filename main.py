@@ -551,7 +551,10 @@ class Server:
 
                 ui.element("div").classes(add="h-16")
 
-                with ui.video("static/videos/usage.webm", autoplay=True, loop=True, muted=True) as video:
+                with ui.video("static/videos/extract.webm", autoplay=True, loop=True, muted=True) as video:
+                    video.classes(add="w-full max-w-2xl m-auto")
+
+                with ui.video("static/videos/retrieval.webm", autoplay=True, loop=True, muted=True) as video:
                     video.classes(add="w-full max-w-2xl m-auto")
 
                 ui.element("div").classes(add="h-8")
