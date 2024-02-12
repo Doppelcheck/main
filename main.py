@@ -546,15 +546,16 @@ class Server:
                 logo.classes(add="w-full")
 
                 ui.element("div").classes(add="h-16")
-
                 ui.label(f"Coming soon to {address}.").classes(add="text-2xl font-bold text-center")
 
                 ui.element("div").classes(add="h-16")
-
-                with ui.video("static/videos/extract.webm", autoplay=True, loop=True, muted=True) as video:
+                ui.label("Claim extraction").classes(add="text-xl font-bold text-center")
+                with ui.video("static/videos/extract.webm", autoplay=True, loop=False, muted=True) as video:
                     video.classes(add="w-full max-w-2xl m-auto")
 
-                with ui.video("static/videos/retrieval.webm", autoplay=True, loop=True, muted=True) as video:
+                ui.element("div").classes(add="h-16")
+                ui.label("Document retrieval and claim checking").classes(add="text-xl font-bold text-center")
+                with ui.video("static/videos/retrieval.webm", autoplay=False, loop=False, muted=True) as video:
                     video.classes(add="w-full max-w-2xl m-auto")
 
                 ui.element("div").classes(add="h-8")
