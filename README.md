@@ -10,7 +10,9 @@ biases in news content. It simplifies the identification of strategic disinforma
 customized press reviews efficiently and effortlessly.
 
 [Installation](https://github.com/Doppelcheck/main/assets/9195325/f604e167-cb44-4287-a5f9-fbcf6f63860f)
+
 [Extraction](https://github.com/Doppelcheck/main/assets/9195325/e13e1313-b912-412e-bd42-5671496cda8a)
+
 [Retrieval](https://github.com/Doppelcheck/main/assets/9195325/bb2cf100-b407-4b1d-9843-97be39c2133c)
 
 
