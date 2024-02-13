@@ -51,7 +51,6 @@ For enhanced data security or accessibility, users have the option to set up the
 2. Run it with:
     - `docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main`
 3. Open the web UI at `https://localhost:8000`
-4. Install the bookmarklet
 
 #### Manual setup
    1. Install Python 3.11.6 or higher (e.g. with `pyenv`)
@@ -92,15 +91,60 @@ Detailed user guides and API documentation on configuration and architecture wil
 
 ### Installation
 
-![Installation](static/images/installation.png)
+```mermaid
+sequenceDiagram
+
+participant Client
+participant Server
+note over Client,Server: User drags doppelcheck link to bookmarks
+Server-->>Client: bookmarklet javascript code
+note over Client: browser displays "doppelcheck" icon in bookmarks
+```
 
 ### Usage
 
-![Usage](static/images/usage.png)
+```mermaid
+sequenceDiagram
+
+    participant Client
+    participant Server
+    participant LLM_Interface as LLM Interface
+    note over Client, LLM_Interface: User clicks "doppelcheck" icon
+    Client->>Server: website body
+    note over Client: add sidebar element to current website DOM
+    Server->>LLM_Interface: request key claims
+    note right of Server: waiting for LLM interface
+    LLM_Interface->>Server: key claims
+    loop for each CLAIM
+        Server->>Client: CLAIM
+        note right of Client: display CLAIM in sidebar
+        note right of Client: add "doppelcheck this claim" button
+    end
+```
 
 ### Review
 
-![Review](static/images/review.png)
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Data_Source as Data Source
+    participant LLM_Interface as LLM Interface
+    note over Client,Server: User clicks "review this claim" button
+    Client->>Server: CLAIM
+    Server->>Data_Source: request documents relevant to claim
+    note right of Server: waiting for data source interface
+    Data_Source->>Server: relevant documents
+    loop for each DOCUMENT
+        Server->>Client: each DOCUMENT uri
+        note over Client: display uri
+        Server->>LLM_Interface: request match between each DOCUMENT and CLAIM
+        note right of Data_Source: waiting for LLM interface
+        LLM_Interface->>Server: MATCH
+        Server->>Client: MATCH
+        note over Client: update source URI with MATCH
+    end
+```
 
 ## Contributing
 
