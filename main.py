@@ -3,42 +3,37 @@ import base64
 import dataclasses
 import json
 import pathlib
-import random
 import secrets
 import string
 from dataclasses import dataclass
 from typing import Generator, Sequence, AsyncGenerator
 from urllib.parse import urlparse, unquote
 
-from playwright._impl._errors import Error as PlaywrightError
-
 import httpx
 import lingua
 import nltk
 from fastapi import WebSocket, WebSocketDisconnect, Body
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from nicegui import ui, app, Client
-
-from fastapi.middleware.cors import CORSMiddleware
 from openai.types.chat import ChatCompletionChunk
+from playwright._impl._errors import Error as PlaywrightError
 from playwright.async_api import async_playwright, BrowserContext
 from pydantic import BaseModel
 
-from _experiments.pw import PlaywrightBrowser
-from tools.content_retrieval import get_context
 from prompts.agent_patterns import extraction, google, compare
+from tools.configuration import delayed_storage, update_llm_config, update_data_config, \
+    asdict_recusive
+from tools.content_retrieval import get_context, PlaywrightBrowser
+from tools.data_access import get_user_config, set_data_value, get_data_value
 from tools.data_objects import GoogleCustomSearch, UserConfig
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, compile_bookmarklet, shorten_url
-from tools.configuration import delayed_storage, update_llm_config, update_data_config, \
-    asdict_recusive
-from tools.data_access import get_user_config, set_data_value, get_data_value
 
-
-VERSION = "0.0.2"
+VERSION = "0.0.4"
 
 
 app.add_middleware(
@@ -389,29 +384,8 @@ class Server:
             content = shorten_url(each_uri)
             yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
 
-    async def get_matches_dummy(
-            self, user_id: str, claim_id: int, claim: str, document_id: int, document_uri: str
-    ) -> Generator[ComparisonSegment, None, None]:
-        """
-        ```
-        +1
-        <explanation>
-        ```
-        """
-
-        text = f"Comparison: [{document_uri}] vs [{claim_id}]"
-        each_match = random.randint(-2, 2)
-
-        for j, each_character in enumerate(text):
-            await asyncio.sleep(.1)
-            last_segment = j >= len(text) - 1
-            message_segment = ComparisonSegment(
-                each_character, last_segment, True, claim_id, document_id, each_match
-            )
-            yield message_segment
-
     async def get_matches(
-            self, user_id: str, claim_id: int, claim: str, document_id: int, document_uri: str
+            self, user_id: str, claim_id: int, claim: str, document_id: int, original_url: str, document_uri: str
     ) -> Generator[ComparisonSegment, None, None]:
         settings = get_user_config(user_id)
         language = settings.language
@@ -422,12 +396,22 @@ class Server:
         node_generator = text_node_generator(document_html)
         document_text = "".join(node_generator)
 
-        prompt = compare(claim, document_text, language=language)
+        context = get_data_value(user_id, ("context", original_url))
+
+        prompt = compare(claim, document_text, context=context, language=language)
         llm_interface = self._get_llm(settings)
         response = llm_interface.stream_reply_to_prompt(prompt)
 
         async for each_segment in Server._stream_matches_to_browser(response, claim_id, document_id):
             yield each_segment
+
+    async def set_context(self, original_url: str, html_document: str, user_id: str) -> None:
+        context = await get_context(html_document, original_url, self._detect_language)
+        if context is None:
+            logger.warning(f"no context for {original_url}")
+        else:
+            logger.info(f"context for {original_url}: {context}")
+            set_data_value(user_id, ("context", original_url), context)
 
     def setup_routes(self) -> None:
         @app.get("/get_content/")
@@ -600,12 +584,7 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
-                        context = await get_context(self.browser, original_url, self._detect_language)
-                        if context is None:
-                            logger.warning(f"no context for {original_url}")
-                        else:
-                            logger.info(f"context for {original_url}: {context}")
-                            set_data_value(user_id, ("context", original_url), context)
+                        await self.set_context(original_url, data, user_id)
 
                         async for segment in self.get_claims_from_html(data, user_id):
                             each_dict = dataclasses.asdict(segment)
@@ -627,7 +606,7 @@ class Server:
                         document_id = data['document_id']
                         document_uri = data['document_uri']
                         async for segment in self.get_matches(
-                                user_id, claim_id, claim_text, document_id, document_uri):
+                                user_id, claim_id, claim_text, document_id, original_url, document_uri):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)

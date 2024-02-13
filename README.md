@@ -2,9 +2,10 @@
 
 # Customized Press Reviews at the Touch of a Button
 
-## Overview
-
 [Features](#features) | [Getting Started](#getting-started) | [Documentation](#documentation) | [Contributing](#contributing) | [License](#license) | [Contact](#contact) | [Acknowledgements](#acknowledgements)
+
+
+## Overview
 
 Doppelcheck is a cutting-edge, browser-based AI assistance system, uniquely designed for journalists and media
 professionals. Leveraging advanced AI models, Doppelcheck automates the process of research, analysis, and detection of
