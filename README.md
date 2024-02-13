@@ -4,6 +4,8 @@
 
 ## Overview
 
+[Features](#features) | [Getting Started](#getting-started) | [Documentation](#documentation) | [Contributing](#contributing) | [License](#license) | [Contact](#contact) | [Acknowledgements](#acknowledgements)
+
 Doppelcheck is a cutting-edge, browser-based AI assistance system, uniquely designed for journalists and media
 professionals. Leveraging advanced AI models, Doppelcheck automates the process of research, analysis, and detection of
 biases in news content. It simplifies the identification of strategic disinformation, enabling users to receive
