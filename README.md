@@ -117,8 +117,8 @@ sequenceDiagram
     LLM_Interface->>Server: key claims
     loop for each CLAIM
         Server->>Client: CLAIM
-        note right of Client: display CLAIM in sidebar
-        note right of Client: add "doppelcheck this claim" button
+        note over Client: display CLAIM in sidebar
+        note over Client: add "doppelcheck this claim" button
     end
 ```
 
