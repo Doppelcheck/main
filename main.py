@@ -26,7 +26,7 @@ from openai.types.chat import ChatCompletionChunk
 from playwright.async_api import async_playwright, BrowserContext
 from pydantic import BaseModel
 
-from _experiments.pw import PlaywrightBrowser, Source
+from _experiments.pw import PlaywrightBrowser
 from tools.content_retrieval import get_context
 from prompts.agent_patterns import extraction, google, compare
 from tools.data_objects import GoogleCustomSearch, UserConfig
@@ -38,7 +38,7 @@ from tools.configuration import delayed_storage, update_llm_config, update_data_
 from tools.data_access import get_user_config, set_data_value, get_data_value
 
 
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 
 app.add_middleware(

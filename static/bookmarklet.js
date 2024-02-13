@@ -230,7 +230,7 @@ const ExtractClaims = {
 
         const getDocumentsButton = document.createElement("button");
         getDocumentsButton.innerText = "Retrieve Documents";
-        getDocumentsButton.id = `doppelcheck-retrieve-buttom${claimId}`;
+        getDocumentsButton.id = `doppelcheck-retrieve-button${claimId}`;
         getDocumentsButton.onclick = function () {
             getDocumentsButton.disabled = true;
             getDocumentsButton.innerText = "Retrieving Documents...";
@@ -390,7 +390,7 @@ const RetrieveDocuments = {
         documentContainer.appendChild(buttonContainer);
 
         if (lastMessage) {
-            const retrieveButton = InitializeDoppelcheck.getElementById(`doppelcheck-retrieve-buttom${claimId}`);
+            const retrieveButton = InitializeDoppelcheck.getElementById(`doppelcheck-retrieve-button${claimId}`);
             retrieveButton.remove();
 
             const claim = InitializeDoppelcheck.getElementById(`doppelcheck-claim${claimId}`);
@@ -416,7 +416,7 @@ const CompareDocuments = {
         const documentSummary = document.createElement("summary");
         documentSummary.id = `doppelcheck-document-summary${claimId}-${documentId}`;
         documentSummary.classList.add("doppelcheck-document-summary");
-        documentSummary.textContent = "⏳";
+        documentSummary.textContent = "⏳ Comparing...";
         documentDetails.appendChild(documentSummary);
 
         const documentExplanation = document.createElement("div");
