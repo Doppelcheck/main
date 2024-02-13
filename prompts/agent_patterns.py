@@ -32,6 +32,8 @@ def extraction(
         f"examples, questions, opinions, descriptions of personal feelings, prose, advertisements, and similar "
         f"non-factual content.\n"
         f"\n"
+        f"IMPORTANT: Mention time and place if available!\n"
+        f"\n"
         f"Precisely reference an exclusive range of line numbers with each extracted claim. Provide a brief, clear, "
         f"and direct rephrasing of each key claim to convey its essential statement. Use only up to "
         f"{words_per_claim_str} words for each claim.\n"
@@ -85,21 +87,35 @@ def google(claim: str, context: str | None = None, language: str | None = None) 
     )
 
 
-def compare(claim: str, text: str, language: str | None = None) -> str:
+def compare(claim: str, report: str, context: str | None = None, language: str | None = None) -> str:
     if language is None or language == "default":
         language_instruction = "the language of the claim"
     else:
         language_instruction = language
 
+    if context is None:
+        context_data = ""
+        context_instruction = ""
+    else:
+        context_data = (
+            f"```context\n"
+            f"{context}\n"
+            f"```\n"
+            f"\n"
+        )
+        context_instruction = " Consider that the context provided is essential to the claim."
+
     return (
-        f"Carefully read the following claim and text. Your task is to assess how well the text matches the claim.\n"
+        f"Carefully read the following information. Your task is to assess how well the report matches the "
+        f"claim.{context_instruction}\n"
         f"\n"
+        f"{context_data}"
         f"```claim\n"
         f"{claim}\n"
         f"```\n"
         f"\n"
-        f"```text\n"
-        f"{text}\n"
+        f"```report\n"
+        f"{report}\n"
         f"```\n"
         f"\n"
         f"Assign a score based on the following scale:\n"
@@ -109,7 +125,7 @@ def compare(claim: str, text: str, language: str | None = None) -> str:
         f"  -1: The text contradicts the claim but not completely\n"
         f"  -2: The text is in strong opposition to the claim\n"
         f"\n"
-        f"IMPORTANT: Do not assess the correctness of the claim itself or of the text, determine only the semantic "
+        f"IMPORTANT: Do not assess the correctness of any of the information provided, determine only the semantic "
         f"match between claim and text!\n"
         f"\n"
         f"Also provide one sentence of explanation for your rating. Respond in {language_instruction} and answer with "

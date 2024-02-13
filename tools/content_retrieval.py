@@ -1,19 +1,13 @@
+import asyncio
+from dataclasses import dataclass
 from typing import Callable
-from urllib.parse import quote, urlparse
 
 import bs4
 
-import httpx
 import newspaper
-import requests
 from loguru import logger
-from newspaper import network
-from newspaper.article import ArticleDownloadState
-from newspaper.utils import extract_meta_refresh
-from playwright.async_api import async_playwright
+from playwright import async_api
 from playwright._impl._errors import Error as PlaywrightError
-
-from _experiments.pw import PlaywrightBrowser
 
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -21,43 +15,9 @@ header = {
 }
 
 
-class AsyncArticle(newspaper.Article):
-    async def async_download(self, browser: PlaywrightBrowser, input_html=None, title=None, recursion_counter=0) -> None:
-        """Downloads the link's HTML content asynchronously, don't use if you are batch async
-        downloading articles
-
-        recursion_counter (currently 1) stops refreshes that are potentially
-        infinite
-        """
-        if input_html is None:
-            try:
-                source = await browser.get_html_content_from_playwright(self.url)
-                html = source.content
-
-            except httpx.HTTPError as e:
-                self.download_state = ArticleDownloadState.FAILED_RESPONSE
-                self.download_exception_msg = str(e)
-                logger.warning(f"Download failed on URL %s because of {(self.url, self.download_exception_msg)}")
-                return
-        else:
-            html = input_html
-
-        if self.config.follow_meta_refresh:
-            meta_refresh_url = extract_meta_refresh(html)
-            if meta_refresh_url and recursion_counter < 1:
-                return self.download(
-                    input_html=network.get_html(meta_refresh_url),
-                    recursion_counter=recursion_counter + 1)
-
-        self.set_html(html)
-        self.set_title(title)
-
-
-async def parse_url(browser: PlaywrightBrowser, url: str, detect_language: Callable[[str], str]) -> newspaper.Article:
-    # article = newspaper.Article(url, fetch_images=False)
-    article = AsyncArticle(url, fetch_images=False)
-    # article.download()
-    await article.async_download(browser)
+async def parse_url(input_html: str, url: str, detect_language: Callable[[str], str]) -> newspaper.Article:
+    article = newspaper.Article(url, fetch_images=False)
+    article.download(input_html=input_html)
 
     article.parse()
     language = detect_language(article.text)
@@ -93,101 +53,8 @@ async def parse_url(browser: PlaywrightBrowser, url: str, detect_language: Calla
     ui.label("Summary:")
     ui.label(article.summary)
     """
+
     return article
-
-
-def outline_outlinetts(url: str) -> str:
-    """
-    Generates a proxy URL for the clean version of a website using the Outline TTS service.
-
-    :param url: Original URL of the website
-    :return: Proxy URL for the clean version
-    """
-    service_url = 'https://outlinetts.com/article'
-    parsed_url = urlparse(url)
-    protocol = parsed_url.scheme
-    netloc_and_path = url.split("://", 1)[1] if "://" in url else url
-    return f"{service_url}/{protocol}/{netloc_and_path}"
-
-
-def outline_12ft(url: str) -> str:
-    """
-    Generates a proxy URL for the clean version of a website using the 12ft service.
-
-    :param url: Original URL of the website
-    :return: Proxy URL for the clean version
-    """
-    service_url = 'https://12ft.io'
-    return f"{service_url}/{url}"
-
-
-def outline_printfriendly(url: str) -> str:
-    """
-    Generates a proxy URL for the clean version of a website using the Print Friendly service.
-
-    :param url: Original URL of the website
-    :return: Proxy URL for the clean version
-    """
-    service_url = 'https://www.printfriendly.com/print'
-    encoded_url = quote(url, safe='')
-    return f"{service_url}/?source=homepage&url={encoded_url}"
-
-
-async def outline_darkread(url: str) -> str:
-    """
-    Generates a proxy URL for the clean version of a website using the Darkread service.
-
-    :param url: Original URL of the website
-    :return: Proxy URL for the clean version or an error message if something goes wrong
-    """
-    try:
-        proxy = 'https://outliner-proxy-darkread.rodrigo-828.workers.dev/cors-proxy'
-        proxy_url = f"{proxy}/{url}"
-
-        response = httpx.get(proxy_url)
-        response.raise_for_status()  # Raises an HTTPError if the HTTP request returned an unsuccessful status code
-
-        data = response.json()
-        uid = data.get('uid')
-        if uid:
-            service_website = 'https://www.darkread.io'
-            return f"{service_website}/{uid}"
-        else:
-            return "Error: UID not found in the response."
-    except httpx.HTTPError as e:
-        return f"HTTP Request failed: {e}"
-
-
-async def async_outline_darkread(url: str) -> str:
-    """
-    Generates a proxy URL for the clean version of a website using the Darkread service, asynchronously.
-
-    :param url: Original URL of the website
-    :return: Proxy URL for the clean version or an error message if something goes wrong
-    """
-    try:
-        proxy = 'https://outliner-proxy-darkread.rodrigo-828.workers.dev/cors-proxy'
-        proxy_url = f"{proxy}/{url}"
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(proxy_url)
-            response.raise_for_status()  # Raises an HTTPError if the HTTP request returned an unsuccessful status code
-
-            data = response.json()
-            uid = data.get('uid')
-            if uid:
-                service_website = 'https://www.darkread.io'
-                return f"{service_website}/{uid}"
-            else:
-                return "Error: UID not found in the response."
-    except httpx.HTTPError as e:
-        return f"HTTP Request failed: {e}"
-
-
-def bypass_paywall(url: str) -> str:
-    response = requests.get(url, headers=header)
-    response.encoding = response.apparent_encoding
-    return response.text
 
 
 def remove_images(html: str) -> str:
@@ -201,13 +68,8 @@ def remove_images(html: str) -> str:
     return str(soup)
 
 
-async def use_googlebot(url: str, session: httpx.AsyncClient) -> str:
-    response = await session.get(url, headers=header)
-    return response.text
-
-
-async def get_context(browser: PlaywrightBrowser, original_url: str, detect_language: Callable[[str], str]) -> str | None:
-    article = await parse_url(browser, original_url, detect_language)
+async def get_context(input_html: str, original_url: str, detect_language: Callable[[str], str]) -> str | None:
+    article = await parse_url(input_html, original_url, detect_language)
     context = f"{article.title.upper()}\n\n{article.summary}"
     if len(context.strip()) < 20:
         return None
@@ -216,19 +78,72 @@ async def get_context(browser: PlaywrightBrowser, original_url: str, detect_lang
     return context
 
 
-async def get_html_content_from_playwright(document_uri: str) -> str:
-    async with async_playwright() as playwright:
-        browser = await playwright.firefox.launch()
-        context = await browser.new_context(ignore_https_errors=True)
-        page = await context.new_page()
+@dataclass(frozen=True)
+class Source:
+    url: str
+    content: str | None
+    error: str | None
+
+
+class PlaywrightBrowser:
+    def __init__(self) -> None:
+        self.active_tasks = 0
+        self.all_tasks_done = asyncio.Event()
+
+        self.playwright: async_api.PlaywrightContextManager | None = None
+        self.browser: async_api.Browser | None = None
+        self.context: async_api.BrowserContext | None = None
+
+        self.callbacks = dict()
+
+    async def init_browser(self) -> None:
+        if self.playwright is None:
+            self.playwright = await async_api.async_playwright().start()
+
+        if self.browser is None:
+            self.browser = await self.playwright.firefox.launch(headless=True)
+
+        if self.context is None:
+            self.context = await self.browser.new_context(ignore_https_errors=True)
+
+    async def get_html_content_from_playwright(self, document_uri: str) -> Source:
+        await self.init_browser()
+
+        event_loop = asyncio.get_event_loop()
+
+        start_time = event_loop.time()
+
+        self.active_tasks += 1
+        self.all_tasks_done.clear()
+
+        page = await self.context.new_page()
         try:
             await page.goto(document_uri)
+            await page.wait_for_load_state("domcontentloaded")
+            # await page.wait_for_load_state("networkidle")
+            content = await page.content()
+            return Source(url=document_uri, content=content, error=None)
+
         except PlaywrightError as e:
-            logger.error(f"Failed to load page: {e}")
-            await context.close()
-            await browser.close()
-            return str(e)
-        html_content = await page.content()
-        await context.close()
-        await browser.close()
-        return html_content
+            print(f"Failed to load page: {e}")
+            return Source(url=document_uri, content=None, error=str(e))
+
+        finally:
+            await page.close()
+            self.active_tasks -= 1
+            if 0 >= self.active_tasks:
+                self.all_tasks_done.set()
+
+            end_time = event_loop.time()
+
+            logger.info(f"Time taken to fetch content from {document_uri}: {end_time - start_time:.2f} seconds")
+
+    async def close_browser(self):
+        await asyncio.sleep(1)
+        await self.all_tasks_done.wait()
+        if self.context:
+            await self.context.close()
+            print("Context closed")
+
+        if self.browser:
+            await self.browser.close()
