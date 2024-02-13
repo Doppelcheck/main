@@ -109,7 +109,7 @@ sequenceDiagram
     participant Client
     participant Server
     participant LLM_Interface as LLM Interface
-    note over Client, LLM_Interface: User clicks "doppelcheck" icon
+    note over Client, Server: User clicks "doppelcheck" icon
     Client->>Server: website body
     note over Client: add sidebar element to current website DOM
     Server->>LLM_Interface: request key claims
