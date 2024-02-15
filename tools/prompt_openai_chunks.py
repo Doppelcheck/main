@@ -6,7 +6,7 @@ import openai
 from loguru import logger
 from openai.types.chat import ChatCompletionChunk
 
-from tools.data_objects import OpenAIParameters
+from tools.configuration.data.config_objects import ParametersOpenAi
 
 
 class PromptOpenAI:
@@ -23,7 +23,7 @@ class PromptOpenAI:
             start += max_len - overlap
             end += max_len - overlap
 
-    def __init__(self, key: str, parameters: OpenAIParameters) -> None:
+    def __init__(self, key: str, parameters: ParametersOpenAi) -> None:
         self._client = openai.AsyncOpenAI(api_key=key)
         self._parameters = parameters
 
