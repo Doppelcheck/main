@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import dataclasses
 import json
 import pathlib
@@ -24,14 +23,15 @@ from playwright.async_api import async_playwright, BrowserContext
 from pydantic import BaseModel
 
 from prompts.agent_patterns import extraction, google, compare
-from tools.configuration import delayed_storage, update_llm_config, update_data_config, \
-    asdict_recusive
+from tools.configuration.configuration import asdict_recusive, delayed_storage, update_llm_config, update_data_config
+from tools.new_configuration.full import full_configuration
+from tools.new_configuration.config_install import get_section
 from tools.content_retrieval import get_context, PlaywrightBrowser
-from tools.data_access import get_user_config, set_data_value, get_data_value
-from tools.data_objects import GoogleCustomSearch, UserConfig
+from tools.data_access import get_user_config, set_data_value, get_data_value, UserConfig
+from tools.data_objects import GoogleCustomSearch
 from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
-    get_text_lines, extract_code_block, compile_bookmarklet, shorten_url
+    get_text_lines, extract_code_block, shorten_url
 
 VERSION = "0.0.4"
 
@@ -186,47 +186,6 @@ class Server:
 
         last_segment.last_segment = True
         yield last_segment
-
-    @staticmethod
-    def _install_section(userid: str, address: str, video: bool = True) -> None:
-        with open("static/bookmarklet.js", mode="r") as file:
-            bookmarklet_js = file.read()
-
-        bookmarklet_js = bookmarklet_js.replace("[localhost:8000]", address)
-        bookmarklet_js = bookmarklet_js.replace("[unique user identification]", userid)
-        bookmarklet_js = bookmarklet_js.replace("[version number]", VERSION)
-
-        with open("static/images/android-chrome-512x512.png", mode="rb") as file:
-            favicon_data = file.read()
-            favicon_base64_encoded = base64.b64encode(favicon_data)
-            favicon_base64_str = f"data:image/png;base64,{favicon_base64_encoded.decode('utf-8')}"
-
-        compiled_bookmarklet = compile_bookmarklet(bookmarklet_js)
-        # todo:
-        #   see max width here: https://tailwindcss.com/docs/max-width
-
-        logo = ui.image("static/images/logo_big.svg")
-        logo.classes(add="w-full")
-        with ui.element("div") as spacer:
-            spacer.classes(add="h-16")
-        link_html = (
-            f'Drag <a href="{compiled_bookmarklet}" id="doppelcheck-bookmarklet-name" class="bg-blue-500 '
-            f'hover:bg-blue-700 text-white font-bold py-2 px-4 mx-2 rounded inline-block" onclick="return false;" '
-            f'icon="{favicon_base64_str}">'
-            f'🔍 Doppelcheck 🔎</a> to your bookmarks to use it on any website.'
-        )
-        # ⦾ 👁️ 🤨 🧐
-        with ui.html(link_html) as bookmarklet_text:
-            bookmarklet_text.classes(add="text-center")
-
-        if video:
-            with ui.element("div") as spacer:
-                spacer.classes(add="h-8")
-
-            with ui.video(
-                    "static/videos/installation.webm",
-                    autoplay=True, loop=True, muted=True, controls=False) as video:
-                video.classes(add="w-full max-w-2xl m-auto")
 
     def __init__(self) -> None:
         self.default_openai_key = None
@@ -458,6 +417,11 @@ class Server:
             settings_dict["versionServer"] = VERSION
             return settings_dict
 
+        @ui.page("/configuration_layout/{userid}")
+        async def configuration_layout(userid: str, client: Client) -> None:
+            address = await Server._get_address(client)
+            await full_configuration(userid, address, VERSION)
+
         @ui.page("/config/{userid}")
         async def config(userid: str, client: Client) -> None:
             """
@@ -470,7 +434,7 @@ class Server:
             with ui.element("div") as container:
                 container.classes(add="w-full max-w-2xl m-auto")
 
-                Server._install_section(userid, address, video=False)
+                get_section(userid, address, VERSION, video=False)
 
                 with ui.label("Configuration") as heading:
                     heading.classes(add="text-2xl font-bold mt-16")
@@ -482,17 +446,17 @@ class Server:
                     pass
 
                 with delayed_storage(
-                        userid, ui.number, ("config", "claim_count"),
-                        label="Claim Count", placeholder="number of claims",
-                        min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
-                ) as number_input:
-                    pass
-
-                with delayed_storage(
                         userid, ui.select, ("config", "language"),
                         label="Language", options=["default", "English", "German", "French", "Spanish"],
                         default=default_config.language
                 ) as language_select:
+                    pass
+
+                with delayed_storage(
+                        userid, ui.number, ("config", "claim_count"),
+                        label="Claim Count", placeholder="number of claims",
+                        min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
+                ) as number_input:
                     pass
 
                 with ui.label("LLM Interface") as heading:
@@ -564,10 +528,11 @@ class Server:
             with ui.element("div") as container:
                 container.classes(add="w-full max-w-2xl m-auto")
 
-                Server._install_section(secret, address)
+                get_section(secret, address, VERSION)
 
         @app.websocket("/talk")
         async def websocket_endpoint(websocket: WebSocket):
+            # alternative implementation: https://github.com/zauberzeug/nicegui/blob/main/examples/websockets/main.py
             await websocket.accept()
             try:
                 message_str = await websocket.receive_text()

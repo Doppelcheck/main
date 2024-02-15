@@ -1,9 +1,10 @@
+from dataclasses import dataclass
 from typing import Sequence
 
 from loguru import logger
 from nicegui import app
 
-from tools.data_objects import UserConfig
+from tools.data_objects import GoogleCustomSearch, ParametersOpenAi
 
 
 def get_nested_value(key_path: Sequence[str], default: any = None) -> any:
@@ -40,14 +41,35 @@ def get_user_config_dict(userid: str) -> dict[str, any] | None:
     return config_dict
 
 
+@dataclass
+class UserConfig:
+    name_instance: str = "standard instance"
+    claim_count: int = 3
+    language: str = "default"
+
+    google_custom_search: dict[str, str] | GoogleCustomSearch | None = None
+
+    openai_api_key: str | None = None
+    openai_parameters: dict[str, str] | ParametersOpenAi | None = None
+
+    def __post_init__(self) -> None:
+        if self.google_custom_search is not None and not isinstance(self.google_custom_search, GoogleCustomSearch):
+            self.google_custom_search = GoogleCustomSearch(**self.google_custom_search)
+        if self.openai_parameters is not None and not isinstance(self.openai_parameters, ParametersOpenAi):
+            self.openai_parameters = ParametersOpenAi(**self.openai_parameters)
+        else:
+            self.openai_parameters = ParametersOpenAi()
+
+
 def get_user_config(userid: str) -> UserConfig:
     config_dict = get_user_config_dict(userid)
-    return UserConfig() if config_dict is None else UserConfig(**config_dict)
+    # return UserConfig() if config_dict is None else UserConfig(**config_dict)
+    return UserConfig()
 
 
-def get_user_data_dict(userid: str) -> dict[str, any]:
-    key_path = "users", userid, "data"
-    return get_nested_value(key_path, default=dict())
+def set_config_value(userid: str, config_path: Sequence[str], value: any) -> None:
+    key_path = ("users", userid, "config") + tuple(config_path)
+    set_nested_value(key_path, value)
 
 
 def get_config_value(userid: str, config_path: Sequence[str], default: any = None) -> any:
@@ -56,20 +78,15 @@ def get_config_value(userid: str, config_path: Sequence[str], default: any = Non
     return value
 
 
+def set_data_value(userid: str, key_path: Sequence[str], value: any) -> None:
+    key_path = ("users", userid, "data") + tuple(key_path)
+    set_nested_value(key_path, value)
+
+
 def get_data_value(userid: str, data_path: Sequence[str], default: any = None) -> any:
     key_path = ("users", userid, "data") + tuple(data_path)
     value = get_nested_value(key_path, default=default)
     return value
-
-
-def set_config_value(userid: str, config_path: Sequence[str], value: any) -> None:
-    key_path = ("users", userid, "config") + tuple(config_path)
-    set_nested_value(key_path, value)
-
-
-def set_data_value(userid: str, key_path: Sequence[str], value: any) -> None:
-    key_path = ("users", userid, "data") + tuple(key_path)
-    set_nested_value(key_path, value)
 
 
 if __name__ == "__main__":

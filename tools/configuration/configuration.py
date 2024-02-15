@@ -11,7 +11,7 @@ from nicegui.element import Element
 from dataclasses import dataclass
 
 from tools.data_access import set_config_value, get_config_value, set_nested_value, get_nested_value
-from tools.data_objects import OpenAIParameters
+from tools.configuration.data.config_objects import ParametersOpenAi
 
 
 def asdict_recusive(dc: dataclass) -> dict[str, any]:
@@ -109,7 +109,7 @@ def update_llm_config(user_id: str, llm_config: Element, value: str) -> None:
                 save_parameters_button.disable()
 
             def reset_parameters(event) -> None:
-                default_settings = OpenAIParameters()
+                default_settings = ParametersOpenAi()
                 default_dict = {"json": asdict_recusive(default_settings)}
                 editor.run_editor_method("update", default_dict)
                 ui.notify("Parameters reset", timeout=500)
