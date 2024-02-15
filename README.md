@@ -43,50 +43,103 @@ Doppelcheck requires the following API keys:
 ### Public Server
 Users can always access [doppelcheck.com](https://doppelcheck.com) for immediate use.
 
-Take care not to input sensitive data as data transfer and storage are not secure.
+> **Note:** Take care not to input sensitive data as data transfer and storage are not secure.
 
 ### Private Server
 For enhanced data security or accessibility, users have the option to set up their own server.
 
-#### Docker image
-1. Get the latest Docker image from [Docker Hub](https://hub.docker.com/repository/docker/wehnsdaefflae/doppelcheck_main/general)
-   - `docker pull wehnsdaefflae/doppelcheck_main`
-2. Run it with:
-    - `docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main`
-3. Open the web UI at `https://localhost:8000`
+#### Setting Up the Docker Image for Doppelcheck
+
+You can set up the Doppelcheck application using Docker by following one of the two methods below.
+
+Choose the option that best suits your setup preferences. Both methods will provide you with a running instance of the Doppelcheck application.
+
+##### Option 1: Using a Git Clone
+
+1. **Clone the Repository:** Begin by cloning the Doppelcheck repository to your local machine. Open a terminal or command prompt and run the following commands:
+
+    ```bash
+    git clone https://github.com/Doppelcheck/main.git
+    cd main
+    ```
+
+2. **Start the Application:** With the repository cloned, navigate into the project directory and launch the application using `docker-compose`. This will build and start the necessary Docker containers:
+
+    ```bash
+    docker-compose up
+    ```
+
+    Wait for the process to complete. Once done, the application will be running and accessible.
+
+##### Option 2: Pulling the Image from Docker Hub
+
+If you prefer to skip the cloning process, you can directly pull the Docker image from Docker Hub and run it.
+
+1. **Pull the Docker Image:** Fetch the latest Docker image for Doppelcheck from Docker Hub by executing the following command:
+
+    ```bash
+    docker pull wehnsdaefflae/doppelcheck_main
+    ```
+
+2. **Run the Container:** After pulling the image, start the container. This command will run the Docker image and map port 8000 on your host to port 8000 in the container, making the application accessible via the host machine:
+
+    ```bash
+    docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main
+    ```
+
+**Access the Web UI:** Once the container is running, you can access the Doppelcheck web interface by opening your web browser and navigating to `http://localhost:8000`
+
+> **Note:** Ensure you use `http` and not `https` in the URL, unless you have specifically configured SSL for local development.
+
 
 #### Manual setup
-   1. Install Python 3.11.6 or higher (e.g. with `pyenv`)
-   2. Clone the repository:
-      - `git clone https://github.com/Doppelcheck/main`
-   3. Install Playwright dependencies: 
-      - `sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2`
-   4. (Optional) Create a virtual environment:
-      1. `cd main`
-      2. `python3 -m venv venv`
-      3. activating it with `source venv/bin/activate`
-   5. Install dependencies via pip:
-      1. `pip install --upgrade pip`
-      2. `pip install -r requirements.txt`
-   6. Install Playwright browsers:
-      - `playwright install`
-   7. Copy the `config.example.json` file to `config.json` and configure the following settings:
-      - `[storage_secret]`: random string used to encrypt client data
-   8. Run the server:
-      - once: `python3 main.py`
-      - as a systemd service:
-          1. `sudo cp doppelcheck.example.service doppelcheck.service`
-          2. set `User`, `WorkingDirectory`, `ExecStart`, and `Environment` in `doppelcheck.service` to your needs
-          3. `sudo cp doppelcheck.service /etc/systemd/system/`
-          4. `sudo systemctl enable doppelcheck`
-          5. `sudo systemctl start doppelcheck`
-   9. (Optional) Set up certbot
-   10. Open the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
-      and `config.json['nicegui']['port']`
-       - use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
-         and `config.json['nicegui']['ssl_certfile']` (default)
-       - use `http` otherwise
-    11. Install the bookmarklet
+1. Install Python 3.11.6 or higher (e.g. with `pyenv`)
+2. Clone the repository:
+    ```bash
+    git clone https://github.com/Doppelcheck/main
+    cd main
+    ```
+3. Install Playwright dependencies:
+    ```bash
+    sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2
+   ```
+4. (Optional) Create a virtual environment:
+    ```bash
+    cd main
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+5. Install dependencies via pip:
+    ```bash
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    ```
+6. Install Playwright browsers:
+    ```bash
+    playwright install
+   ```
+7. Copy the `config.example.json` file to `config.json` and configure the following settings:
+    - `[storage_secret]`: random string used to encrypt client data
+8. Run the server:
+    - once:
+       ```bash
+       python3 main.py
+       ```
+    - as a systemd service:
+       ```bash
+       sudo cp doppelcheck.example.service doppelcheck.service
+       ```
+      - set `User`, `WorkingDirectory`, `ExecStart`, and `Environment` in `doppelcheck.service` to your needs
+      ```bash
+      sudo cp doppelcheck.service /etc/systemd/system/
+      sudo systemctl enable doppelcheck
+      sudo systemctl start doppelcheck
+      ```
+9. (Optional) Set up certbot
+10. Open the web UI at `localhost:8000` or whatever is set in `config.json['nicegui']['host']`
+  and `config.json['nicegui']['port']`
+   > **Note:** use `https` if you provided `config.json['nicegui']['ssl_keyfile']`
+     and `config.json['nicegui']['ssl_certfile']` (default), use `http` otherwise
 
 ## Documentation
 
