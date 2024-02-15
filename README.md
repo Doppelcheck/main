@@ -88,9 +88,9 @@ If you prefer to skip the cloning process, you can directly pull the Docker imag
     docker run -p 8000:8000 wehnsdaefflae/doppelcheck_main
     ```
 
-**Access the Web UI:** Once the container is running, you can access the Doppelcheck web interface by opening your web browser and navigating to `http://localhost:8000`
+**Access the Web UI:** Once the container is running, you can access the Doppelcheck web interface by opening your web browser and navigating to `https://localhost:8000`
 
-> **Note:** Ensure you use `http` and not `https` in the URL, unless you have specifically configured SSL for local development.
+> **Note:** Ensure you use `https` and not `http` in the URL, as Doppelcheck comes with self-signed certificates. Replace those for security.
 
 
 #### Manual setup
