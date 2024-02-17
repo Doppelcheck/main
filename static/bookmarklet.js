@@ -492,6 +492,10 @@ function exchange(purpose, data) {
                 CompareDocuments.processComparisonMessage(response);
                 break;
 
+            case "log":
+                console.error("logs not implemented");
+                break;
+
             default:
                 console.log(`unknown purpose: ${response.purpose}`);
         }

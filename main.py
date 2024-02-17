@@ -11,9 +11,9 @@ from urllib.parse import urlparse, unquote
 import httpx
 import lingua
 import nltk
-from fastapi import WebSocket, WebSocketDisconnect, Body
+from fastapi import WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from nicegui import ui, app, Client
@@ -33,9 +33,32 @@ from tools.prompt_openai_chunks import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, shorten_url
 
-VERSION = "0.0.4"
+from starlette.middleware.base import BaseHTTPMiddleware
 
 
+VERSION = "0.0.5"
+
+passwords = {'user': 'doppelcheck'}
+
+unrestricted_page_routes = {"/", "/_test", "/config", "/login"}
+
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    """This middleware restricts access to all NiceGUI pages.
+
+    It redirects the user to the login page if they are not authenticated.
+    """
+
+    async def dispatch(self, request: Request, call_next):
+        if not app.storage.user.get('authenticated', False):
+            if request.url.path in Client.page_routes.values() and request.url.path not in unrestricted_page_routes:
+                app.storage.user['referrer_path'] = request.url.path  # remember where the user wanted to go
+                return RedirectResponse('/login')
+        return await call_next(request)
+
+
+app.add_middleware(AuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allows all origins
@@ -417,10 +440,44 @@ class Server:
             settings_dict["versionServer"] = VERSION
             return settings_dict
 
-        @ui.page("/configuration_layout/{userid}")
-        async def configuration_layout(userid: str, client: Client) -> None:
+        @ui.page('/login')
+        def login() -> RedirectResponse | None:
+            def try_login() -> None:  # local function to avoid passing username and password as arguments
+                if passwords.get(username.value) == password.value:
+                    app.storage.user.update({'username': username.value, 'authenticated': True})
+                    ui.open(app.storage.user.get('referrer_path', '/'))  # go back to where the user wanted to go
+                else:
+                    ui.notify('Wrong username or password', color='negative')
+
+            if app.storage.user.get('authenticated', False):
+                return RedirectResponse('/')
+
+            with ui.card().classes('absolute-center'):
+                username = ui.input('Username')
+                username.on('keydown.enter', try_login)
+
+                password = ui.input('Password', password=True, password_toggle_button=True)
+                password.on('keydown.enter', try_login)
+
+                ui.button('Log in', on_click=try_login)
+
+            return None
+
+        @ui.page("/admin")
+        async def configuration_layout(client: Client) -> None:
             address = await Server._get_address(client)
-            await full_configuration(userid, address, VERSION)
+
+            def reset_context() -> None:
+                app.storage.user.clear()
+                ui.open('/_test')
+
+            with ui.header() as header:
+                header.classes(add="bg-transparent text-white flex justify-end")
+                user_name = app.storage.user['username']
+                with ui.button(f"Logout {user_name}", on_click=reset_context) as logout_button:
+                    pass
+
+            await full_configuration("ADMIN", address, VERSION)
 
         @ui.page("/config/{userid}")
         async def config(userid: str, client: Client) -> None:
@@ -440,22 +497,22 @@ class Server:
                     heading.classes(add="text-2xl font-bold mt-16")
 
                 with delayed_storage(
-                        userid, ui.input, ("config", "name_instance"),
-                        label="Name", placeholder="name for instance", default=default_config.name_instance
+                    userid, ui.input, ("config", "name_instance"),
+                    label="Name", placeholder="name for instance", default=default_config.name_instance
                 ) as text_input:
                     pass
 
                 with delayed_storage(
-                        userid, ui.select, ("config", "language"),
-                        label="Language", options=["default", "English", "German", "French", "Spanish"],
-                        default=default_config.language
+                    userid, ui.select, ("config", "language"),
+                    label="Language", options=["default", "English", "German", "French", "Spanish"],
+                    default=default_config.language
                 ) as language_select:
                     pass
 
                 with delayed_storage(
-                        userid, ui.number, ("config", "claim_count"),
-                        label="Claim Count", placeholder="number of claims",
-                        min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
+                    userid, ui.number, ("config", "claim_count"),
+                    label="Claim Count", placeholder="number of claims",
+                    min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
                 ) as number_input:
                     pass
 
@@ -484,7 +541,7 @@ class Server:
                 data_source_select.disable()
 
         @ui.page("/", dark=True)
-        async def main_page(client: Client) -> None:
+        async def coming_soon_page(client: Client) -> None:
             address = await Server._get_address(client)
 
             with ui.element("div") as container:
@@ -514,14 +571,14 @@ class Server:
                     new_tab=True).classes(add="text-center block ")
 
         @ui.page("/_test")
-        async def bookmarklet(client: Client) -> None:
+        async def main_page(client: Client) -> None:
             address = await Server._get_address(client)
             secret = secrets.token_urlsafe(32)
 
             with ui.header() as header:
                 header.classes(add="bg-transparent text-white flex justify-end")
-                with ui.button("Admin Login") as login_button:
-                    # connect to login
+                with ui.button("Admin Login", on_click=lambda: ui.open("/admin")) as login_button:
+                    # connect to admin
                     # https://github.com/zauberzeug/nicegui/blob/main/examples/authentication/main.py
                     pass
 
@@ -575,6 +632,9 @@ class Server:
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
+
+                    case "log":
+                        raise NotImplementedError("log purpose not implemented")
 
                     case _:
                         message_segment = MessageSegment(f"unknown purpose {purpose}, len {len(data)}", True, True)

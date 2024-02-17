@@ -11,7 +11,7 @@ from nicegui.element import Element
 from dataclasses import dataclass
 
 from tools.data_access import set_config_value, get_config_value, set_nested_value, get_nested_value
-from tools.configuration.data.config_objects import ParametersOpenAi
+from tools.data_objects import ParametersOpenAi
 
 
 def asdict_recusive(dc: dataclass) -> dict[str, any]:

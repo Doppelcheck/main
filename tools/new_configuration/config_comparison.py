@@ -3,7 +3,7 @@ from nicegui import ui
 from tools.configuration.data.config_objects import ConfigModel
 
 
-def get_section(config: ConfigModel, admin: bool = False) -> None:
+def get_section(user_id: str, admin: bool = False) -> None:
     with ui.element("div").classes("w-full flex justify-end"):
         ui.select(
             label="Select LLM interface",

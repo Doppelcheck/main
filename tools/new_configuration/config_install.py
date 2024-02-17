@@ -2,7 +2,6 @@ import base64
 
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel
 from tools.text_processing import compile_bookmarklet
 
 
