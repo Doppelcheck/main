@@ -1,266 +1,256 @@
 import dataclasses
 from contextlib import contextmanager
-from typing import Callable
+from typing import Callable, TypeVar
 
+from loguru import logger
 from nicegui import ui
 from nicegui.element import Element
-# from pydantic import BaseModel, Field
-from enum import Enum
 
 from tools.data_access import get_nested_value, set_nested_value
+from tools.plugins.abstract import InterfaceLLM, InterfaceData
+
+from tools.plugins import implementation
 
 
-class ProviderLLM(Enum):
-    OpenAI = "OpenAI"
-    Mistral = "Mistral"
-    Anthropic = "Anthropic"
-    ollama = "ollama"
-    llamafile = "llamafile"
+# todo: generate via introspection
+ProvidersLLM = {
+    "OpenAI": implementation.InterfaceOpenAi,
+    #"Mistral": llm_interfaces.Mistral,
+    #"Anthropic": llm_interfaces.Anthropic,
+    #"ollama": llm_interfaces.Ollama,
+    #"llamafile": llm_interfaces.Llamafile,
+}
 
-
-class ProviderData(Enum):
-    Google = "Google"
-    Bing = "Bing"
-    DuckDuckGo = "DuckDuckGo"
-    GDELT = "GDELT"
-    Twitter = "Twitter"
-    MBFC = "MBFC"
-    CrossRef = "CrossRef"
-    ReutersConnect = "ReutersConnect"
-
-
-@dataclasses.dataclass
-class Parameters:
-    pass
-
-
-@dataclasses.dataclass
-class ParametersOpenAi(Parameters):
-    # https://platform.openai.com/docs/api-reference/chat/create
-    model: str = "gpt-4-1106-preview"  # positional
-    frequency_penalty: float = 0
-    logit_bias: dict[int, float] | None = None
-    # logprobs: bool = False
-    # top_logprobs: int | None = None
-    max_tokens: int | None = None
-    # n: int = 1
-    presence_penalty: float = 0
-    # response_format: dict[str, str] | None = None
-    # seed: int | None = None
-    # stop: str | list[str] | None = None
-    temperature: float = 0.  # 1.
-    top_p: float | None = None  # 1
-    # tools: list[str] = None
-    # tool_choice: str | dict[str, any] | None = None
-    user: str | None = None
-
-
-@dataclasses.dataclass
-class ParametersGoogle(Parameters):
-    # https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list
-    cx: str
-    key: str
-    c2coff: int | None = None
-    cr: str | None = None
-    dateRestrict: str | None = None
-    exactTerms: str | None = None
-    excludeTerms: str | None = None
-    fileType: str | None = None
-    filter: int = 1
-    gl: str | None = None
-    highRange: str | None = None
-    hl: str | None = None
-    hq: str | None = None
-    linkSite: str | None = None
-    lowRange: str | None = None
-    lr: str | None = None
-    num: int | None = 10
-    orTerms: str | None = None
-    rights: str | None = None
-    safe: str = 'off'
-    siteSearch: str | None = None
-    siteSearchFilter: str | None = None
-    sort: str | None = "date"
-    start: int | None = None
-
-
-@dataclasses.dataclass
-class InterfaceLLM:
-    name: str
-    parameters: Parameters
-    provider: ProviderLLM
-
-
-@dataclasses.dataclass
-class InterfaceData:
-    name: str
-    parameters: Parameters
-    provider: ProviderData
-
-
-@dataclasses.dataclass
-class InterfaceOpenAi(InterfaceLLM):
-    api_key: str = ""
-    parameters: ParametersOpenAi
-    provider: ProviderLLM = ProviderLLM.OpenAI
-
-
-@dataclasses.dataclass
-class InterfaceGoogle(InterfaceData):
-    api_key: str = ""
-    engine_id: str = ""
-    parameters: ParametersGoogle
-    provider: ProviderData = ProviderData.Google
+ProvidersData = {
+    "Google": implementation.InterfaceGoogle,
+}
 
 
 class ConfigModel:
-    def __init__(self, user_id: str) -> None:
-        self._user_id: str = user_id
-        self._key_path: tuple[str, ...] = ("users", user_id, "config")
+    @staticmethod
+    def _llm_from_dict(llm_dict: dict[str, any]) -> InterfaceLLM:
+        llm_dict = dict(llm_dict)
+        provider = llm_dict.pop("provider")
+        interface_class = ProvidersLLM[provider]
+        return interface_class(**llm_dict)
 
-        self._general_name: str = "Default instance"
-        self._general_language: str = "default"
+    @staticmethod
+    def _data_from_dict(data_dict: dict[str, any]) -> InterfaceData:
+        data_dict = dict(data_dict)
+        provider = data_dict.pop("provider")
+        interface_class = ProvidersData[provider]
+        return interface_class(**data_dict)
 
-        self._llm_interfaces: list[InterfaceLLM] = list()
-        self._data_interfaces: list[InterfaceData] = list()
+    @staticmethod
+    def _user_path(user_id: str, key: str) -> tuple[str, ...]:
+        return "users", user_id, "config", key
 
-        self._extraction_llm: InterfaceLLM | None = None
-        self._extraction_claims: int = 3
+    @staticmethod
+    def get_user_access(user_id: str, key: str) -> bool:
+        key_path = ConfigModel._user_path(user_id, f"user_access_{key}")
+        return get_nested_value(key_path, default=False)
 
-        self._retrieval_llm: InterfaceLLM | None = None
-        self._retrieval_data: InterfaceData | None = None
-        self._retrieval_max_documents: int = 10
+    @staticmethod
+    def set_user_access(user_id: str, key: str, value: bool) -> None:
+        key_path = ConfigModel._user_path(user_id, f"user_access_{key}")
+        set_nested_value(key_path, value)
 
-        self._comparison_llm: InterfaceLLM | None = None
-        self._comparison_data: InterfaceData | None = None
+    @staticmethod
+    def _set_value(user_id: str, key: str, value: any) -> None:
+        key_path = ConfigModel._user_path(user_id, key)
+        if user_id == "ADMIN":
+            set_nested_value(key_path, value)
 
-    @property
-    def user_id(self) -> str:
-        return self._user_id
+        elif ConfigModel.get_user_access(user_id, key):
+            set_nested_value(key_path, value)
 
-    def _llm_to_json(self, llm: InterfaceLLM) -> dict[str, any]:
-        d = dataclasses.asdict(llm)
-        d["_type"] = type(llm).__name__
-        return d
+    @staticmethod
+    def _get_value(user_id: str, key: str, default: any = None) -> any:
+        admin_key_path = ConfigModel._user_path("ADMIN", key)
+        admin_value = get_nested_value(admin_key_path, default=default)
+        if user_id == "ADMIN":
+            return admin_value
 
-    def _json_to_llm(self, **d: dict[str, any]) -> InterfaceLLM:
-        if d.pop("_type") == "InterfaceOpenAi":
-            return InterfaceOpenAi(**d)
-        raise ValueError(f"Unknown type: {d['_type']}")
+        user_key_path = ConfigModel._user_path(user_id, key)
+        return get_nested_value(user_key_path, default=admin_value)
 
-    def get_general_name(self) -> str:
-        value = get_nested_value(self._key_path + ("general_name",), default=self._general_name)
+    @staticmethod
+    def get_general_name(user_id: str) -> str:
+        return ConfigModel._get_value(user_id, "general_name", default="standard instance")
+
+    @staticmethod
+    def set_general_name(user_id: str, value: str) -> None:
+        ConfigModel._set_value(user_id, "general_name", value)
+
+    @staticmethod
+    def get_general_language(user_id: str) -> str:
+        return ConfigModel._get_value(user_id, "general_language", default="default")
+
+    @staticmethod
+    def set_general_language(user_id, value: str) -> None:
+        ConfigModel._set_value(user_id, "general_language", value)
+
+    @staticmethod
+    def get_llm_interfaces(user_id: str) -> list[InterfaceLLM]:
+        interfaces = list[InterfaceLLM]()
+
+        value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
+        for each_dict in value.values():
+            each_interface = ConfigModel._llm_from_dict(each_dict)
+            interfaces.append(each_interface)
+
+        return interfaces
+
+    @staticmethod
+    def add_llm_interface(user_id: str, interface: InterfaceLLM) -> None:
+        user_access = ConfigModel.get_user_access(user_id, "llm_interfaces")
+        if not user_access and user_id != "ADMIN":
+            return
+
+        value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
+        llm_dict = dataclasses.asdict(interface)
+        name = llm_dict["name"]
+        value[name] = llm_dict
+        ConfigModel._set_value(user_id, "llm_interfaces", value)
+
+    @staticmethod
+    def remove_llm_interface(user_id: str, llm_interface_name: str) -> None:
+        user_access = ConfigModel.get_user_access(user_id, "llm_interfaces")
+        if not user_access and user_id != "ADMIN":
+            return
+
+        value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
+        try:
+            del value[llm_interface_name]
+        except KeyError as e:
+            logger.error(f"Could not remove {llm_interface_name} from {user_id}: {e}")
+
+        ConfigModel._set_value(user_id, "llm_interfaces", value)
+
+    @staticmethod
+    def get_data_interfaces(user_id: str) -> list[InterfaceData]:
+        interfaces = list[InterfaceData]()
+
+        value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
+        for each_dict in value.values():
+            each_interface = ConfigModel._data_from_dict(each_dict)
+            interfaces.append(each_interface)
+
+        return interfaces
+
+    @staticmethod
+    def add_data_interface(user_id: str, interface: InterfaceData) -> None:
+        user_access = ConfigModel.get_user_access(user_id, "data_interfaces")
+        if not user_access and user_id != "ADMIN":
+            return
+
+        value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
+        data_dict = dataclasses.asdict(interface)
+        name = data_dict["name"]
+        value[name] = data_dict
+        ConfigModel._set_value(user_id, "data_interfaces", value)
+
+    @staticmethod
+    def remove_data_interface(user_id: str, key_name: str) -> None:
+        user_access = ConfigModel.get_user_access(user_id, "data_interfaces")
+        if not user_access and user_id != "ADMIN":
+            return
+
+        value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
+        try:
+            del value[key_name]
+        except KeyError as e:
+            logger.error(f"Could not remove {key_name} from {user_id}: {e}")
+
+        ConfigModel._set_value(user_id, "data_interfaces", value)
+
+    @staticmethod
+    def get_extraction_llm(user_id: str) -> InterfaceLLM | None:
+        value = ConfigModel._get_value(user_id, "extraction_llm")
+        if value is None:
+            return None
+        interface = ConfigModel._llm_from_dict(value)
+        return interface
+
+    @staticmethod
+    def set_extraction_llm(user_id: str, value: InterfaceLLM) -> None:
+        interface_llm = dataclasses.asdict(value)
+        ConfigModel._set_value(user_id, "extraction_llm", interface_llm)
+
+    @staticmethod
+    def get_extraction_claims(user_id: str) -> int:
+        value = ConfigModel._get_value(user_id, "extraction_claims", default=3)
         return value
 
-    def set_general_name(self, value: str) -> None:
-        self._general_name = value
-        set_nested_value(self._key_path + ("general_name",), value)
+    @staticmethod
+    def set_extraction_claims(user_id: str, value: int) -> None:
+        ConfigModel._set_value(user_id, "extraction_claims", value)
 
-    def get_general_language(self) -> str:
-        value = get_nested_value(self._key_path + ("general_language",), default=self._general_language)
+    @staticmethod
+    def get_retrieval_llm(user_id: str, self) -> InterfaceLLM | None:
+        value = ConfigModel._get_value(user_id, "retrieval_llm")
+        if value is None:
+            return None
+        interface = ConfigModel._llm_from_dict(value)
+        return interface
+
+    @staticmethod
+    def set_retrieval_llm(user_id: str, value: InterfaceLLM) -> None:
+        interface_llm = dataclasses.asdict(value)
+        ConfigModel._set_value(user_id, "retrieval_llm", interface_llm)
+
+    @staticmethod
+    def get_retrieval_data(user_id: str) -> InterfaceData | None:
+        value = ConfigModel._get_value(user_id, "retrieval_data")
+        if value is None:
+            return None
+        interface = ConfigModel._data_from_dict(value)
+        return interface
+
+    @staticmethod
+    def set_retrieval_data(user_id: str, value: InterfaceData) -> None:
+        interface_data = dataclasses.asdict(value)
+        ConfigModel._set_value(user_id, "retrieval_data", interface_data)
+
+    @staticmethod
+    def get_retrieval_max_documents(user_id: str) -> int:
+        value = ConfigModel._get_value(user_id, "retrieval_max_documents", default=10)
         return value
 
-    def set_general_language(self, value: str) -> None:
-        self._general_language = value
-        set_nested_value(self._key_path + ("general_language",), value)
+    @staticmethod
+    def set_retrieval_max_documents(user_id: str, value: int) -> None:
+        ConfigModel._set_value(user_id, "retrieval_max_documents", value)
 
-    def get_llm_interfaces(self) -> list[InterfaceLLM]:
-        value = get_nested_value(self._key_path + ("llm_interfaces",), default=self._llm_interfaces)
-        return [self._json_to_llm(**each) for each in value]
-
-    def add_llm_interface(self, interface: InterfaceLLM) -> None:
-        values = get_nested_value(self._key_path + ("llm_interfaces",), default=self._llm_interfaces)
-        values.append(self._llm_to_json(interface))
-        set_nested_value(self._key_path + ("llm_interfaces",), values)
-
-    def remove_llm_interface(self, key_name: str) -> None:
-        values = get_nested_value(self._key_path + ("llm_interfaces",), default=self._llm_interfaces)
-        values = [each_interface for each_interface in values if each_interface["name"] != key_name]
-        set_nested_value(self._key_path + ("llm_interfaces",), values)
-
-    def get_data_interfaces(self) -> list[InterfaceData]:
-        value = get_nested_value(self._key_path + ("data_interfaces",), default=self._data_interfaces)
-        return [InterfaceData(**each) for each in value]
-
-    def add_data_interface(self, interface: InterfaceData) -> None:
-        values = get_nested_value(self._key_path + ("data_interfaces",), default=self._data_interfaces)
-        values.append(dataclasses.asdict(interface))
-        set_nested_value(self._key_path + ("data_interfaces",), values)
-
-    def remove_data_interface(self, key_name: str) -> None:
-        values = get_nested_value(self._key_path + ("data_interfaces",), default=self._data_interfaces)
-        values = [each_interface for each_interface in values if each_interface["name"] != key_name]
-        set_nested_value(self._key_path + ("data_interfaces",), values)
-
-    def get_extraction_llm(self) -> InterfaceLLM | None:
-        value = get_nested_value(self._key_path + ("extraction_llm",), default=self._extraction_llm)
+    @staticmethod
+    def get_comparison_llm(user_id: str) -> InterfaceLLM | None:
+        value = ConfigModel._get_value(user_id, "comparison_llm")
         if value is None:
             return None
-        return self._json_to_llm(**value)
+        interface = ConfigModel._llm_from_dict(value)
+        return interface
 
-    def set_extraction_llm(self, value: InterfaceLLM | None) -> None:
-        self._extraction_llm = value
-        set_nested_value(self._key_path + ("extraction_llm",), self._llm_to_json(value))
+    @staticmethod
+    def set_comparison_llm(user_id: str, value: InterfaceLLM) -> None:
+        comparison_llm = dataclasses.asdict(value)
+        ConfigModel._set_value(user_id, "comparison_llm", comparison_llm)
 
-    def get_extraction_claims(self) -> int:
-        value = get_nested_value(self._key_path + ("extraction_claims",), default=self._extraction_claims)
-        return value
-
-    def set_extraction_claims(self, value: int) -> None:
-        self._extraction_claims = value
-        set_nested_value(self._key_path + ("extraction_claims",), value)
-
-    def get_retrieval_llm(self) -> InterfaceLLM | None:
-        value = get_nested_value(self._key_path + ("retrieval_llm",), default=self._retrieval_llm)
+    @staticmethod
+    def get_comparison_data(user_id: str) -> InterfaceData | None:
+        value = ConfigModel._get_value(user_id, "comparison_data")
         if value is None:
             return None
-        return self._json_to_llm(**value)
 
-    def set_retrieval_llm(self, value: InterfaceLLM | None) -> None:
-        self._retrieval_llm = value
-        set_nested_value(self._key_path + ("retrieval_llm",), self._llm_to_json(value))
+        interface = ConfigModel._data_from_dict(value)
+        return interface
 
-    def get_retrieval_data(self) -> InterfaceData | None:
-        value = get_nested_value(self._key_path + ("retrieval_data",), default=self._retrieval_data)
-        if value is None:
-            return None
-        return InterfaceData(**value)
-
-    def set_retrieval_data(self, value: InterfaceData | None) -> None:
-        self._retrieval_data = value
-        set_nested_value(self._key_path + ("retrieval_data",), dataclasses.asdict(value))
-
-    def get_retrieval_max_documents(self) -> int:
-        value = get_nested_value(self._key_path + ("retrieval_max_documents",), default=self._retrieval_max_documents)
-        return value
-
-    def set_retrieval_max_documents(self, value: int) -> None:
-        self._retrieval_max_documents = value
-        set_nested_value(self._key_path + ("retrieval_max_documents",), value)
-
-    def get_comparison_llm(self) -> InterfaceLLM | None:
-        value = get_nested_value(self._key_path + ("comparison_llm",), default=self._comparison_llm)
-        if value is None:
-            return None
-        return self._json_to_llm(**value)
-
-    def set_comparison_llm(self, value: InterfaceLLM | None) -> None:
-        self._comparison_llm = value
-        set_nested_value(self._key_path + ("comparison_llm",), self._llm_to_json(value))
-
-    def get_comparison_data(self) -> InterfaceData | None:
-        value = get_nested_value(self._key_path + ("comparison_data",), default=self._comparison_data)
-        if value is None:
-            return None
-        return InterfaceData(**value)
-
-    def set_comparison_data(self, value: InterfaceData | None) -> None:
-        self._comparison_data = value
-        set_nested_value(self._key_path + ("comparison_data",), dataclasses.asdict(value))
+    @staticmethod
+    def set_comparison_data(user_id: str, value: InterfaceData) -> None:
+        comparison_data = dataclasses.asdict(value)
+        ConfigModel._set_value(user_id, "comparison_data", comparison_data)
 
 
 @contextmanager
-def store(element_type: type[Element], set_value: Callable[[str], any], get_value: Callable[[], any], **kwargs) -> None:
+def store_deprecated(element_type: type[Element], set_value: Callable[[str], any], get_value: Callable[[], any], **kwargs) -> None:
     timer: ui.timer | None = None
 
     def update_timer(callback: Callable[..., any]) -> None:
@@ -284,3 +274,46 @@ def store(element_type: type[Element], set_value: Callable[[str], any], get_valu
         on_change=lambda event: delay(event.value, validation=kwargs.get("validation"))
     ) as element:
         yield element
+
+
+UiElement = TypeVar("UiElement", bound=Element)
+
+
+class Store:
+    def __init__(
+            self,
+            element_type: type[UiElement], set_value: Callable[[str], any], default: any, delay: float = 1.0,
+            **kwargs):
+        self.element_type = element_type
+        self.set_value = set_value
+        self.default = default
+        self.delay = delay
+        self.kwargs = kwargs
+        self.timer: ui.timer | None = None
+
+    def __enter__(self) -> UiElement:
+        def update_timer(callback: Callable[..., any]) -> None:
+            if self.timer is not None:
+                self.timer.cancel()
+            self.timer = ui.timer(interval=self.delay, active=True, once=True, callback=callback)
+
+        def delay(value: any, validation: dict[str, Callable[[str], bool]] | None = None) -> None:
+            if validation is None or all(each_validation(value) for each_validation in validation.values()):
+                def set_storage() -> None:
+                    self.set_value(value)
+                    name = self.kwargs.get('label', self.kwargs.get('text', 'Setting'))
+                    ui.notify(f"{name} updated", timeout=500)
+
+                update_timer(set_storage)
+
+        element = self.element_type(
+            value=self.default, **self.kwargs,
+            on_change=lambda event: delay(event.value, validation=self.kwargs.get("validation"))
+        )
+
+        return element
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.timer is not None:
+            self.timer.cancel()
+

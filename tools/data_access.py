@@ -11,7 +11,7 @@ def get_nested_value(key_path: Sequence[str], default: any = None) -> any:
     data = app.storage.general
     for i, each_key in enumerate(key_path):
         data = data.get(each_key)
-        if data is None:
+        if data is None or (isinstance(data, str) and len(data) < 1):
             logger.debug(f"Key path [{key_path}] not found, nothing at [{i}:{each_key}], returning default value {default}")
             return default
 

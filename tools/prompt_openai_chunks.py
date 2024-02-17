@@ -6,7 +6,7 @@ import openai
 from loguru import logger
 from openai.types.chat import ChatCompletionChunk
 
-from tools.configuration.data.config_objects import ParametersOpenAi
+from tools.data_objects import ParametersOpenAi
 
 
 class PromptOpenAI:
