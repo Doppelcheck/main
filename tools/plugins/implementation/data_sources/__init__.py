@@ -1,1 +1,1 @@
-from tools.plugins.implementation.data_sources.google_dcplugin import *
+from tools.plugins.implementation.data_sources.google_plugin.google_dcplugin import *

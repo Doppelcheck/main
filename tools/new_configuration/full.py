@@ -1,12 +1,13 @@
 from nicegui import ui
 
-from tools.new_configuration.config_comparison import get_section as get_section_comparison
-from tools.new_configuration.config_extraction import get_section as get_section_extraction
-from tools.new_configuration.config_general import get_section as get_section_general
+from tools.new_configuration.config_01_general import get_section as get_section_general
+from tools.new_configuration.config_02_extraction import get_section as get_section_extraction
+from tools.new_configuration.config_03_retrieval import get_section as get_section_retrieval
+from tools.new_configuration.config_04_comparison import get_section as get_section_comparison
+from tools.new_configuration.config_05_llms import get_section as get_section_llms
+from tools.new_configuration.config_06_data import get_section as get_section_data
+
 from tools.new_configuration.config_install import get_section as get_section_install
-from tools.new_configuration.config_llms import get_section as get_section_llms
-from tools.new_configuration.config_data import get_section as get_section_data
-from tools.new_configuration.config_retrieval import get_section as get_section_retrieval
 
 
 async def full_configuration(user_id: str, address: str, version: str) -> None:

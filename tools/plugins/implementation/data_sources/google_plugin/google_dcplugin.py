@@ -37,3 +37,5 @@ class ParametersGoogle:
 class InterfaceGoogle(InterfaceData):
     parameters: ParametersGoogle
     provider: str = dataclasses.field(default="Google", init=False)
+
+
