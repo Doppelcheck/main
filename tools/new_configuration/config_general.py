@@ -1,9 +1,9 @@
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel, Store
+from tools.configuration.data.config_objects import ConfigModel, Store, AccessModel
 
 
-def get_section(user_id: str, admin: bool = False) -> None:
+def get_section(user_id: str, version: str, admin: bool = False) -> None:
 
     with ui.element("div").classes("w-full flex justify-end"):
         ui.label('Settings').classes('text-h5')
@@ -14,11 +14,14 @@ def get_section(user_id: str, admin: bool = False) -> None:
                 label="Name", placeholder="name for instance"
         ) as text_input:
             text_input.classes('w-full')
+            if not admin and not AccessModel.get_access_name():
+                text_input.disable()
+                ui.tooltip("User does not have access to change this setting.")
 
         if admin:
             with Store(
-                    ui.checkbox, lambda access: ConfigModel.set_user_access(user_id, "general_name", access),
-                    ConfigModel.get_user_access(user_id, "general_name"), text="User access") as checkbox:
+                    ui.checkbox, AccessModel.set_access_name,
+                    AccessModel.get_access_name(), text="User access") as checkbox:
                 pass
 
         with Store(
@@ -28,13 +31,30 @@ def get_section(user_id: str, admin: bool = False) -> None:
             label="Language", options=["default", "English", "German", "French", "Spanish"]
         ) as language_select:
             language_select.classes('w-full')
+            if not admin and not AccessModel.get_access_language():
+                language_select.disable()
+                ui.tooltip("User does not have access to change this setting.")
 
         if admin:
             with Store(
-                    ui.checkbox, lambda access: ConfigModel.set_user_access(user_id, "general_language", access),
-                    ConfigModel.get_user_access(user_id, "general_language"), text="User access") as checkbox:
+                    ui.checkbox, AccessModel.set_access_language,
+                    AccessModel.get_access_language(), text="User access") as checkbox:
                 pass
 
-    with ui.element("div").classes("w-full flex justify-end"):
-        ui.label('Information').classes('text-h5')
-        ui.label("info stuff, user id, version, tokens used").classes('w-full')
+    with (ui.column() as column):
+        column.classes("w-full grid justify-items-end")
+
+        ui.label("Information").classes('text-h5')
+
+        with ui.grid(columns=2).classes('justify-self-start'):
+            ui.markdown('User ID:')
+            ui.markdown(f"*{user_id}*")
+
+            ui.markdown('Version:')
+            ui.markdown(f"*{version}*")
+
+            ui.markdown('Tokens used:')
+            ui.markdown("*?*")
+
+            ui.markdown('other info stuff:')
+            ui.markdown("other info stuff")

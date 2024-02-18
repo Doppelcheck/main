@@ -2,13 +2,17 @@ import dataclasses
 
 
 @dataclasses.dataclass
-class InterfaceLLM:
+class Interface:
     name: str
     provider: str
+    from_admin: bool
 
 
 @dataclasses.dataclass
-class InterfaceData:
-    name: str
-    provider: str
+class InterfaceLLM(Interface):
+    pass
 
+
+@dataclasses.dataclass
+class InterfaceData(Interface):
+    pass

@@ -1,6 +1,5 @@
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel
 from tools.new_configuration.config_comparison import get_section as get_section_comparison
 from tools.new_configuration.config_extraction import get_section as get_section_extraction
 from tools.new_configuration.config_general import get_section as get_section_general
@@ -31,7 +30,7 @@ async def full_configuration(user_id: str, address: str, version: str) -> None:
                 with ui.tab_panels(tabs, value=tab_settings).props('vertical').classes('w-full'):
                     with ui.tab_panel(tab_settings):
                         ui.label('General').classes('text-h4')
-                        get_section_general(user_id, admin=is_admin)
+                        get_section_general(user_id, version, admin=is_admin)
 
                     with ui.tab_panel(tab_extract):
                         ui.label('Extraction').classes('text-h4')
