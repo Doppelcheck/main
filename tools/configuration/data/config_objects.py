@@ -26,6 +26,127 @@ ProvidersData = {
 }
 
 
+class AccessModel:
+
+    @staticmethod
+    def _access_path(key: str) -> tuple[str, ...]:
+        return "users", "access", key
+
+    @staticmethod
+    def _get_user_access(key: str) -> bool:
+        key_path = AccessModel._access_path(key)
+        return get_nested_value(key_path, default=False)
+
+    @staticmethod
+    def _set_user_access(key: str, value: bool) -> None:
+        key_path = AccessModel._access_path(key)
+        set_nested_value(key_path, value)
+
+    @staticmethod
+    def set_access_name(user_access: bool) -> None:
+        AccessModel._set_user_access("name", user_access)
+
+    @staticmethod
+    def get_access_name() -> bool:
+        return AccessModel._get_user_access("name")
+
+    @staticmethod
+    def set_access_language(user_access: bool) -> None:
+        AccessModel._set_user_access("language", user_access)
+
+    @staticmethod
+    def get_access_language() -> bool:
+        return AccessModel._get_user_access("language")
+
+    @staticmethod
+    def set_extraction_llm(user_access: bool) -> None:
+        AccessModel._set_user_access("extraction_llm_name", user_access)
+
+    @staticmethod
+    def get_extraction_llm() -> bool:
+        return AccessModel._get_user_access("extraction_llm_name")
+
+    @staticmethod
+    def set_extraction_claims(user_access: bool) -> None:
+        AccessModel._set_user_access("extraction_claims", user_access)
+
+    @staticmethod
+    def get_extraction_claims() -> bool:
+        return AccessModel._get_user_access("extraction_claims")
+
+    @staticmethod
+    def set_retrieval_llm(user_access: bool) -> None:
+        AccessModel._set_user_access("retrieval_llm_name", user_access)
+
+    @staticmethod
+    def get_retrieval_llm() -> bool:
+        return AccessModel._get_user_access("retrieval_llm_name")
+
+    @staticmethod
+    def set_retrieval_data(user_access: bool) -> None:
+        AccessModel._set_user_access("retrieval_data_name", user_access)
+
+    @staticmethod
+    def get_retrieval_data() -> bool:
+        return AccessModel._get_user_access("retrieval_data_name")
+
+    @staticmethod
+    def set_retrieval_max_documents(user_access: bool) -> None:
+        AccessModel._set_user_access("retrieval_max_documents", user_access)
+
+    @staticmethod
+    def get_retrieval_max_documents() -> bool:
+        return AccessModel._get_user_access("retrieval_max_documents")
+
+    @staticmethod
+    def set_comparison_llm(user_access: bool) -> None:
+        AccessModel._set_user_access("comparison_llm_name", user_access)
+
+    @staticmethod
+    def get_comparison_llm() -> bool:
+        return AccessModel._get_user_access("comparison_llm_name")
+
+    @staticmethod
+    def set_comparison_data(user_access: bool) -> None:
+        AccessModel._set_user_access("comparison_data_name", user_access)
+
+    @staticmethod
+    def get_comparison_data() -> bool:
+        return AccessModel._get_user_access("comparison_data_name")
+
+    @staticmethod
+    def set_add_llm(user_access: bool) -> None:
+        AccessModel._set_user_access("add_llm", user_access)
+
+    @staticmethod
+    def get_add_llm() -> bool:
+        return AccessModel._get_user_access("add_llm")
+
+    @staticmethod
+    def set_remove_llm(user_access: bool) -> None:
+        AccessModel._set_user_access("remove_llm", user_access)
+
+    @staticmethod
+    def get_remove_llm() -> bool:
+        return AccessModel._get_user_access("remove_llm")
+
+    @staticmethod
+    def set_add_data(user_access: bool) -> None:
+        AccessModel._set_user_access("add_data", user_access)
+
+    @staticmethod
+    def get_add_data() -> bool:
+        return AccessModel._get_user_access("add_data")
+
+    @staticmethod
+    def set_remove_data(user_access: bool) -> None:
+        AccessModel._set_user_access("remove_data", user_access)
+
+    @staticmethod
+    def get_remove_data() -> bool:
+        return AccessModel._get_user_access("remove_data")
+
+
 class ConfigModel:
     @staticmethod
     def _llm_from_dict(llm_dict: dict[str, any]) -> InterfaceLLM:
@@ -46,33 +167,36 @@ class ConfigModel:
         return "users", user_id, "config", key
 
     @staticmethod
-    def get_user_access(user_id: str, key: str) -> bool:
-        key_path = ConfigModel._user_path(user_id, f"user_access_{key}")
-        return get_nested_value(key_path, default=False)
-
-    @staticmethod
-    def set_user_access(user_id: str, key: str, value: bool) -> None:
-        key_path = ConfigModel._user_path(user_id, f"user_access_{key}")
+    def _set_value(user_id: str, key: str, value: any) -> None:
+        key_path = ConfigModel._user_path(user_id, key)
         set_nested_value(key_path, value)
 
     @staticmethod
-    def _set_value(user_id: str, key: str, value: any) -> None:
-        key_path = ConfigModel._user_path(user_id, key)
-        if user_id == "ADMIN":
-            set_nested_value(key_path, value)
-
-        elif ConfigModel.get_user_access(user_id, key):
-            set_nested_value(key_path, value)
+    def _get_value(user_id: str, key: str, default: any = None) -> any:
+        user_key_path = ConfigModel._user_path(user_id, key)
+        return get_nested_value(user_key_path, default=default)
 
     @staticmethod
-    def _get_value(user_id: str, key: str, default: any = None) -> any:
-        admin_key_path = ConfigModel._user_path("ADMIN", key)
-        admin_value = get_nested_value(admin_key_path, default=default)
-        if user_id == "ADMIN":
-            return admin_value
+    def get_llm_interface(user_id: str, interface_name: str) -> InterfaceLLM | None:
+        value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
+        interface_dict = value.get(interface_name)
+        if interface_dict is None:
+            logger.error(f"LLM interface {interface_name} not found")
+            return None
 
-        user_key_path = ConfigModel._user_path(user_id, key)
-        return get_nested_value(user_key_path, default=admin_value)
+        interface = ConfigModel._llm_from_dict(interface_dict)
+        return interface
+
+    @staticmethod
+    def get_data_interface(user_id: str, name: str) -> InterfaceData | None:
+        value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
+        interface_dict = value.get(name)
+        if interface_dict is None:
+            logger.error(f"Data interface {name} not found")
+            return None
+
+        interface = ConfigModel._data_from_dict(interface_dict)
+        return interface
 
     @staticmethod
     def get_general_name(user_id: str) -> str:
@@ -103,10 +227,6 @@ class ConfigModel:
 
     @staticmethod
     def add_llm_interface(user_id: str, interface: InterfaceLLM) -> None:
-        user_access = ConfigModel.get_user_access(user_id, "llm_interfaces")
-        if not user_access and user_id != "ADMIN":
-            return
-
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
         llm_dict = dataclasses.asdict(interface)
         name = llm_dict["name"]
@@ -115,11 +235,14 @@ class ConfigModel:
 
     @staticmethod
     def remove_llm_interface(user_id: str, llm_interface_name: str) -> None:
-        user_access = ConfigModel.get_user_access(user_id, "llm_interfaces")
-        if not user_access and user_id != "ADMIN":
-            return
+        is_admin = user_id == "ADMIN"
 
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
+        interface = value.get(llm_interface_name)
+        if not is_admin and interface["from_admin"]:
+            logger.error(f"User {user_id} cannot remove admin data interface {llm_interface_name}.")
+            return
+
         try:
             del value[llm_interface_name]
         except KeyError as e:
@@ -140,10 +263,6 @@ class ConfigModel:
 
     @staticmethod
     def add_data_interface(user_id: str, interface: InterfaceData) -> None:
-        user_access = ConfigModel.get_user_access(user_id, "data_interfaces")
-        if not user_access and user_id != "ADMIN":
-            return
-
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
         data_dict = dataclasses.asdict(interface)
         name = data_dict["name"]
@@ -151,31 +270,35 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "data_interfaces", value)
 
     @staticmethod
-    def remove_data_interface(user_id: str, key_name: str) -> None:
-        user_access = ConfigModel.get_user_access(user_id, "data_interfaces")
-        if not user_access and user_id != "ADMIN":
-            return
+    def remove_data_interface(user_id: str, data_interface_name: str) -> None:
+        is_admin = user_id == "ADMIN"
 
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
+        interface = value.get(data_interface_name)
+        if not is_admin and interface["from_admin"]:
+            logger.error(f"User {user_id} cannot remove admin data interface {data_interface_name}.")
+            return
+
         try:
-            del value[key_name]
+            del value[data_interface_name]
         except KeyError as e:
-            logger.error(f"Could not remove {key_name} from {user_id}: {e}")
+            logger.error(f"Could not remove {data_interface_name} from {user_id}: {e}")
 
         ConfigModel._set_value(user_id, "data_interfaces", value)
 
     @staticmethod
     def get_extraction_llm(user_id: str) -> InterfaceLLM | None:
-        value = ConfigModel._get_value(user_id, "extraction_llm")
-        if value is None:
+        interface_name = ConfigModel._get_value(user_id, "extraction_llm")
+        if interface_name is None:
+            logger.error(f"No extraction LLM interface set for {user_id}")
             return None
-        interface = ConfigModel._llm_from_dict(value)
+
+        interface = ConfigModel.get_llm_interface(user_id, interface_name)
         return interface
 
     @staticmethod
-    def set_extraction_llm(user_id: str, value: InterfaceLLM) -> None:
-        interface_llm = dataclasses.asdict(value)
-        ConfigModel._set_value(user_id, "extraction_llm", interface_llm)
+    def set_extraction_llm(user_id: str, interface_name: str) -> None:
+        ConfigModel._set_value(user_id, "extraction_llm", interface_name)
 
     @staticmethod
     def get_extraction_claims(user_id: str) -> int:
@@ -187,30 +310,32 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "extraction_claims", value)
 
     @staticmethod
-    def get_retrieval_llm(user_id: str, self) -> InterfaceLLM | None:
-        value = ConfigModel._get_value(user_id, "retrieval_llm")
-        if value is None:
+    def get_retrieval_llm(user_id: str) -> InterfaceLLM | None:
+        interface_name = ConfigModel._get_value(user_id, "retrieval_llm")
+        if interface_name is None:
+            logger.error(f"No retrieval LLM interface set for {user_id}")
             return None
-        interface = ConfigModel._llm_from_dict(value)
+
+        interface = ConfigModel.get_llm_interface(user_id, interface_name)
         return interface
 
     @staticmethod
-    def set_retrieval_llm(user_id: str, value: InterfaceLLM) -> None:
-        interface_llm = dataclasses.asdict(value)
-        ConfigModel._set_value(user_id, "retrieval_llm", interface_llm)
+    def set_retrieval_llm(user_id: str, interface_name: str) -> None:
+        ConfigModel._set_value(user_id, "retrieval_llm", interface_name)
 
     @staticmethod
     def get_retrieval_data(user_id: str) -> InterfaceData | None:
-        value = ConfigModel._get_value(user_id, "retrieval_data")
-        if value is None:
+        interface_name = ConfigModel._get_value(user_id, "retrieval_data")
+        if interface_name is None:
+            logger.error(f"No retrieval data interface set for {user_id}")
             return None
-        interface = ConfigModel._data_from_dict(value)
+
+        interface = ConfigModel.get_llm_interface(user_id, interface_name)
         return interface
 
     @staticmethod
-    def set_retrieval_data(user_id: str, value: InterfaceData) -> None:
-        interface_data = dataclasses.asdict(value)
-        ConfigModel._set_value(user_id, "retrieval_data", interface_data)
+    def set_retrieval_data(user_id: str, interface_name: str) -> None:
+        ConfigModel._set_value(user_id, "retrieval_data", interface_name)
 
     @staticmethod
     def get_retrieval_max_documents(user_id: str) -> int:
@@ -223,30 +348,31 @@ class ConfigModel:
 
     @staticmethod
     def get_comparison_llm(user_id: str) -> InterfaceLLM | None:
-        value = ConfigModel._get_value(user_id, "comparison_llm")
-        if value is None:
+        interface_name = ConfigModel._get_value(user_id, "comparison_llm")
+        if interface_name is None:
+            logger.error(f"No comparison LLM interface set for {user_id}")
             return None
-        interface = ConfigModel._llm_from_dict(value)
+
+        interface = ConfigModel.get_llm_interface(user_id, interface_name)
         return interface
 
     @staticmethod
-    def set_comparison_llm(user_id: str, value: InterfaceLLM) -> None:
-        comparison_llm = dataclasses.asdict(value)
-        ConfigModel._set_value(user_id, "comparison_llm", comparison_llm)
+    def set_comparison_llm(user_id: str, interface_name: str) -> None:
+        ConfigModel._set_value(user_id, "comparison_llm", interface_name)
 
     @staticmethod
     def get_comparison_data(user_id: str) -> InterfaceData | None:
-        value = ConfigModel._get_value(user_id, "comparison_data")
-        if value is None:
+        interface_name = ConfigModel._get_value(user_id, "comparison_data")
+        if interface_name is None:
+            logger.error(f"No comparison data interface set for {user_id}")
             return None
 
-        interface = ConfigModel._data_from_dict(value)
+        interface = ConfigModel.get_llm_interface(user_id, interface_name)
         return interface
 
     @staticmethod
-    def set_comparison_data(user_id: str, value: InterfaceData) -> None:
-        comparison_data = dataclasses.asdict(value)
-        ConfigModel._set_value(user_id, "comparison_data", comparison_data)
+    def set_comparison_data(user_id: str, interface_name: str) -> None:
+        ConfigModel._set_value(user_id, "comparison_data", interface_name)
 
 
 @contextmanager
@@ -282,7 +408,7 @@ UiElement = TypeVar("UiElement", bound=Element)
 class Store:
     def __init__(
             self,
-            element_type: type[UiElement], set_value: Callable[[str], any], default: any, delay: float = 1.0,
+            element_type: type[UiElement], set_value: Callable[[any], any], default: any, delay: float = 1.0,
             **kwargs):
         self.element_type = element_type
         self.set_value = set_value
@@ -317,3 +443,11 @@ class Store:
         if self.timer is not None:
             self.timer.cancel()
 
+
+def get_interface(interfaces: list[dict[str, any]], name: str) -> dict[str, any] | None:
+    for each_interface in interfaces:
+        if each_interface[name] == name:
+            return each_interface
+
+    logger.error(f"Interface {name} not found")
+    return None

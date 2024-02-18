@@ -481,6 +481,11 @@ class Server:
 
         @ui.page("/config/{userid}")
         async def config(userid: str, client: Client) -> None:
+            address = await Server._get_address(client)
+            await full_configuration(userid, address, VERSION)
+
+        @ui.page("/config_old/{userid}")
+        async def config_old(userid: str, client: Client) -> None:
             """
             configure.href = `https://${address}/config/${userID}`;
             """
