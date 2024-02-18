@@ -8,26 +8,10 @@ from nicegui.element import Element
 
 from tools.data_access import get_nested_value, set_nested_value
 from tools.plugins.abstract import InterfaceLLM, InterfaceData
-
-from tools.plugins import implementation
-
-
-# todo: generate via introspection
-ProvidersLLM = {
-    "OpenAI": implementation.InterfaceOpenAi,
-    #"Mistral": llm_interfaces.Mistral,
-    #"Anthropic": llm_interfaces.Anthropic,
-    #"ollama": llm_interfaces.Ollama,
-    #"llamafile": llm_interfaces.Llamafile,
-}
-
-ProvidersData = {
-    "Google": implementation.InterfaceGoogle,
-}
+from tools.plugins.instantiate import llm_from_dict, data_from_dict
 
 
 class AccessModel:
-
     @staticmethod
     def _access_path(key: str) -> tuple[str, ...]:
         return "users", "access", key
@@ -148,19 +132,6 @@ class AccessModel:
 
 
 class ConfigModel:
-    @staticmethod
-    def _llm_from_dict(llm_dict: dict[str, any]) -> InterfaceLLM:
-        llm_dict = dict(llm_dict)
-        provider = llm_dict.pop("provider")
-        interface_class = ProvidersLLM[provider]
-        return interface_class(**llm_dict)
-
-    @staticmethod
-    def _data_from_dict(data_dict: dict[str, any]) -> InterfaceData:
-        data_dict = dict(data_dict)
-        provider = data_dict.pop("provider")
-        interface_class = ProvidersData[provider]
-        return interface_class(**data_dict)
 
     @staticmethod
     def _user_path(user_id: str, key: str) -> tuple[str, ...]:
@@ -184,7 +155,7 @@ class ConfigModel:
             logger.error(f"LLM interface {interface_name} not found")
             return None
 
-        interface = ConfigModel._llm_from_dict(interface_dict)
+        interface = llm_from_dict(interface_dict)
         return interface
 
     @staticmethod
@@ -195,7 +166,7 @@ class ConfigModel:
             logger.error(f"Data interface {name} not found")
             return None
 
-        interface = ConfigModel._data_from_dict(interface_dict)
+        interface = data_from_dict(interface_dict)
         return interface
 
     @staticmethod
@@ -220,7 +191,7 @@ class ConfigModel:
 
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
         for each_dict in value.values():
-            each_interface = ConfigModel._llm_from_dict(each_dict)
+            each_interface = llm_from_dict(each_dict)
             interfaces.append(each_interface)
 
         return interfaces
@@ -256,7 +227,7 @@ class ConfigModel:
 
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
         for each_dict in value.values():
-            each_interface = ConfigModel._data_from_dict(each_dict)
+            each_interface = data_from_dict(each_dict)
             interfaces.append(each_interface)
 
         return interfaces

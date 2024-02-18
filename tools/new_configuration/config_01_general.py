@@ -41,20 +41,20 @@ def get_section(user_id: str, version: str, admin: bool = False) -> None:
                     AccessModel.get_access_language(), text="User access") as checkbox:
                 pass
 
-    with (ui.column() as column):
+    with ui.column() as column:
         column.classes("w-full grid justify-items-end")
 
         ui.label("Information").classes('text-h5')
 
         with ui.grid(columns=2).classes('justify-self-start'):
-            ui.markdown('User ID:')
-            ui.markdown(f"*{user_id}*")
+            ui.label('User ID:')
+            ui.label(user_id).classes("text-italic")
 
-            ui.markdown('Version:')
-            ui.markdown(f"*{version}*")
+            ui.label('Doppelcheck server version:')
+            ui.label(version).classes("text-italic")
 
-            ui.markdown('Tokens used:')
-            ui.markdown("*?*")
+            ui.label('Tokens used:')
+            ui.label("?").classes("text-italic")
 
-            ui.markdown('other info stuff:')
-            ui.markdown("other info stuff")
+            ui.label('other info stuff:')
+            ui.label("other info stuff").classes("text-italic")
