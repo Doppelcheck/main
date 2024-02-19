@@ -19,7 +19,7 @@ class AsyncArticle(newspaper.Article):
         """
         if input_html is None:
             try:
-                source = await browser.get_html_content_from_playwright(self.url)
+                source = await browser.get_html_content(self.url)
                 html = source.content
 
             except httpx.HTTPError as e:

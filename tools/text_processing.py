@@ -95,17 +95,11 @@ class CodeBlockSegment:
     segment: str
 
 
-T = TypeVar("T")
-
-
-async def pipe_codeblock_content(
-        stream: AsyncGenerator[T, None], get_text: Callable[[T], str]) -> AsyncGenerator[CodeBlockSegment, None]:
-
+async def pipe_codeblock_content(stream: AsyncGenerator[str, None]) -> AsyncGenerator[CodeBlockSegment, None]:
     block_type = ""
     block_index = 0
     state = 0
-    async for each_dict in stream:
-        each_text = get_text(each_dict)
+    async for each_text in stream:
         if each_text is None:
             continue
 
@@ -202,3 +196,16 @@ def extract_code_block(text: str, code_type: str | None = None) -> str:
 
 def shorten_url(url: str) -> str:
     return re.sub(r'^(https?://)?(www\.)?', '', url)
+
+
+def chunk_text(text: str, max_len: int = 1_000, overlap: int = 100) -> Generator[str, None, None]:
+    len_text = len(text)
+    start = 0
+    end = max_len
+    while True:
+        if end >= len_text:
+            yield text[start:]
+            break
+        yield text[start:end]
+        start += max_len - overlap
+        end += max_len - overlap
