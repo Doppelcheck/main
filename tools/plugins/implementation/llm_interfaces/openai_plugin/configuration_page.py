@@ -5,7 +5,7 @@ from nicegui import ui
 from nicegui.elements.table import Table
 
 from tools.configuration.data.config_objects import ConfigModel, Store, AccessModel
-from tools.plugins.implementation.llm_interfaces.openai_plugin.openai_dataclasses import ParametersOpenAi, InterfaceOpenAi
+from tools.plugins.implementation.llm_interfaces.openai_plugin.custom_settings import ParametersOpenAi, InterfaceOpenAi
 
 
 def openai_config(user_id: str, user_accessible: bool, interface_table: Table) -> None:

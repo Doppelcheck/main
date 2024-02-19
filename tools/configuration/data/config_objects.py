@@ -149,8 +149,15 @@ class ConfigModel:
 
     @staticmethod
     def get_llm_interface(user_id: str, interface_name: str) -> InterfaceLLMConfig | None:
-        value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
-        interface_dict = value.get(interface_name)
+        llm_interface_dicts = ConfigModel._get_value(
+            "ADMIN", "llm_interfaces", default=dict[str, dict[str, any]]()
+        )
+        user_llm_interface_dicts = ConfigModel._get_value(
+            user_id, "llm_interfaces", default=dict[str, dict[str, any]]()
+        )
+        llm_interface_dicts.update(user_llm_interface_dicts)
+
+        interface_dict = llm_interface_dicts.get(interface_name)
         if interface_dict is None:
             logger.error(f"LLM interface {interface_name} not found")
             return None
@@ -160,8 +167,15 @@ class ConfigModel:
 
     @staticmethod
     def get_data_interface(user_id: str, name: str) -> InterfaceDataConfig | None:
-        value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
-        interface_dict = value.get(name)
+        data_interface_dicts = ConfigModel._get_value(
+            "ADMIN", "data_interfaces", default=dict[str, dict[str, any]]()
+        )
+        user_data_interface_dicts = ConfigModel._get_value(
+            user_id, "data_interfaces", default=dict[str, dict[str, any]]()
+        )
+        data_interface_dicts.update(user_data_interface_dicts)
+
+        interface_dict = data_interface_dicts.get(name)
         if interface_dict is None:
             logger.error(f"Data interface {name} not found")
             return None
@@ -171,7 +185,10 @@ class ConfigModel:
 
     @staticmethod
     def get_general_name(user_id: str) -> str:
-        return ConfigModel._get_value(user_id, "general_name", default="standard instance")
+        return ConfigModel._get_value(
+            user_id, "general_name",
+            default=ConfigModel._get_value("ADMIN", "general_name", default="standard instance")
+        )
 
     @staticmethod
     def set_general_name(user_id: str, value: str) -> None:
@@ -179,7 +196,10 @@ class ConfigModel:
 
     @staticmethod
     def get_general_language(user_id: str) -> str:
-        return ConfigModel._get_value(user_id, "general_language", default="default")
+        return ConfigModel._get_value(
+            user_id, "general_language",
+            default=ConfigModel._get_value("ADMIN", "general_language", default="default")
+        )
 
     @staticmethod
     def set_general_language(user_id, value: str) -> None:
@@ -259,7 +279,10 @@ class ConfigModel:
 
     @staticmethod
     def get_extraction_llm(user_id: str) -> InterfaceLLMConfig | None:
-        interface_name = ConfigModel._get_value(user_id, "extraction_llm")
+        interface_name = ConfigModel._get_value(
+            user_id, "extraction_llm",
+            default=ConfigModel._get_value("ADMIN", "extraction_llm")
+        )
         if interface_name is None:
             logger.error(f"No extraction LLM interface set for {user_id}")
             return None
@@ -273,7 +296,10 @@ class ConfigModel:
 
     @staticmethod
     def get_extraction_claims(user_id: str) -> int:
-        value = ConfigModel._get_value(user_id, "extraction_claims", default=3)
+        value = ConfigModel._get_value(
+            user_id, "extraction_claims",
+            default=ConfigModel._get_value("ADMIN", "extraction_claims", default=3)
+        )
         return value
 
     @staticmethod
@@ -282,7 +308,10 @@ class ConfigModel:
 
     @staticmethod
     def get_retrieval_llm(user_id: str) -> InterfaceLLMConfig | None:
-        interface_name = ConfigModel._get_value(user_id, "retrieval_llm")
+        interface_name = ConfigModel._get_value(
+            user_id, "retrieval_llm",
+            default=ConfigModel._get_value("ADMIN", "retrieval_llm")
+        )
         if interface_name is None:
             logger.error(f"No retrieval LLM interface set for {user_id}")
             return None
@@ -296,7 +325,10 @@ class ConfigModel:
 
     @staticmethod
     def get_retrieval_data(user_id: str) -> InterfaceDataConfig | None:
-        interface_name = ConfigModel._get_value(user_id, "retrieval_data")
+        interface_name = ConfigModel._get_value(
+            user_id, "retrieval_data",
+            default=ConfigModel._get_value("ADMIN", "retrieval_data")
+        )
         if interface_name is None:
             logger.error(f"No retrieval data interface set for {user_id}")
             return None
@@ -310,7 +342,10 @@ class ConfigModel:
 
     @staticmethod
     def get_retrieval_max_documents(user_id: str) -> int:
-        value = ConfigModel._get_value(user_id, "retrieval_max_documents", default=10)
+        value = ConfigModel._get_value(
+            user_id, "retrieval_max_documents",
+            default=ConfigModel._get_value("ADMIN", "retrieval_max_documents", default=10)
+        )
         return value
 
     @staticmethod
@@ -319,7 +354,10 @@ class ConfigModel:
 
     @staticmethod
     def get_comparison_llm(user_id: str) -> InterfaceLLMConfig | None:
-        interface_name = ConfigModel._get_value(user_id, "comparison_llm")
+        interface_name = ConfigModel._get_value(
+            user_id, "comparison_llm",
+            default=ConfigModel._get_value("ADMIN", "comparison_llm")
+        )
         if interface_name is None:
             logger.error(f"No comparison LLM interface set for {user_id}")
             return None
@@ -333,7 +371,10 @@ class ConfigModel:
 
     @staticmethod
     def get_comparison_data(user_id: str) -> InterfaceDataConfig | None:
-        interface_name = ConfigModel._get_value(user_id, "comparison_data")
+        interface_name = ConfigModel._get_value(
+            user_id, "comparison_data",
+            default=ConfigModel._get_value("ADMIN", "comparison_data")
+        )
         if interface_name is None:
             logger.error(f"No comparison data interface set for {user_id}")
             return None

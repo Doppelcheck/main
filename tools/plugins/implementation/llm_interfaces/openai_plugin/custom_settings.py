@@ -28,12 +28,3 @@ class InterfaceOpenAi(InterfaceLLMConfig):
     api_key: str
     parameters: ParametersOpenAi
     provider: str = dataclasses.field(default="OpenAI", init=False)
-
-
-if __name__ == "__main__":
-    p = ParametersOpenAi()
-    i = InterfaceOpenAi(name="", api_key="", parameters=p)
-    print(dataclasses.asdict(i))
-
-    p = InterfaceLLMConfig(name="", provider="")
-    print(dataclasses.asdict(p))

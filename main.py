@@ -14,21 +14,21 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from nicegui import ui, app, Client
-from playwright._impl._errors import Error as PlaywrightError
-from playwright.async_api import BrowserContext
 from pydantic import BaseModel
 
 from prompts.agent_patterns import extraction, google, compare
-from tools.configuration.configuration import asdict_recusive, delayed_storage, update_llm_config, update_data_config
+from tools.configuration.configuration import asdict_recusive
+from tools.configuration.data.config_objects import ConfigModel
 from tools.new_configuration.full import full_configuration
 from tools.new_configuration.config_install import get_section
 from tools.content_retrieval import get_context
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_access import get_user_config, set_data_value, get_data_value, UserConfig
-from tools.data_objects import GoogleCustomSearch, MessageSegment, ClaimSegment, DocumentSegment, ComparisonSegment, Doc
-from tools.plugins.implementation.data_sources.google_plugin.google_dataclasses import ParametersGoogle
-from tools.plugins.implementation.data_sources.google_plugin.google_interface import QueryGoogle
-from tools.plugins.implementation.llm_interfaces.openai_plugin.openai_interface import PromptOpenAI
+from tools.data_objects import GoogleCustomSearch, MessageSegment, ClaimSegment, DocumentSegment, ComparisonSegment
+from tools.plugins.abstract import InterfaceLLM
+from tools.plugins.implementation.data_sources.google_plugin.custom_settings import ParametersGoogle
+from tools.plugins.implementation.data_sources.google_plugin.interface import QueryGoogle
+from tools.plugins.implementation.llm_interfaces.openai_plugin.interface import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, shorten_url
 
@@ -74,20 +74,6 @@ class User(BaseModel):
 
 
 class Server:
-    @staticmethod
-    async def _retrieve_text_deprecated(claim_id: int, context: BrowserContext, url: str) -> Doc:
-        page = await context.new_page()
-        try:
-            await page.goto(url)
-        except PlaywrightError as e:
-            return Doc(claim_id=claim_id, uri=url, content=None)
-
-        html = await page.content()
-        await page.wait_for_load_state("domcontentloaded")
-        await page.wait_for_load_state("networkidle")
-        full_text_lines = "".join(text_node_generator(html))
-        return Doc(claim_id=claim_id, uri=url, content=full_text_lines)
-
     @staticmethod
     async def _get_address(client: Client) -> str:
         await client.connected()
@@ -219,6 +205,17 @@ class Server:
 
     async def get_claims_from_html(self, body_html: str, user_id: str) -> Generator[ClaimSegment, None, None]:
         settings = get_user_config(user_id)
+
+        interface_llm_config = ConfigModel.get_extraction_llm(user_id)
+
+        if interface_llm_config is None:
+            logger.error(f"no interface_llm_config for {user_id}")
+            raise RetrieveDocumentException("no interface_llm_config")
+
+        print("interface_llm_config", interface_llm_config)
+        #llm_interface: InterfaceLLM = get_interface_from_config(interface_llm_config)
+
+
         llm_interface = self._get_llm(settings)
 
         claim_count = settings.claim_count
@@ -313,7 +310,6 @@ class Server:
             const configUrl = `https://${address}/get_config/`;
             const userData = { user_id: userId, version: versionClient };
             """
-            print(user_data)
             logger.info(f"getting settings for {user_data.user_id}")
             settings = get_user_config(user_data.user_id)
             if user_data.version is None:
@@ -382,68 +378,7 @@ class Server:
             address = await Server._get_address(client)
             await full_configuration(userid, address, VERSION)
 
-        @ui.page("/config_old/{userid}")
-        async def config_old(userid: str, client: Client) -> None:
-            """
-            configure.href = `https://${address}/config/${userID}`;
-            """
-            address = await Server._get_address(client)
-
-            default_config = UserConfig()
-
-            with ui.element("div") as container:
-                container.classes(add="w-full max-w-2xl m-auto")
-
-                get_section(userid, address, VERSION, video=False)
-
-                with ui.label("Configuration") as heading:
-                    heading.classes(add="text-2xl font-bold mt-16")
-
-                with delayed_storage(
-                    userid, ui.input, ("config", "name_instance"),
-                    label="Name", placeholder="name for instance", default=default_config.name_instance
-                ) as text_input:
-                    pass
-
-                with delayed_storage(
-                    userid, ui.select, ("config", "language"),
-                    label="Language", options=["default", "English", "German", "French", "Spanish"],
-                    default=default_config.language
-                ) as language_select:
-                    pass
-
-                with delayed_storage(
-                    userid, ui.number, ("config", "claim_count"),
-                    label="Claim Count", placeholder="number of claims",
-                    min=1, max=5, step=1, precision=0, format="%d", default=default_config.claim_count
-                ) as number_input:
-                    pass
-
-                with ui.label("LLM Interface") as heading:
-                    heading.classes(add="text-2xl font-bold mt-16")
-                with ui.select(
-                        options=["OpenAI", "Mistral", "Anthropic", "ollama"],
-                        on_change=lambda event: update_llm_config(userid, llm_config, event.value)
-                ) as llm_select:
-                    pass
-                with ui.element("div") as llm_config:
-                    pass
-                llm_select.set_value("OpenAI")
-                llm_select.disable()
-
-                with ui.label("Data Source") as heading:
-                    heading.classes(add="text-2xl font-bold mt-16")
-                with ui.select(
-                        options=["Google", "Bing", "DuckDuckGo"],
-                        on_change=lambda event: update_data_config(userid, data_source_config, event.value)
-                ) as data_source_select:
-                    pass
-                with ui.element("div") as data_source_config:
-                    pass
-                data_source_select.set_value("Google")
-                data_source_select.disable()
-
-        @ui.page("/", dark=True)
+        @ui.page("/")
         async def coming_soon_page(client: Client) -> None:
             address = await Server._get_address(client)
 

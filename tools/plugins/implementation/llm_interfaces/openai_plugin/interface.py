@@ -1,3 +1,4 @@
+from __future__ import annotations
 import dataclasses
 import time
 from typing import AsyncGenerator, Callable
@@ -11,7 +12,16 @@ from tools.plugins.abstract import InterfaceLLM
 
 
 class PromptOpenAI(InterfaceLLM):
+    @classmethod
+    def _from_dict(cls, state: dict[str, any]) -> PromptOpenAI:
+        key = state["key"]
+        return PromptOpenAI(key)
+
+    def _to_dict(self) -> dict[str, any]:
+        return {"key": self._key}
+
     def __init__(self, key: str) -> None:
+        self._key = key
         self._client = openai.AsyncOpenAI(api_key=key)
 
     async def reply_to_prompt(
@@ -22,7 +32,7 @@ class PromptOpenAI(InterfaceLLM):
 
         logger.info(prompt)
 
-        arguments = dataclasses.asdict(parameters)
+        arguments = {k: v for k, v in dataclasses.asdict(parameters) if v is not None}
 
         reply = ""
         while True:
