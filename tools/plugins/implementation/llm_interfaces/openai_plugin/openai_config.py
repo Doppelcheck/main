@@ -5,7 +5,7 @@ from nicegui import ui
 from nicegui.elements.table import Table
 
 from tools.configuration.data.config_objects import ConfigModel, Store, AccessModel
-from tools.plugins.implementation.llm_interfaces.openai_plugin.openai_dcplugin import ParametersOpenAi, InterfaceOpenAi
+from tools.plugins.implementation.llm_interfaces.openai_plugin.openai_dataclasses import ParametersOpenAi, InterfaceOpenAi
 
 
 def openai_config(user_id: str, user_accessible: bool, interface_table: Table) -> None:
@@ -48,6 +48,7 @@ def openai_config(user_id: str, user_accessible: bool, interface_table: Table) -
         else:
             add_button.disable()
 
+    # todo: pull this out as general setting for all llm interfaces
     with ui.input(
             label="Name", placeholder="name for interface",
             validation={"Name already in use": lambda x: x not in [x["name"] for x in interface_table.rows]},
@@ -74,17 +75,9 @@ def openai_config(user_id: str, user_accessible: bool, interface_table: Table) -
     ) as description:
         description.classes('w-full')
 
-    with ui.html(
-            "The following OpenAI API parameters have been disabled:"
-            "<ul>"
-            "<li>logprobs</li>"
-            "<li>top_logprobs</li>"
-            "<li>n</li>"
-            "<li>response_format</li>"
-            "<li>seed</li>"
-            "<li>stop</li>"
-            "<li>tools</li>"
-            "</ul>"
+    with ui.markdown(
+            "The following OpenAI API parameters have been disabled for compatibility: `logprobs`, `top_logprobs`, "
+            "`n`, `response_format`, `seed`, `stop`, and `tools`."
     ) as _:
         pass
 

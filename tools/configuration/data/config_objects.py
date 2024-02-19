@@ -7,7 +7,7 @@ from nicegui import ui
 from nicegui.element import Element
 
 from tools.data_access import get_nested_value, set_nested_value
-from tools.plugins.abstract import InterfaceLLM, InterfaceData
+from tools.plugins.abstract import InterfaceLLMConfig, InterfaceDataConfig
 from tools.plugins.instantiate import llm_from_dict, data_from_dict
 
 
@@ -148,7 +148,7 @@ class ConfigModel:
         return get_nested_value(user_key_path, default=default)
 
     @staticmethod
-    def get_llm_interface(user_id: str, interface_name: str) -> InterfaceLLM | None:
+    def get_llm_interface(user_id: str, interface_name: str) -> InterfaceLLMConfig | None:
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
         interface_dict = value.get(interface_name)
         if interface_dict is None:
@@ -159,7 +159,7 @@ class ConfigModel:
         return interface
 
     @staticmethod
-    def get_data_interface(user_id: str, name: str) -> InterfaceData | None:
+    def get_data_interface(user_id: str, name: str) -> InterfaceDataConfig | None:
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
         interface_dict = value.get(name)
         if interface_dict is None:
@@ -186,8 +186,8 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "general_language", value)
 
     @staticmethod
-    def get_llm_interfaces(user_id: str) -> list[InterfaceLLM]:
-        interfaces = list[InterfaceLLM]()
+    def get_llm_interfaces(user_id: str) -> list[InterfaceLLMConfig]:
+        interfaces = list[InterfaceLLMConfig]()
 
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
         for each_dict in value.values():
@@ -197,7 +197,7 @@ class ConfigModel:
         return interfaces
 
     @staticmethod
-    def add_llm_interface(user_id: str, interface: InterfaceLLM) -> None:
+    def add_llm_interface(user_id: str, interface: InterfaceLLMConfig) -> None:
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
         llm_dict = dataclasses.asdict(interface)
         name = llm_dict["name"]
@@ -222,8 +222,8 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "llm_interfaces", value)
 
     @staticmethod
-    def get_data_interfaces(user_id: str) -> list[InterfaceData]:
-        interfaces = list[InterfaceData]()
+    def get_data_interfaces(user_id: str) -> list[InterfaceDataConfig]:
+        interfaces = list[InterfaceDataConfig]()
 
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
         for each_dict in value.values():
@@ -233,7 +233,7 @@ class ConfigModel:
         return interfaces
 
     @staticmethod
-    def add_data_interface(user_id: str, interface: InterfaceData) -> None:
+    def add_data_interface(user_id: str, interface: InterfaceDataConfig) -> None:
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
         data_dict = dataclasses.asdict(interface)
         name = data_dict["name"]
@@ -258,7 +258,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "data_interfaces", value)
 
     @staticmethod
-    def get_extraction_llm(user_id: str) -> InterfaceLLM | None:
+    def get_extraction_llm(user_id: str) -> InterfaceLLMConfig | None:
         interface_name = ConfigModel._get_value(user_id, "extraction_llm")
         if interface_name is None:
             logger.error(f"No extraction LLM interface set for {user_id}")
@@ -281,7 +281,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "extraction_claims", value)
 
     @staticmethod
-    def get_retrieval_llm(user_id: str) -> InterfaceLLM | None:
+    def get_retrieval_llm(user_id: str) -> InterfaceLLMConfig | None:
         interface_name = ConfigModel._get_value(user_id, "retrieval_llm")
         if interface_name is None:
             logger.error(f"No retrieval LLM interface set for {user_id}")
@@ -295,7 +295,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "retrieval_llm", interface_name)
 
     @staticmethod
-    def get_retrieval_data(user_id: str) -> InterfaceData | None:
+    def get_retrieval_data(user_id: str) -> InterfaceDataConfig | None:
         interface_name = ConfigModel._get_value(user_id, "retrieval_data")
         if interface_name is None:
             logger.error(f"No retrieval data interface set for {user_id}")
@@ -318,7 +318,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "retrieval_max_documents", value)
 
     @staticmethod
-    def get_comparison_llm(user_id: str) -> InterfaceLLM | None:
+    def get_comparison_llm(user_id: str) -> InterfaceLLMConfig | None:
         interface_name = ConfigModel._get_value(user_id, "comparison_llm")
         if interface_name is None:
             logger.error(f"No comparison LLM interface set for {user_id}")
@@ -332,7 +332,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "comparison_llm", interface_name)
 
     @staticmethod
-    def get_comparison_data(user_id: str) -> InterfaceData | None:
+    def get_comparison_data(user_id: str) -> InterfaceDataConfig | None:
         interface_name = ConfigModel._get_value(user_id, "comparison_data")
         if interface_name is None:
             logger.error(f"No comparison data interface set for {user_id}")

@@ -26,3 +26,41 @@ class ParametersOpenAi:
     # tools: list[str] = None
     # tool_choice: str | dict[str, any] | None = None
     user: str | None = None
+
+
+@dataclass
+class MessageSegment:
+    segment: str
+    last_segment: bool
+    last_message: bool
+
+
+@dataclass
+class ClaimSegment(MessageSegment):
+    claim_id: int
+    purpose: str = "extract"
+    highlight: str | None = None
+
+
+@dataclass
+class DocumentSegment(MessageSegment):
+    claim_id: int
+    document_id: int
+    document_uri: str
+    success: bool = True
+    purpose: str = "retrieve"
+
+
+@dataclass
+class ComparisonSegment(MessageSegment):
+    claim_id: int
+    document_id: int
+    match_value: int
+    purpose: str = "compare"
+
+
+@dataclass
+class Doc:
+    claim_id: int
+    uri: str
+    content: str | None

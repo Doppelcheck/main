@@ -9,6 +9,8 @@ from loguru import logger
 from playwright import async_api
 from playwright._impl._errors import Error as PlaywrightError
 
+from tools.plugins.abstract import Document
+
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/W.X.Y.Z Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
@@ -78,13 +80,6 @@ async def get_context(input_html: str, original_url: str, detect_language: Calla
     return context
 
 
-@dataclass(frozen=True)
-class Source:
-    url: str
-    content: str | None
-    error: str | None
-
-
 class PlaywrightBrowser:
     def __init__(self) -> None:
         self.active_tasks = 0
@@ -106,7 +101,7 @@ class PlaywrightBrowser:
         if self.context is None:
             self.context = await self.browser.new_context(ignore_https_errors=True)
 
-    async def get_html_content_from_playwright(self, document_uri: str) -> Source:
+    async def get_html_content(self, document_uri: str) -> Document:
         await self.init_browser()
 
         event_loop = asyncio.get_event_loop()
@@ -122,11 +117,11 @@ class PlaywrightBrowser:
             await page.wait_for_load_state("domcontentloaded")
             # await page.wait_for_load_state("networkidle")
             content = await page.content()
-            return Source(url=document_uri, content=content, error=None)
+            return Document(uri=document_uri, content=content, error=None)
 
         except PlaywrightError as e:
             print(f"Failed to load page: {e}")
-            return Source(url=document_uri, content=None, error=str(e))
+            return Document(uri=document_uri, content=None, error=str(e))
 
         finally:
             await page.close()

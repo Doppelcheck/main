@@ -6,8 +6,8 @@ from tools.content_retrieval import PlaywrightBrowser
 
 
 async def fetch_url_content(url: str, pb: PlaywrightBrowser) -> None:
-    content = await pb.get_html_content_from_playwright(url)
-    print(f"Content from {content.url}")
+    content = await pb.get_html_content(url)
+    print(f"Content from {content.uri}")
 
 
 async def main():

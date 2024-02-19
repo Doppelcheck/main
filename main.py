@@ -1,14 +1,11 @@
-import asyncio
 import dataclasses
 import json
 import pathlib
 import secrets
 import string
-from dataclasses import dataclass
 from typing import Generator, Sequence, AsyncGenerator
 from urllib.parse import urlparse, unquote
 
-import httpx
 import lingua
 import nltk
 from fastapi import WebSocket, WebSocketDisconnect, Body, Request
@@ -17,19 +14,21 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from nicegui import ui, app, Client
-from openai.types.chat import ChatCompletionChunk
 from playwright._impl._errors import Error as PlaywrightError
-from playwright.async_api import async_playwright, BrowserContext
+from playwright.async_api import BrowserContext
 from pydantic import BaseModel
 
 from prompts.agent_patterns import extraction, google, compare
 from tools.configuration.configuration import asdict_recusive, delayed_storage, update_llm_config, update_data_config
 from tools.new_configuration.full import full_configuration
 from tools.new_configuration.config_install import get_section
-from tools.content_retrieval import get_context, PlaywrightBrowser
+from tools.content_retrieval import get_context
+from tools.global_instances import BROWSER_INSTANCE
 from tools.data_access import get_user_config, set_data_value, get_data_value, UserConfig
-from tools.data_objects import GoogleCustomSearch
-from tools.prompt_openai_chunks import PromptOpenAI
+from tools.data_objects import GoogleCustomSearch, MessageSegment, ClaimSegment, DocumentSegment, ComparisonSegment, Doc
+from tools.plugins.implementation.data_sources.google_plugin.google_dataclasses import ParametersGoogle
+from tools.plugins.implementation.data_sources.google_plugin.google_interface import QueryGoogle
+from tools.plugins.implementation.llm_interfaces.openai_plugin.openai_interface import PromptOpenAI
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, shorten_url
 
@@ -37,11 +36,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 
 VERSION = "0.0.5"
-
-passwords = {'user': 'doppelcheck'}
-
-unrestricted_page_routes = {"/", "/_test", "/config", "/login"}
-
+PASSWORDS = {'user': 'doppelcheck'}
+UNRESTRICTED = {"/", "/_test", "/config", "/login"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -52,7 +48,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if not app.storage.user.get('authenticated', False):
-            if request.url.path in Client.page_routes.values() and request.url.path not in unrestricted_page_routes:
+            if request.url.path in Client.page_routes.values() and request.url.path not in UNRESTRICTED:
                 app.storage.user['referrer_path'] = request.url.path  # remember where the user wanted to go
                 return RedirectResponse('/login')
         return await call_next(request)
@@ -68,10 +64,6 @@ app.add_middleware(
 )
 
 
-class ReceiveGoogleResultsException(Exception):
-    pass
-
-
 class RetrieveDocumentException(Exception):
     pass
 
@@ -79,44 +71,6 @@ class RetrieveDocumentException(Exception):
 class User(BaseModel):
     user_id: str
     version: str
-
-
-@dataclass
-class MessageSegment:
-    segment: str
-    last_segment: bool
-    last_message: bool
-
-
-@dataclass
-class ClaimSegment(MessageSegment):
-    claim_id: int
-    purpose: str = "extract"
-    highlight: str | None = None
-
-
-@dataclass
-class DocumentSegment(MessageSegment):
-    claim_id: int
-    document_id: int
-    document_uri: str
-    success: bool = True
-    purpose: str = "retrieve"
-
-
-@dataclass
-class ComparisonSegment(MessageSegment):
-    claim_id: int
-    document_id: int
-    match_value: int
-    purpose: str = "compare"
-
-
-@dataclass
-class Doc:
-    claim_id: int
-    uri: str
-    content: str | None
 
 
 class Server:
@@ -143,7 +97,9 @@ class Server:
 
     @staticmethod
     async def _stream_claims_to_browser(
-            response: AsyncGenerator[ChatCompletionChunk, None], text_lines: Sequence[str], num_claims: int
+            response: AsyncGenerator[str, None],
+            text_lines: Sequence[str],
+            num_claims: int
     ) -> Generator[ClaimSegment, None, None]:
 
         claim_count = 1
@@ -151,7 +107,7 @@ class Server:
         in_num_range = True
         num_range_str = ""
 
-        async for each_segment in pipe_codeblock_content(response, lambda chunk: chunk.choices[0].delta.content):
+        async for each_segment in pipe_codeblock_content(response):
             if in_num_range:
                 if each_segment.segment in string.digits + "-" + ":":
                     num_range_str += each_segment.segment
@@ -185,7 +141,7 @@ class Server:
 
     @staticmethod
     async def _stream_matches_to_browser(
-            response: AsyncGenerator[ChatCompletionChunk, None], claim_id: int, document_id: int
+            response: AsyncGenerator[str, None], claim_id: int, document_id: int
     ) -> Generator[ComparisonSegment, None, None]:
 
         last_segment = None
@@ -193,7 +149,7 @@ class Server:
         match_value = 0
         match_value_str = ""
         match_found = False
-        async for each_segment in pipe_codeblock_content(response, lambda chunk: chunk.choices[0].delta.content):
+        async for each_segment in pipe_codeblock_content(response):
             for each_char in each_segment.segment:
                 if each_char == "\n":
                     match_found = True
@@ -230,24 +186,26 @@ class Server:
         nltk.download('punkt')
         detector = lingua.LanguageDetectorBuilder.from_all_languages()
         self._detector_built = detector.build()
-        self.browser = PlaywrightBrowser()
-
-        # self.httpx_session = httpx.AsyncClient()
 
     def _get_llm(self, settings: UserConfig) -> PromptOpenAI:
         openai_key = settings.openai_api_key
         if openai_key is None or len(openai_key) < 1:
             openai_key = self.default_openai_key
-        parameters = settings.openai_parameters
-        llm_interface = PromptOpenAI(openai_key, parameters)
+        llm_interface = PromptOpenAI(openai_key)
         return llm_interface
 
     async def _get_uris(self, query: str, settings: UserConfig) -> tuple[str, ...]:
         custom_search = settings.google_custom_search
         if custom_search is None:
             custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
-        uris = await self._get_urls_from_google_query(query, custom_search)
-        return uris
+        parameters = ParametersGoogle(cx=custom_search.engine_id, key=custom_search.api_key)
+        query_google = QueryGoogle()
+        uri_generator = query_google.get_uris(query, settings.claim_count, parameters)
+        uris = list()
+        async for each_uri in uri_generator:
+            uris.append(each_uri.uri_string)
+
+        return tuple(uris)
 
     def _detect_language(self, text: str) -> str:
         language = self._detector_built.detect_language_of(text)
@@ -269,80 +227,16 @@ class Server:
         node_generator = text_node_generator(body_html)
         text_lines = list(get_text_lines(node_generator, line_length=20))
         prompt = extraction(text_lines, num_claims=claim_count, language=language)
-        response = llm_interface.stream_reply_to_prompt(prompt)
+        parameters = settings.openai_parameters
+
+        response = llm_interface.stream_reply_to_prompt(prompt, parameters)
 
         async for each_segment in Server._stream_claims_to_browser(response, text_lines, claim_count):
             yield each_segment
 
-    async def _get_urls_from_google_query(
-            self, search_query: str, custom_search: GoogleCustomSearch) -> tuple[str, ...]:
-
-        url = "https://www.googleapis.com/customsearch/v1"
-        # https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list#response
-        # todo: use llm to craft parameter dict
-
-        params = {
-            "q": search_query,
-            "key": custom_search.api_key,
-            "cx": custom_search.engine_id,
-        }
-
-        # async with httpx.AsyncClient() as httpx_session:
-        #    response = await httpx_session.get(url, params=params)
-
-        response = httpx.get(url, params=params)
-
-        if response.status_code != 200:
-            raise ReceiveGoogleResultsException(
-                f"Request failed with status code {response.status_code}: {response.text}"
-            )
-
-        # https://developers.google.com/custom-search/v1/reference/rest/v1/Search
-        result = response.json()
-
-        items = result.get("items")
-        if items is None:
-            return tuple()
-            # raise ReceiveGoogleResultsException(f"Google did not return results for {search_query}")
-
-        # https://developers.google.com/custom-search/v1/reference/rest/v1/Search#Result
-        return tuple(each_item['link'] for each_item in items)
-
-    async def get_documents_deprecated(
-            self, user_id: str, claim_id: int, claim_text: str, original_url: str
-    ) -> Generator[DocumentSegment, None, None]:
-        settings = get_user_config(user_id)
-        llm_interface = self._get_llm(settings)
-
-        prompt = google(claim_text)
-        response = await llm_interface.reply_to_prompt(prompt)
-        query = extract_code_block(response, "query")
-
-        uris = await self._get_uris(query, settings)
-        uris = tuple(each_uri for each_uri in uris if each_uri != original_url)
-
-        logger.info(uris)
-        if len(uris) < 1:
-            raise logger.warning(f"no uris found for {query}")
-
-        async with async_playwright() as driver:
-            # browser = await driver.firefox.launch(headless=False)
-            browser = await driver.firefox.launch(headless=True)
-            context = await browser.new_context()
-            tasks = [asyncio.create_task(Server._retrieve_text_deprecated(claim_id, context, each_url)) for each_url in uris]
-            for document_id, task in enumerate(asyncio.as_completed(tasks)):
-                each_doc: Doc = await task
-                last_document = document_id >= len(uris) - 1
-                document = DocumentSegment(each_doc.content, True, last_document, claim_id, document_id, each_doc.uri)
-                yield document
-
-            await asyncio.sleep(1)
-            await context.close()
-            await browser.close()
-
-    async def get_documents(
+    async def get_document_uris(
             self, claim_id: int, claim_text: str, user_id: str, original_url: str
-    ) -> Generator[DocumentSegment, None, None]:
+    ) -> AsyncGenerator[DocumentSegment, None]:
 
         settings = get_user_config(user_id)
         llm_interface = self._get_llm(settings)
@@ -350,7 +244,9 @@ class Server:
         context = get_data_value(user_id, ("context", original_url))
         language = settings.language
         prompt = google(claim_text, context=context, language=language)
-        response = await llm_interface.reply_to_prompt(prompt)
+        parameters = settings.openai_parameters
+
+        response = await llm_interface.reply_to_prompt(prompt, parameters)
         query = extract_code_block(response)
 
         uris = await self._get_uris(query, settings)
@@ -372,7 +268,7 @@ class Server:
         settings = get_user_config(user_id)
         language = settings.language
 
-        source = await self.browser.get_html_content_from_playwright(document_uri)
+        source = await BROWSER_INSTANCE.get_html_content(document_uri)
         document_html = source.content
 
         node_generator = text_node_generator(document_html)
@@ -382,7 +278,9 @@ class Server:
 
         prompt = compare(claim, document_text, context=context, language=language)
         llm_interface = self._get_llm(settings)
-        response = llm_interface.stream_reply_to_prompt(prompt)
+
+        parameters = settings.openai_parameters
+        response = llm_interface.stream_reply_to_prompt(prompt, parameters)
 
         async for each_segment in Server._stream_matches_to_browser(response, claim_id, document_id):
             yield each_segment
@@ -404,7 +302,7 @@ class Server:
             """
             url_parsed = unquote(url)
 
-            source = await self.browser.get_html_content_from_playwright(url_parsed)
+            source = await BROWSER_INSTANCE.get_html_content(url_parsed)
             html_content = source.content
 
             return HTMLResponse(html_content)
@@ -443,7 +341,7 @@ class Server:
         @ui.page('/login')
         def login() -> RedirectResponse | None:
             def try_login() -> None:  # local function to avoid passing username and password as arguments
-                if passwords.get(username.value) == password.value:
+                if PASSWORDS.get(username.value) == password.value:
                     app.storage.user.update({'username': username.value, 'authenticated': True})
                     ui.open(app.storage.user.get('referrer_path', '/'))  # go back to where the user wanted to go
                 else:
@@ -622,7 +520,7 @@ class Server:
                         claim_id = data['id']
                         claim_text = data['text']
 
-                        async for segment in self.get_documents(claim_id, claim_text, user_id, original_url):
+                        async for segment in self.get_document_uris(claim_id, claim_text, user_id, original_url):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)

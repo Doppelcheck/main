@@ -1,10 +1,10 @@
 import dataclasses
 
-from tools.plugins.abstract import InterfaceLLM
+from tools.plugins.abstract import InterfaceLLMConfig, Parameters
 
 
 @dataclasses.dataclass
-class ParametersOpenAi:
+class ParametersOpenAi(Parameters):
     # https://platform.openai.com/docs/api-reference/chat/create
     model: str = "gpt-4-1106-preview"
     frequency_penalty: float = 0
@@ -24,7 +24,7 @@ class ParametersOpenAi:
 
 
 @dataclasses.dataclass
-class InterfaceOpenAi(InterfaceLLM):
+class InterfaceOpenAi(InterfaceLLMConfig):
     api_key: str
     parameters: ParametersOpenAi
     provider: str = dataclasses.field(default="OpenAI", init=False)
@@ -35,5 +35,5 @@ if __name__ == "__main__":
     i = InterfaceOpenAi(name="", api_key="", parameters=p)
     print(dataclasses.asdict(i))
 
-    p = InterfaceLLM(name="", provider="")
+    p = InterfaceLLMConfig(name="", provider="")
     print(dataclasses.asdict(p))
