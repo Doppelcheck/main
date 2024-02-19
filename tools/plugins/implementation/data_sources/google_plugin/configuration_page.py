@@ -28,18 +28,15 @@ def config_google(user_id: str, interface_table: Table, user_accessible: bool, a
             ui.notify("Please provide a Google API key under `key`.")
             return
 
-        max_docs = max_documents_input.value
-
         default = ParametersGoogle(cx=cx, key=key)
         default_dict = dataclasses.asdict(default)
         parameters_dict = {key: value for key, value in json_content.items() if key in default_dict}
         parameters = ParametersGoogle(**parameters_dict)
 
-        new_interface = InterfaceGoogle(max_documents=max_docs, name=name, parameters=parameters, from_admin=admin)
+        new_interface = InterfaceGoogle(name=name, parameters=parameters, from_admin=admin)
         ConfigModel.add_data_interface(user_id, new_interface)
         interface_table.add_rows({'name': name, 'type': 'Google', 'admin': str(admin)})
         name_input.value = ""
-        max_documents_input.value = 10
         _reset_parameters()
         add_button.disable()
 
@@ -60,11 +57,6 @@ def config_google(user_id: str, interface_table: Table, user_accessible: bool, a
     ) as name_input:
         name_input.classes('w-full')
 
-    with ui.number(
-            label="Max documents per query", placeholder="max number of URIs", value=10, min=1, max=10, step=1
-    ) as max_documents_input:
-        max_documents_input.classes('w-full')
-
     _default = ParametersGoogle("", "")
     with ui.json_editor({"content": {"json": dataclasses.asdict(_default)}}) as editor:
         editor.classes('w-full')
@@ -78,7 +70,7 @@ def config_google(user_id: str, interface_table: Table, user_accessible: bool, a
     ) as description:
         description.classes('w-full')
 
-    ui.label("The following Google search API parameters have been disabled: `q`, `num`.").classes('w-full')
+    ui.label("The following Google search API parameter has been disabled: `q`.").classes('w-full')
     ui.label("The parameter `sort` has been set to a default value of \"date\" for news.").classes('w-full')
 
     with ui.row().classes('w-full justify-end'):

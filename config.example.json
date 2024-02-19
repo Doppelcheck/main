@@ -9,7 +9,7 @@
     "dark": true,
     "reload": true,
     "tailwind": true,
-    "prod_js": false,
+    "prod_js": true,
     "ssl_keyfile": "./certificates/localhost.key",
     "ssl_certfile": "./certificates/localhost.cert"
   }

@@ -2,7 +2,7 @@ from loguru import logger
 from nicegui import ui
 
 from tools.configuration.data.config_objects import ConfigModel, Store, AccessModel
-from tools.plugins.implementation.llm_interfaces.openai_plugin.openai_config import openai_config
+from tools.plugins.implementation.llm_interfaces.openai_plugin.configuration_page import openai_config
 
 
 def get_section(user_id: str, admin: bool = False) -> None:

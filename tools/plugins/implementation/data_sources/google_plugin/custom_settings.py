@@ -23,7 +23,7 @@ class ParametersGoogle(Parameters):
     linkSite: str | None = None
     lowRange: str | None = None
     lr: str | None = None
-    # num: int = 10
+    num: int = 10
     orTerms: str | None = None
     rights: str | None = None
     safe: str = 'off'

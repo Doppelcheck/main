@@ -2,7 +2,7 @@ from loguru import logger
 from nicegui import ui
 
 from tools.configuration.data.config_objects import ConfigModel, Store, AccessModel
-from tools.plugins.implementation.data_sources.google_plugin.google_config import config_google
+from tools.plugins.implementation.data_sources.google_plugin.configuration_page import config_google
 
 
 def get_section(user_id: str, admin: bool = False) -> None:

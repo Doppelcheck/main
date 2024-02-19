@@ -1,8 +1,42 @@
 import dataclasses
-from abc import abstractmethod
-from typing import Callable, AsyncGenerator, Sequence, TypeVar, Awaitable, Any
+import importlib
+from abc import abstractmethod, ABC
+from typing import Callable, AsyncGenerator, Sequence, TypeVar
 
 from tools.text_processing import chunk_text
+
+
+PluginImplementation = TypeVar("PluginImplementation", bound="PluginBase")
+
+
+class PluginBase(ABC):
+    @staticmethod
+    def _get_class(class_name: str, module_name: str) -> type[PluginImplementation]:
+        module = importlib.import_module(module_name)
+        class_: type[PluginImplementation] = getattr(module, class_name)
+        return class_
+
+    @classmethod
+    @abstractmethod
+    def _from_dict(cls, state: dict[str, any]) -> PluginImplementation:
+        raise NotImplementedError("Method not implemented")
+
+    @staticmethod
+    def from_dict(state: dict[str, any]) -> PluginImplementation:
+        class_name = state.pop("__class__")
+        module_name = state.pop("__module__")
+        class_: type[PluginImplementation] = PluginBase._get_class(class_name, module_name)
+        return class_._from_dict(**state)
+
+    @abstractmethod
+    def _to_dict(self) -> dict[str, any]:
+        raise NotImplementedError("Method not implemented")
+
+    def to_dict(self) -> dict[str, any]:
+        state_dict = self._to_dict()
+        state_dict["__class__"] = self.__class__.__name__
+        state_dict["__module__"] = self.__module__
+        return state_dict
 
 
 @dataclasses.dataclass(frozen=True)
@@ -37,10 +71,10 @@ class InterfaceLLMConfig(InterfaceConfig):
 
 @dataclasses.dataclass
 class InterfaceDataConfig(InterfaceConfig):
-    max_documents: int
+    pass
 
 
-class InterfaceData:
+class InterfaceData(PluginBase):
     @abstractmethod
     async def get_uris(self, query: str, doc_count: int, parameters: Parameters) -> Sequence[str]:
         raise NotImplementedError("Method not implemented")
@@ -50,7 +84,7 @@ class InterfaceData:
         raise NotImplementedError("Method not implemented")
 
 
-class InterfaceLLM:
+class InterfaceLLM(PluginBase):
     async def summarize(
             self, text: str, parameters: Parameters | None = None,
             max_len_input: int = 10_000, max_len_summary: int = 500) -> str:
@@ -92,5 +126,3 @@ class InterfaceLLM:
     ) -> AsyncGenerator[str, None]:
         raise NotImplementedError("Method not implemented")
 
-
-_AwaitableT_co = TypeVar("_AwaitableT_co", bound=Awaitable[Any], covariant=True)
