@@ -3,7 +3,7 @@ from typing import Sequence
 
 from loguru import logger
 from nicegui import app
-from nicegui.observables import ObservableDict
+from nicegui.observables import ObservableDict, ObservableList, ObservableSet
 
 from tools.data_objects import GoogleCustomSearch, ParametersOpenAi
 
@@ -19,6 +19,13 @@ def get_nested_value(key_path: Sequence[str], default: any = None) -> any:
     logger.debug(f"Got [{key_path}] as {data}")
     if isinstance(data, ObservableDict):
         return dict(data)
+
+    if isinstance(data, ObservableList):
+        return list(data)
+
+    if isinstance(data, ObservableSet):
+        return set(data)
+
     return data
 
 

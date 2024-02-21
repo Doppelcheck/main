@@ -3,7 +3,7 @@ import json
 import pathlib
 import secrets
 import string
-from typing import Generator, Sequence, AsyncGenerator
+from typing import Generator, Sequence, AsyncGenerator, Coroutine
 from urllib.parse import urlparse, unquote
 
 import lingua
@@ -17,25 +17,21 @@ from nicegui import ui, app, Client
 from pydantic import BaseModel
 
 from prompts.agent_patterns import extraction, google, compare
-from tools.configuration.configuration import asdict_recusive
 from tools.configuration.data.config_objects import ConfigModel
 from tools.new_configuration.full import full_configuration
 from tools.new_configuration.config_install import get_section
 from tools.content_retrieval import get_context
 from tools.global_instances import BROWSER_INSTANCE
-from tools.data_access import get_user_config, set_data_value, get_data_value, UserConfig
+from tools.data_access import get_user_config, set_data_value, get_data_value
 from tools.data_objects import GoogleCustomSearch, MessageSegment, ClaimSegment, DocumentSegment, ComparisonSegment
-from tools.plugins.abstract import InterfaceLLM
-from tools.plugins.implementation.data_sources.google_plugin.custom_settings import ParametersGoogle
-from tools.plugins.implementation.data_sources.google_plugin.interface import QueryGoogle
-from tools.plugins.implementation.llm_interfaces.openai_plugin.interface import PromptOpenAI
+from tools.plugins.abstract import InterfaceData, InterfaceLLM
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, shorten_url
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.0.5"
+VERSION = "0.0.7"
 PASSWORDS = {'user': 'doppelcheck'}
 UNRESTRICTED = {"/", "/_test", "/config", "/login"}
 
@@ -83,7 +79,7 @@ class Server:
 
     @staticmethod
     async def _stream_claims_to_browser(
-            response: AsyncGenerator[str, None],
+            response: Coroutine[any, any, AsyncGenerator[str, None]],
             text_lines: Sequence[str],
             num_claims: int
     ) -> Generator[ClaimSegment, None, None]:
@@ -152,6 +148,50 @@ class Server:
         last_segment.last_segment = True
         yield last_segment
 
+    @staticmethod
+    def get_match_llm_interface(user_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_comparison_llm(user_id)
+        if llm_interface_config is None:
+            logger.error(f"ConfigModel.get_comparison_llm({user_id})")
+            raise RetrieveDocumentException(f"ConfigModel.get_comparison_llm({user_id})")
+        keywords = llm_interface_config.object_to_state()
+        class_ = llm_interface_config.get_interface_class()
+        llm_interface: InterfaceLLM = class_.from_state(keywords)
+        return llm_interface
+
+    @staticmethod
+    def get_match_data_interface(user_id: str) -> InterfaceData:
+        data_interface_config = ConfigModel.get_comparison_data(user_id)
+        if data_interface_config is None:
+            logger.error(f"ConfigModel.get_comparison_data({user_id})")
+            raise RetrieveDocumentException(f"ConfigModel.get_comparison_data({user_id})")
+        keywords = data_interface_config.object_to_state()
+        class_ = data_interface_config.get_interface_class()
+        data_interface: InterfaceData = class_.from_state(keywords)
+        return data_interface
+
+    @staticmethod
+    def get_retrieval_llm_interface(user_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_retrieval_llm(user_id)
+        if llm_interface_config is None:
+            logger.error(f"ConfigModel.get_retrieval_llm({user_id})")
+            raise RetrieveDocumentException(f"ConfigModel.get_retrieval_llm({user_id})")
+        keywords = llm_interface_config.object_to_state()
+        class_ = llm_interface_config.get_interface_class()
+        llm_interface: InterfaceLLM = class_.from_state(keywords)
+        return llm_interface
+
+    @staticmethod
+    def get_retrieval_data_interface(user_id: str) -> InterfaceData:
+        data_interface_config = ConfigModel.get_retrieval_data(user_id)
+        if data_interface_config is None:
+            logger.error(f"ConfigModel.get_retrieval_data({user_id})")
+            raise RetrieveDocumentException(f"ConfigModel.get_retrieval_data({user_id})")
+        keywords = data_interface_config.object_to_state()
+        class_ = data_interface_config.get_interface_class()
+        data_interface: InterfaceData = class_.from_state(keywords)
+        return data_interface
+
     def __init__(self) -> None:
         self.default_openai_key = None
         default_openai_key_file = pathlib.Path("default_openai.json")
@@ -173,26 +213,6 @@ class Server:
         detector = lingua.LanguageDetectorBuilder.from_all_languages()
         self._detector_built = detector.build()
 
-    def _get_llm(self, settings: UserConfig) -> PromptOpenAI:
-        openai_key = settings.openai_api_key
-        if openai_key is None or len(openai_key) < 1:
-            openai_key = self.default_openai_key
-        llm_interface = PromptOpenAI(openai_key)
-        return llm_interface
-
-    async def _get_uris(self, query: str, settings: UserConfig) -> tuple[str, ...]:
-        custom_search = settings.google_custom_search
-        if custom_search is None:
-            custom_search = GoogleCustomSearch(api_key=self.default_google_key, engine_id=self.default_google_id)
-        parameters = ParametersGoogle(cx=custom_search.engine_id, key=custom_search.api_key)
-        query_google = QueryGoogle()
-        uri_generator = query_google.get_uris(query, settings.claim_count, parameters)
-        uris = list()
-        async for each_uri in uri_generator:
-            uris.append(each_uri.uri_string)
-
-        return tuple(uris)
-
     def _detect_language(self, text: str) -> str:
         language = self._detector_built.detect_language_of(text)
         if language is None:
@@ -204,80 +224,81 @@ class Server:
         pass
 
     async def get_claims_from_html(self, body_html: str, user_id: str) -> Generator[ClaimSegment, None, None]:
-        settings = get_user_config(user_id)
+        llm_interface = await self.get_extraction_llm_interface(user_id)
 
-        interface_llm_config = ConfigModel.get_extraction_llm(user_id)
-
-        if interface_llm_config is None:
-            logger.error(f"no interface_llm_config for {user_id}")
-            raise RetrieveDocumentException("no interface_llm_config")
-
-        print("interface_llm_config", interface_llm_config)
-        #llm_interface: InterfaceLLM = get_interface_from_config(interface_llm_config)
-
-
-        llm_interface = self._get_llm(settings)
-
-        claim_count = settings.claim_count
-        language = settings.language
+        claim_count = ConfigModel.get_extraction_claims(user_id)
+        language = ConfigModel.get_general_language(user_id)
 
         node_generator = text_node_generator(body_html)
         text_lines = list(get_text_lines(node_generator, line_length=20))
         prompt = extraction(text_lines, num_claims=claim_count, language=language)
-        parameters = settings.openai_parameters
 
-        response = llm_interface.stream_reply_to_prompt(prompt, parameters)
-
+        response = llm_interface.stream_reply_to_prompt(prompt)
         async for each_segment in Server._stream_claims_to_browser(response, text_lines, claim_count):
             yield each_segment
+
+    async def get_extraction_llm_interface(self, user_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_extraction_llm(user_id)
+        if llm_interface_config is None:
+            logger.error(f"ConfigModel.get_extraction_llm({user_id})")
+            raise RetrieveDocumentException(f"ConfigModel.get_extraction_llm({user_id})")
+        keywords = llm_interface_config.object_to_state()
+        class_ = llm_interface_config.get_interface_class()
+        llm_interface: InterfaceLLM = class_.from_state(keywords)
+        return llm_interface
 
     async def get_document_uris(
             self, claim_id: int, claim_text: str, user_id: str, original_url: str
     ) -> AsyncGenerator[DocumentSegment, None]:
 
-        settings = get_user_config(user_id)
-        llm_interface = self._get_llm(settings)
+        llm_interface = Server.get_retrieval_llm_interface(user_id)
+        data_interface = Server.get_retrieval_data_interface(user_id)
+
+        language = ConfigModel.get_general_language(user_id)
 
         context = get_data_value(user_id, ("context", original_url))
-        language = settings.language
         prompt = google(claim_text, context=context, language=language)
-        parameters = settings.openai_parameters
 
-        response = await llm_interface.reply_to_prompt(prompt, parameters)
+        response = await llm_interface.reply_to_prompt(prompt)
         query = extract_code_block(response)
 
-        uris = await self._get_uris(query, settings)
-        uris = tuple(each_uri for each_uri in uris if each_uri != original_url)
-        logger.info(uris)
+        doc_count = ConfigModel.get_retrieval_max_documents(user_id)
 
-        if len(uris) < 1:
+        # xxx here
+        uris = data_interface.get_uris(query, doc_count)
+        doc_id = 0
+        async for each_uri in uris:
+            last_document = doc_id >= doc_count - 1
+            content = shorten_url(each_uri.uri_string)
+            yield DocumentSegment(content, True, last_document, claim_id, doc_id, each_uri.uri_string)
+            doc_id += 1
+
+        # todo: last message does not work
+        # todo: google did not find anything does not work
+
+        if doc_id < 1:
             yield DocumentSegment("No documents found", True, True, claim_id, 0, "No documents found", success=False)
             return
-
-        for document_id, each_uri in enumerate(uris):
-            last_document = document_id >= len(uris) - 1
-            content = shorten_url(each_uri)
-            yield DocumentSegment(content, True, last_document, claim_id, document_id, each_uri)
 
     async def get_matches(
             self, user_id: str, claim_id: int, claim: str, document_id: int, original_url: str, document_uri: str
     ) -> Generator[ComparisonSegment, None, None]:
-        settings = get_user_config(user_id)
-        language = settings.language
 
-        source = await BROWSER_INSTANCE.get_html_content(document_uri)
+        llm_interface = Server.get_match_llm_interface(user_id)
+        data_interface = Server.get_match_data_interface(user_id)
+
+        language = ConfigModel.get_general_language(user_id)
+
+        source = await data_interface.get_document_content(document_uri)
         document_html = source.content
 
         node_generator = text_node_generator(document_html)
         document_text = "".join(node_generator)
 
         context = get_data_value(user_id, ("context", original_url))
-
         prompt = compare(claim, document_text, context=context, language=language)
-        llm_interface = self._get_llm(settings)
 
-        parameters = settings.openai_parameters
-        response = llm_interface.stream_reply_to_prompt(prompt, parameters)
+        response = await llm_interface.stream_reply_to_prompt(prompt)
 
         async for each_segment in Server._stream_matches_to_browser(response, claim_id, document_id):
             yield each_segment
@@ -311,7 +332,7 @@ class Server:
             const userData = { user_id: userId, version: versionClient };
             """
             logger.info(f"getting settings for {user_data.user_id}")
-            settings = get_user_config(user_data.user_id)
+
             if user_data.version is None:
                 logger.warning(f"client version {user_data.version} does not match server version {VERSION}")
                 return {
@@ -319,24 +340,18 @@ class Server:
                     "versionServer": VERSION,
                 }
 
-            # todo: check if settings are complete, get from system settings if not
-            if (
-                    settings.google_custom_search is None and
-                    self.default_google_key is not None and
-                    self.default_google_id is not None):
-                settings.google_custom_search = GoogleCustomSearch(
-                    api_key=self.default_google_key, engine_id=self.default_google_id)
+            # todo: check if config is set up
+            is_ready = True
 
-            if settings.openai_api_key is None and self.default_openai_key is not None:
-                settings.openai_api_key = self.default_openai_key
-
-            settings_dict = asdict_recusive(settings)
-            settings_dict["versionServer"] = VERSION
-            return settings_dict
+            return {
+                "versionServer": VERSION,
+                "name_instance": ConfigModel.get_general_name(user_data.user_id),
+                "ready": is_ready
+            }
 
         @ui.page('/login')
         def login() -> RedirectResponse | None:
-            def try_login() -> None:  # local function to avoid passing username and password as arguments
+            def try_login() -> None:
                 if PASSWORDS.get(username.value) == password.value:
                     app.storage.user.update({'username': username.value, 'authenticated': True})
                     ui.open(app.storage.user.get('referrer_path', '/'))  # go back to where the user wanted to go
@@ -405,7 +420,7 @@ class Server:
 
                 ui.link(
                     text="Funded by the Media Tech Lab",
-                    target="https://www.media-lab.de/de/media-tech-lab/Doppelcheck",
+                    target="https://www.media-lab.de/de/media-tech-lab/DoppelCheck",
                     new_tab=True).classes(add="text-center block ")
 
         @ui.page("/_test")
@@ -413,11 +428,10 @@ class Server:
             address = await Server._get_address(client)
             secret = secrets.token_urlsafe(32)
 
+            # https://github.com/zauberzeug/nicegui/blob/main/examples/authentication/main.py
             with ui.header() as header:
                 header.classes(add="bg-transparent text-white flex justify-end")
                 with ui.button("Admin Login", on_click=lambda: ui.open("/admin")) as login_button:
-                    # connect to admin
-                    # https://github.com/zauberzeug/nicegui/blob/main/examples/authentication/main.py
                     pass
 
             with ui.element("div") as container:
@@ -427,7 +441,9 @@ class Server:
 
         @app.websocket("/talk")
         async def websocket_endpoint(websocket: WebSocket):
-            # alternative implementation: https://github.com/zauberzeug/nicegui/blob/main/examples/websockets/main.py
+            # todo:
+            #  check out alternative implementation:
+            #  https://github.com/zauberzeug/nicegui/blob/main/examples/websockets/main.py
             await websocket.accept()
             try:
                 message_str = await websocket.receive_text()
@@ -444,6 +460,7 @@ class Server:
                         await websocket.send_text(json_str)
 
                     case "extract":
+                        # Keypoint Assistant
                         await self.set_context(original_url, data, user_id)
 
                         async for segment in self.get_claims_from_html(data, user_id):
@@ -452,6 +469,7 @@ class Server:
                             await websocket.send_text(json_str)
 
                     case "retrieve":
+                        # Sourcefinder Assistant
                         claim_id = data['id']
                         claim_text = data['text']
 
@@ -461,6 +479,7 @@ class Server:
                             await websocket.send_text(json_str)
 
                     case "compare":
+                        # Crosschecker Assistant
                         claim_id = data['claim_id']
                         claim_text = data['claim_text']
                         document_id = data['document_id']
@@ -479,8 +498,6 @@ class Server:
                         each_dict = dataclasses.asdict(message_segment)
                         json_str = json.dumps(each_dict)
                         await websocket.send_text(json_str)
-
-                # await self.stream_from_llm(websocket, data, purpose)
 
             except WebSocketDisconnect as e:
                 print(e)
@@ -505,3 +522,4 @@ def main() -> None:
 
 if __name__ in {"__main__", "__mp_main__"}:
     main()
+

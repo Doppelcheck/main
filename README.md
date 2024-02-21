@@ -21,16 +21,12 @@ customized press reviews efficiently and effortlessly.
 
 ## Features
 
-- **AI-Powered Analysis**: Leverages Large Language Models (LLMs) to extract key claims from content, cross-reference
-  them with a vast array of sources, and detect biases in news content, ensuring that you receive a balanced view of the
+- **AI-Powered Analysis**: Leverages Large Language Models (LLMs) to extract key claims from content, cross-reference them with a vast array of sources, and detect biases in news content, ensuring that you receive a balanced view of the
   narrative.
-- **Automated Summaries**: Provides concise, bullet-pointed summaries of key claims from the content, enabling you to
-  grasp the essence of the information quickly.
-- **Configurable Research**: Offers out-of-the-box support for Google search, with plans to integrate other search
-  engines and news searches. Users can tailor their research experience through a user-friendly UI and config files,
+- **Automated Summaries**: Provides concise, bullet-pointed summaries of key claims from the content, enabling you to grasp the essence of the information quickly.
+- **Configurable Research**: Offers out-of-the-box support for Google search, with plans to integrate other search engines and news searches. Users can tailor their research experience through a user-friendly UI and config files,
   ensuring that the information retrieved is relevant and comprehensive.
-- **Intuitive UI**: Features a browser-based interface that makes configuration and result interpretation
-  straightforward and user-friendly.
+- **Intuitive UI**: Features a browser-based interface that makes configuration and result interpretation straightforward and user-friendly.
 
 ## Getting Started
 
@@ -145,7 +141,15 @@ If you prefer to skip the cloning process, you can directly pull the Docker imag
 
 Detailed user guides and API documentation on configuration and architecture will be added during project development to facilitate easy navigation and utilization of Doppelcheck's features.
 
-### Installation
+
+### Configuration
+
+Doppelcheck can be configured by an access-controlled web interface for all users. Each option can also be made accessible to the user with a fine-grained permission system.
+
+
+### Diagrams
+
+#### Installation
 
 ```mermaid
 sequenceDiagram
@@ -157,7 +161,7 @@ Server-->>Client: bookmarklet javascript code
 note over Client: browser displays "doppelcheck" icon in bookmarks
 ```
 
-### Usage
+#### Usage
 
 ```mermaid
 sequenceDiagram
@@ -178,7 +182,7 @@ sequenceDiagram
     end
 ```
 
-### Review
+#### Review
 
 ```mermaid
 sequenceDiagram
@@ -202,11 +206,20 @@ sequenceDiagram
     end
 ```
 
+## Plugins
+
+Doppelcheck is designed to be highly extensible, allowing users to add custom plugins to enhance its functionality. Out of the box, Doppelcheck comes with the following plugins:
+
+- **Google Search** as a data source: Provides support for Google search, enabling users to retrieve relevant information from the web.
+- **OpenAI** as an LLM endpoint: Integrates with OpenAI's API to leverage advanced AI models for content analysis and detection of biases.
+
+
 ## Contributing
 
 We welcome contributions from the community! If you're interested in improving Doppelcheck, you can contribute in the
 following ways:
 
+- **Plugin Development**: Extend Doppelcheck's functionality by developing custom plugins for more data sources, more LLM endpoints, and more.
 - **Reporting Bugs**: Submit an issue in our repository, providing a detailed description of the problem and steps to
   reproduce it.
 - **Feature Requests**: Have ideas on how to make Doppelcheck better? We'd love to hear from you! Please submit an

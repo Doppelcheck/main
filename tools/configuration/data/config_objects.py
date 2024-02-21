@@ -1,14 +1,17 @@
-import dataclasses
-from contextlib import contextmanager
-from typing import Callable, TypeVar
+from __future__ import annotations
+
+import json
+from typing import Callable
 
 from loguru import logger
 from nicegui import ui
-from nicegui.element import Element
+from nicegui.elements.mixins.text_element import TextElement
+from nicegui.elements.mixins.validation_element import ValidationElement
+from nicegui.elements.mixins.value_element import ValueElement
+from nicegui.events import GenericEventArguments
 
 from tools.data_access import get_nested_value, set_nested_value
 from tools.plugins.abstract import InterfaceLLMConfig, InterfaceDataConfig
-from tools.plugins.instantiate import llm_from_dict, data_from_dict
 
 
 class AccessModel:
@@ -162,7 +165,7 @@ class ConfigModel:
             logger.error(f"LLM interface {interface_name} not found")
             return None
 
-        interface = llm_from_dict(interface_dict)
+        interface = InterfaceLLMConfig.from_object_dict(interface_dict)
         return interface
 
     @staticmethod
@@ -180,7 +183,7 @@ class ConfigModel:
             logger.error(f"Data interface {name} not found")
             return None
 
-        interface = data_from_dict(interface_dict)
+        interface = InterfaceDataConfig.from_object_dict(interface_dict)
         return interface
 
     @staticmethod
@@ -207,11 +210,15 @@ class ConfigModel:
 
     @staticmethod
     def get_llm_interfaces(user_id: str) -> list[InterfaceLLMConfig]:
+        interface_dicts = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
+        if user_id != "ADMIN":
+            admin_interfaces = ConfigModel._get_value("ADMIN", "llm_interfaces", default=dict[str, dict[str, any]]())
+            interface_dicts.update(admin_interfaces)
+
         interfaces = list[InterfaceLLMConfig]()
 
-        value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
-        for each_dict in value.values():
-            each_interface = llm_from_dict(each_dict)
+        for each_dict in interface_dicts.values():
+            each_interface = InterfaceLLMConfig.from_object_dict(each_dict)
             interfaces.append(each_interface)
 
         return interfaces
@@ -219,7 +226,7 @@ class ConfigModel:
     @staticmethod
     def add_llm_interface(user_id: str, interface: InterfaceLLMConfig) -> None:
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
-        llm_dict = dataclasses.asdict(interface)
+        llm_dict = interface.to_object_dict()
         name = llm_dict["name"]
         value[name] = llm_dict
         ConfigModel._set_value(user_id, "llm_interfaces", value)
@@ -243,11 +250,15 @@ class ConfigModel:
 
     @staticmethod
     def get_data_interfaces(user_id: str) -> list[InterfaceDataConfig]:
+        interface_dicts = ConfigModel._get_value("ADMIN", "data_interfaces", default=dict[str, dict[str, any]]())
+        if user_id != "ADMIN":
+            admin_interfaces = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
+            interface_dicts.update(admin_interfaces)
+
         interfaces = list[InterfaceDataConfig]()
 
-        value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
-        for each_dict in value.values():
-            each_interface = data_from_dict(each_dict)
+        for each_dict in interface_dicts.values():
+            each_interface = InterfaceDataConfig.from_object_dict(each_dict)
             interfaces.append(each_interface)
 
         return interfaces
@@ -255,7 +266,7 @@ class ConfigModel:
     @staticmethod
     def add_data_interface(user_id: str, interface: InterfaceDataConfig) -> None:
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
-        data_dict = dataclasses.asdict(interface)
+        data_dict = interface.to_object_dict()
         name = data_dict["name"]
         value[name] = data_dict
         ConfigModel._set_value(user_id, "data_interfaces", value)
@@ -279,16 +290,25 @@ class ConfigModel:
 
     @staticmethod
     def get_extraction_llm(user_id: str) -> InterfaceLLMConfig | None:
-        interface_name = ConfigModel._get_value(
-            user_id, "extraction_llm",
-            default=ConfigModel._get_value("ADMIN", "extraction_llm")
-        )
-        if interface_name is None:
-            logger.error(f"No extraction LLM interface set for {user_id}")
-            return None
+        interface_name = ConfigModel._get_value(user_id, "extraction_llm")
+        if interface_name is not None:
+            interface = ConfigModel.get_llm_interface(user_id, interface_name)
+            return interface
 
-        interface = ConfigModel.get_llm_interface(user_id, interface_name)
-        return interface
+        interface_name = ConfigModel._get_value("ADMIN", "extraction_llm")
+        if interface_name is not None:
+            interface = ConfigModel.get_llm_interface(user_id, interface_name)
+            return interface
+
+        interfaces = ConfigModel.get_llm_interfaces(user_id)
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        interfaces = ConfigModel.get_llm_interfaces("ADMIN")
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        return None
 
     @staticmethod
     def set_extraction_llm(user_id: str, interface_name: str) -> None:
@@ -308,16 +328,23 @@ class ConfigModel:
 
     @staticmethod
     def get_retrieval_llm(user_id: str) -> InterfaceLLMConfig | None:
-        interface_name = ConfigModel._get_value(
-            user_id, "retrieval_llm",
-            default=ConfigModel._get_value("ADMIN", "retrieval_llm")
-        )
-        if interface_name is None:
-            logger.error(f"No retrieval LLM interface set for {user_id}")
-            return None
+        interface_name = ConfigModel._get_value(user_id, "retrieval_llm")
+        if interface_name is not None:
+            return ConfigModel.get_llm_interface(user_id, interface_name)
 
-        interface = ConfigModel.get_llm_interface(user_id, interface_name)
-        return interface
+        interface_name = ConfigModel._get_value("ADMIN", "retrieval_llm")
+        if interface_name is not None:
+            return ConfigModel.get_llm_interface(user_id, interface_name)
+
+        interfaces = ConfigModel.get_llm_interfaces(user_id)
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        interfaces = ConfigModel.get_llm_interfaces("ADMIN")
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        return None
 
     @staticmethod
     def set_retrieval_llm(user_id: str, interface_name: str) -> None:
@@ -325,16 +352,23 @@ class ConfigModel:
 
     @staticmethod
     def get_retrieval_data(user_id: str) -> InterfaceDataConfig | None:
-        interface_name = ConfigModel._get_value(
-            user_id, "retrieval_data",
-            default=ConfigModel._get_value("ADMIN", "retrieval_data")
-        )
-        if interface_name is None:
-            logger.error(f"No retrieval data interface set for {user_id}")
-            return None
+        interface_name = ConfigModel._get_value(user_id, "retrieval_data")
+        if interface_name is not None:
+            return ConfigModel.get_data_interface(user_id, interface_name)
 
-        interface = ConfigModel.get_llm_interface(user_id, interface_name)
-        return interface
+        interface_name = ConfigModel._get_value("ADMIN", "retrieval_data")
+        if interface_name is not None:
+            return ConfigModel.get_data_interface(user_id, interface_name)
+
+        interfaces = ConfigModel.get_data_interfaces(user_id)
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        interfaces = ConfigModel.get_data_interfaces("ADMIN")
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        return None
 
     @staticmethod
     def set_retrieval_data(user_id: str, interface_name: str) -> None:
@@ -354,16 +388,23 @@ class ConfigModel:
 
     @staticmethod
     def get_comparison_llm(user_id: str) -> InterfaceLLMConfig | None:
-        interface_name = ConfigModel._get_value(
-            user_id, "comparison_llm",
-            default=ConfigModel._get_value("ADMIN", "comparison_llm")
-        )
-        if interface_name is None:
-            logger.error(f"No comparison LLM interface set for {user_id}")
-            return None
+        interface_name = ConfigModel._get_value(user_id, "comparison_llm")
+        if interface_name is not None:
+            return ConfigModel.get_llm_interface(user_id, interface_name)
 
-        interface = ConfigModel.get_llm_interface(user_id, interface_name)
-        return interface
+        interface_name = ConfigModel._get_value("ADMIN", "comparison_llm")
+        if interface_name is not None:
+            return ConfigModel.get_llm_interface(user_id, interface_name)
+
+        interfaces = ConfigModel.get_llm_interfaces(user_id)
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        interfaces = ConfigModel.get_llm_interfaces("ADMIN")
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        return None
 
     @staticmethod
     def set_comparison_llm(user_id: str, interface_name: str) -> None:
@@ -371,89 +412,80 @@ class ConfigModel:
 
     @staticmethod
     def get_comparison_data(user_id: str) -> InterfaceDataConfig | None:
-        interface_name = ConfigModel._get_value(
-            user_id, "comparison_data",
-            default=ConfigModel._get_value("ADMIN", "comparison_data")
-        )
-        if interface_name is None:
-            logger.error(f"No comparison data interface set for {user_id}")
-            return None
+        interface_name = ConfigModel._get_value(user_id, "comparison_data")
+        if interface_name is not None:
+            return ConfigModel.get_data_interface(user_id, interface_name)
 
-        interface = ConfigModel.get_llm_interface(user_id, interface_name)
-        return interface
+        interface_name = ConfigModel._get_value("ADMIN", "comparison_data")
+        if interface_name is not None:
+            return ConfigModel.get_data_interface(user_id, interface_name)
+
+        interfaces = ConfigModel.get_data_interfaces(user_id)
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        interfaces = ConfigModel.get_data_interfaces("ADMIN")
+        if len(interfaces) > 0:
+            return interfaces[0]
+
+        return None
 
     @staticmethod
     def set_comparison_data(user_id: str, interface_name: str) -> None:
         ConfigModel._set_value(user_id, "comparison_data", interface_name)
 
 
-@contextmanager
-def store_deprecated(element_type: type[Element], set_value: Callable[[str], any], get_value: Callable[[], any], **kwargs) -> None:
-    timer: ui.timer | None = None
-
-    def update_timer(callback: Callable[..., any]) -> None:
-        nonlocal timer
-        if timer is not None:
-            timer.cancel()
-            del timer
-        timer = ui.timer(interval=1.0, active=True, once=True, callback=callback)
-
-    def delay(value: any, validation: dict[str, Callable[[str], bool]] | None = None) -> None:
-        if validation is None or all(each_validation(value) for each_validation in validation.values()):
-            def set_storage() -> None:
-                set_value(value)
-                ui.notify(f"{kwargs.get('label', 'Setting')} saved", timeout=500)  # , progress=True)
-
-            update_timer(set_storage)
-
-    last_value = get_value()
-    with element_type(
-        value=last_value, **kwargs,
-        on_change=lambda event: delay(event.value, validation=kwargs.get("validation"))
-    ) as element:
-        yield element
-
-
-UiElement = TypeVar("UiElement", bound=Element)
-
-
 class Store:
-    def __init__(
-            self,
-            element_type: type[UiElement], set_value: Callable[[any], any], default: any, delay: float = 1.0,
-            **kwargs):
-        self.element_type = element_type
+    def __init__(self, element: ValueElement, set_value: Callable[[any], any], delay: float = 1.0):
+        self.element = element
         self.set_value = set_value
-        self.default = default
         self.delay = delay
-        self.kwargs = kwargs
         self.timer: ui.timer | None = None
 
-    def __enter__(self) -> UiElement:
-        def update_timer(callback: Callable[..., any]) -> None:
-            if self.timer is not None:
-                self.timer.cancel()
-            self.timer = ui.timer(interval=self.delay, active=True, once=True, callback=callback)
-
-        def delay(value: any, validation: dict[str, Callable[[str], bool]] | None = None) -> None:
-            if validation is None or all(each_validation(value) for each_validation in validation.values()):
-                def set_storage() -> None:
-                    self.set_value(value)
-                    name = self.kwargs.get('label', self.kwargs.get('text', 'Setting'))
-                    ui.notify(f"{name} updated", timeout=500)
-
-                update_timer(set_storage)
-
-        element = self.element_type(
-            value=self.default, **self.kwargs,
-            on_change=lambda event: delay(event.value, validation=self.kwargs.get("validation"))
-        )
-
-        return element
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def _update_timer(self, callback: Callable[..., any]) -> None:
         if self.timer is not None:
             self.timer.cancel()
+        self.timer = ui.timer(interval=self.delay, active=True, once=True, callback=callback)
+
+    def _set_storage(self, value: any, name: str | None = None) -> None:
+        name = "Value" if name is None else f"'{name}'"
+        self.set_value(value)
+        ui.notify(f"{name} set to {json.dumps(value)}", timeout=500)
+
+    def _delay_validation(self, event: GenericEventArguments, validation: dict[str, Callable[[str], bool]] | None = None) -> None:
+        value = self.element.value
+        if isinstance(self.element, TextElement):
+            name = self.element.text
+        else:
+            name = event.sender._props.get("label")
+        if validation is not None and all(each_validation(value) for each_validation in validation.values()):
+            self._update_timer(lambda: self._set_storage(value, name=name))
+
+    def _delay(self, event: GenericEventArguments) -> None:
+        value = self.element.value
+        if isinstance(self.element, TextElement):
+            name = self.element.text
+        else:
+            name = event.sender._props.get("label")
+        self._update_timer(lambda: self._set_storage(value, name=name))
+
+    def __enter__(self) -> Store:
+        if isinstance(self.element, ValidationElement):
+            def delay(value: any) -> None:
+                assert isinstance(self.element, ValidationElement)
+                self._delay_validation(value, validation=self.element.validation)
+        else:
+            delay = self._delay
+
+        self.element.on("update:model-value", lambda event: delay(event))
+
+        return self
+
+    def __exit__(self, exc_type: type | None, exc_value: Exception | None, traceback: any) -> bool | None:
+        if self.timer is not None:
+            self.timer.cancel()
+
+        return
 
 
 def get_interface(interfaces: list[dict[str, any]], name: str) -> dict[str, any] | None:
