@@ -133,7 +133,7 @@ const InitializeDoppelcheck = {
         claimContainer.id = "doppelcheck-claims-container";
         sidebar.appendChild(claimContainer);
 
-        if(!(config.openai_api_key && config.google_custom_search.api_key && config.google_custom_search.engine_id)){
+        if (!config.ready){
             const warning = document.createElement("div");
             warning.id = "doppelcheck-warning";
             warning.innerHTML = "Please click 'Config' to set up your API keys. Then <a href='javascript:location.reload()'>refresh</a> the page.";

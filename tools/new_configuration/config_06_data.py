@@ -1,12 +1,11 @@
 from loguru import logger
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel, Store, AccessModel
-from tools.plugins.implementation.data_sources.google_plugin.configuration_page import config_google
+from tools.configuration.data.config_objects import ConfigModel, AccessModel, Store
+from tools.plugins.abstract import InterfaceData
 
 
-def get_section(user_id: str, admin: bool = False) -> None:
-
+def get_section(user_id: str, data_classes: list[type[InterfaceData]], admin: bool = False) -> None:
     def _remove_data_interface() -> None:
         if len(interface_table.selected) != 1:
             ui.notify("Please select exactly one data interface to remove.")
@@ -46,13 +45,11 @@ def get_section(user_id: str, admin: bool = False) -> None:
         ]
 
         data_interfaces = ConfigModel.get_data_interfaces(user_id)
-        if not admin:
-            data_interfaces += ConfigModel.get_data_interfaces("ADMIN")
 
         rows: list[dict[str, any]] = [
             {
                 'name': each_interface.name,
-                'type': each_interface.provider,
+                'type': type(each_interface).__qualname__,
                 'admin': str(each_interface.from_admin)
             }
             for each_interface in data_interfaces
@@ -74,9 +71,9 @@ def get_section(user_id: str, admin: bool = False) -> None:
             interface_table.on("selection", _toggle_remove)
 
         if admin:
-            with Store(
-                    ui.checkbox, AccessModel.set_remove_data,
-                    AccessModel.get_remove_data(), text="User access") as checkbox:
+            with ui.checkbox(
+                    text="User access", value=AccessModel.get_remove_data()
+            ) as checkbox, Store(checkbox, AccessModel.set_remove_data):
                 pass
 
     ui.element("div").classes('h-8')
@@ -86,9 +83,38 @@ def get_section(user_id: str, admin: bool = False) -> None:
     with ui.element("div").classes("w-full flex justify-end"):
         ui.label('New interface').classes('text-h5 p-4')
         with ui.tabs().classes('w-full') as llm_tabs:
-            tabs = {each: ui.tab(each) for each in ["Google"]}
+            tabs = {each.name(): ui.tab(each.name()) for each in data_classes}
+            # todo: add panel right away
 
-        tab_openai = tabs['Google']
-        with ui.tab_panels(llm_tabs, value=tab_openai).classes('w-full'):
-            with ui.tab_panel(tab_openai):
-                config_google(user_id, interface_table, user_accessible, admin)
+        for each_class in data_classes:
+            tab = tabs[each_class.name()]
+            with ui.tab_panels(llm_tabs, value=tab).classes('w-full'):
+                with ui.tab_panel(tab):
+                    with ui.input(
+                            label="Name", placeholder="name for interface",
+                            validation={
+                                "Name already in use": lambda x: x not in [x["name"] for x in interface_table.rows]}
+                    ) as name_input:
+                        name_input.classes('w-full')
+
+                    callbacks = each_class.configuration(user_id, user_accessible)
+
+        async def _add_interface() -> None:
+            interface_config = await callbacks.get_config()
+            interface_config.name = name_input.value
+            # todo: check if fine
+
+            ConfigModel.add_data_interface(user_id, interface_config)
+            interface_table.add_rows(
+                {'name': interface_config.name, 'type': type(interface_config).__qualname__, 'admin': str(admin)}
+            )
+            name_input.value = ""
+
+    with ui.row().classes('w-full justify-end'):
+        ui.button("Reset", on_click=callbacks.reset).classes("m-4")
+        ui.button("Add", on_click=_add_interface).classes("m-4")
+        if admin:
+            with ui.checkbox(
+                text="User access", value=AccessModel.get_add_data()
+            ) as checkbox, Store(checkbox, AccessModel.set_add_data):
+                pass

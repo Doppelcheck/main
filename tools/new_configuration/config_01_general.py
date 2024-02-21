@@ -1,44 +1,45 @@
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel, Store, AccessModel
+from tools.configuration.data.config_objects import ConfigModel, AccessModel, Store
+from tools.new_configuration.config_install import get_section as get_section_install
 
 
-def get_section(user_id: str, version: str, admin: bool = False) -> None:
+def get_section(user_id: str, version: str, address: str, admin: bool = False) -> None:
+
+    get_section_install(user_id, address, version, title=False, admin=admin)
 
     with ui.element("div").classes("w-full flex justify-end"):
         ui.label('Settings').classes('text-h5')
-        with Store(
-                ui.input,
-                lambda name: ConfigModel.set_general_name(user_id, name),
-                ConfigModel.get_general_name(user_id),
-                label="Name", placeholder="name for instance"
-        ) as text_input:
-            text_input.classes('w-full')
-            if not admin and not AccessModel.get_access_name():
-                text_input.disable()
-                ui.tooltip("User does not have access to change this setting.")
 
+        with ui.input(
+                label="Name", placeholder="name for instance", value=ConfigModel.get_general_name(user_id)
+        ) as new_text_input, Store(
+            new_text_input, lambda value: ConfigModel.set_general_name(user_id, value)
+        ):
+            new_text_input.classes('w-full')
+            if not admin and not AccessModel.get_access_name():
+                new_text_input.disable()
+                ui.tooltip("User does not have access to change the name.")
         if admin:
-            with Store(
-                    ui.checkbox, AccessModel.set_access_name,
-                    AccessModel.get_access_name(), text="User access") as checkbox:
+            with ui.checkbox(
+                    text="User access", value=AccessModel.get_access_name()
+            ) as checkbox, Store(checkbox, AccessModel.set_access_name) as checkbox:
                 pass
 
-        with Store(
-            ui.select,
-            lambda language: ConfigModel.set_general_language(user_id, language),
-            ConfigModel.get_general_language(user_id),
-            label="Language", options=["default", "English", "German", "French", "Spanish"]
-        ) as language_select:
+        with ui.select(
+                options=["default", "English", "German", "French", "Spanish"], label="Language",
+                value=ConfigModel.get_general_language(user_id)
+        ) as language_select, Store(
+            language_select, lambda language: ConfigModel.set_general_language(user_id, language)
+        ):
             language_select.classes('w-full')
             if not admin and not AccessModel.get_access_language():
                 language_select.disable()
-                ui.tooltip("User does not have access to change this setting.")
-
+                ui.tooltip("User does not have access to change the language.")
         if admin:
-            with Store(
-                    ui.checkbox, AccessModel.set_access_language,
-                    AccessModel.get_access_language(), text="User access") as checkbox:
+            with ui.checkbox(
+                    text="User access", value=AccessModel.get_access_language()
+            ) as checkbox, Store(checkbox, AccessModel.set_access_language) as checkbox:
                 pass
 
     with ui.column() as column:

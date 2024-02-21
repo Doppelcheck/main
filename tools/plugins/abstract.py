@@ -1,82 +1,130 @@
+from __future__ import annotations
 import dataclasses
 import importlib
-from abc import abstractmethod, ABC
-from typing import Callable, AsyncGenerator, Sequence, TypeVar
+import inspect
+from abc import abstractmethod, ABC, ABCMeta
+from typing import Callable, AsyncGenerator, TypeVar, Awaitable
 
 from tools.text_processing import chunk_text
 
 
-PluginImplementation = TypeVar("PluginImplementation", bound="PluginBase")
+DictSerializableImplementation = TypeVar("DictSerializableImplementation", bound="DictSerializable")
 
 
-class PluginBase(ABC):
+class DictSerializable(ABC):
     @staticmethod
-    def _get_class(class_name: str, module_name: str) -> type[PluginImplementation]:
-        module = importlib.import_module(module_name)
-        class_: type[PluginImplementation] = getattr(module, class_name)
-        return class_
+    def get_class(qualified_class_name: str, module_name: str) -> type[DictSerializableImplementation]:
+        context = importlib.import_module(module_name)
+        for each_class in qualified_class_name.split("."):
+            context = getattr(context, each_class)
+
+        return context
 
     @classmethod
     @abstractmethod
-    def _from_dict(cls, state: dict[str, any]) -> PluginImplementation:
+    def from_state(cls, state: dict[str, any]) -> DictSerializableImplementation:
         raise NotImplementedError("Method not implemented")
 
     @staticmethod
-    def from_dict(state: dict[str, any]) -> PluginImplementation:
-        class_name = state.pop("__class__")
-        module_name = state.pop("__module__")
-        class_: type[PluginImplementation] = PluginBase._get_class(class_name, module_name)
-        return class_._from_dict(**state)
+    def from_object_dict(object_dict: dict[str, any]) -> DictSerializableImplementation:
+        class_name = object_dict["__class__"]
+        module_name = object_dict["__module__"]
+
+        class_ = DictSerializable.get_class(class_name, module_name)
+        return class_.from_state({k: v for k, v in object_dict.items() if not k.startswith("__")})
 
     @abstractmethod
-    def _to_dict(self) -> dict[str, any]:
+    def object_to_state(self) -> dict[str, any]:
         raise NotImplementedError("Method not implemented")
 
-    def to_dict(self) -> dict[str, any]:
-        state_dict = self._to_dict()
-        state_dict["__class__"] = self.__class__.__name__
+    def to_object_dict(self) -> dict[str, any]:
+        state_dict = self.object_to_state()
+        state_dict["__class__"] = self.__class__.__qualname__
         state_dict["__module__"] = self.__module__
         return state_dict
 
 
+class Parameters(DictSerializable, ABC):
+    def object_to_state(self) -> dict[str, any]:
+        return {k: v for k, v in self.__dict__.items() if not k.startswith("__")}
+
+
+class InterfaceConfig(DictSerializable, ABC):
+    def __init__(self, name: str, from_admin: bool) -> None:
+        self.name = name
+        self.from_admin = from_admin
+
+    def get_interface_class(self) -> type[Interface]:
+        module_name = self.__module__
+        qualified_class_name = self.__class__.__qualname__
+
+        module = importlib.import_module(module_name)
+        class_name = qualified_class_name.split(".", maxsplit=1)[0]
+        class_ = getattr(module, class_name)
+        return class_
+
+
+class InterfaceLLMConfig(InterfaceConfig, ABC):
+    pass
+
+
+class InterfaceDataConfig(InterfaceConfig, ABC):
+    pass
+
+
+class InterfaceMeta(ABCMeta):
+    def __init__(cls: type[Interface], name: str, bases: tuple[type, ...], dct: dict[str, any]) -> None:
+        super().__init__(name, bases, dct)
+
+        if inspect.isabstract(cls):
+            return
+
+        nested_class = dct.get("ConfigParameters")
+        if nested_class is None or not inspect.isclass(nested_class):
+            raise TypeError(f"Interface implementation `{name}` must define a `ConfigParameters` inner class.")
+        if not issubclass(nested_class, Parameters):
+            raise TypeError(f"`{name}.ConfigParameters` must be a subclass of `Parameters`.")
+
+        nested_class = dct.get("ConfigInterface")
+        if nested_class is None or not inspect.isclass(nested_class):
+            raise TypeError(f"Interface implementation `{name}` must define a `ConfigInterface` inner class.")
+        if not issubclass(nested_class, InterfaceConfig):
+            raise TypeError(f"`{name}.ConfigInterface` must be a subclass of `InterfaceConfig`.")
+
+
 @dataclasses.dataclass(frozen=True)
-class Uri:
-    uri_string: str | None
-    error: str | None = None
+class ConfigurationCallbacks:
+    get_config: Callable[[], Awaitable[InterfaceLLMConfig | InterfaceDataConfig]]
+    reset: Callable[[], None]
 
 
-@dataclasses.dataclass(frozen=True)
-class Document:
-    uri: str
-    content: str | None
-    error: str | None = None
-
-
-@dataclasses.dataclass
-class Parameters:
-    pass
-
-
-@dataclasses.dataclass
-class InterfaceConfig:
-    name: str
-    provider: str
-    from_admin: bool
-
-
-@dataclasses.dataclass
-class InterfaceLLMConfig(InterfaceConfig):
-    pass
-
-
-@dataclasses.dataclass
-class InterfaceDataConfig(InterfaceConfig):
-    pass
-
-
-class InterfaceData(PluginBase):
+class Interface(DictSerializable, ABC):
+    @staticmethod
     @abstractmethod
-    async def get_uris(self, query: str, doc_count: int, parameters: Parameters) -> Sequence[str]:
+    def name() -> str:
+        raise NotImplementedError("Method not implemented")
+
+    @staticmethod
+    @abstractmethod
+    def configuration(user_id: str, user_accessible: bool) -> ConfigurationCallbacks:
+        raise NotImplementedError("Method not implemented")
+
+    def __init__(self, name: str, parameters: Parameters, from_admin: bool) -> None:
+        self.name = name
+        self.parameters = parameters
+        self.from_admin = from_admin
+
+    def object_to_state(self) -> dict[str, any]:
+        return {
+            "name": self.name,
+            "parameters": self.parameters.to_object_dict(),
+            "from_admin": self.from_admin
+        }
+
+
+class InterfaceData(Interface, ABC, metaclass=InterfaceMeta):
+    @abstractmethod
+    async def get_uris(self, query: str, doc_count: int) -> AsyncGenerator[Uri, None]:
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod
@@ -84,7 +132,7 @@ class InterfaceData(PluginBase):
         raise NotImplementedError("Method not implemented")
 
 
-class InterfaceLLM(PluginBase):
+class InterfaceLLM(Interface, ABC, metaclass=InterfaceMeta):
     async def summarize(
             self, text: str, parameters: Parameters | None = None,
             max_len_input: int = 10_000, max_len_summary: int = 500) -> str:
@@ -113,16 +161,26 @@ class InterfaceLLM(PluginBase):
 
     @abstractmethod
     async def reply_to_prompt(
-            self, prompt: str, parameters: Parameters,
-            info_callback: Callable[[dict[str, any]], None] | None = None
+            self, prompt: str, info_callback: Callable[[dict[str, any]], None] | None = None
     ) -> str:
 
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod
-    async def stream_reply_to_prompt(
-            self, prompt: str, parameters: Parameters,
-            info_callback: Callable[[dict[str, any]], None] | None = None
+    async def stream_reply_to_prompt(self, prompt: str, info_callback: Callable[[dict[str, any]], None] | None = None
     ) -> AsyncGenerator[str, None]:
+
         raise NotImplementedError("Method not implemented")
 
+
+@dataclasses.dataclass(frozen=True)
+class Uri:
+    uri_string: str | None
+    error: str | None = None
+
+
+@dataclasses.dataclass(frozen=True)
+class Document:
+    uri: str
+    content: str | None
+    error: str | None = None

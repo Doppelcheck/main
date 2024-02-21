@@ -6,12 +6,18 @@ from tools.new_configuration.config_03_retrieval import get_section as get_secti
 from tools.new_configuration.config_04_comparison import get_section as get_section_comparison
 from tools.new_configuration.config_05_llms import get_section as get_section_llms
 from tools.new_configuration.config_06_data import get_section as get_section_data
-
-from tools.new_configuration.config_install import get_section as get_section_install
+from tools.plugins.abstract import InterfaceLLM, InterfaceData
+from tools.plugins.parse_plugins import load_plugins, get_interfaces
 
 
 async def full_configuration(user_id: str, address: str, version: str) -> None:
     is_admin = user_id == "ADMIN"
+
+    plugin_directory = 'tools/plugins/implementation'  # Update with the actual path
+    loaded_plugins = load_plugins(plugin_directory)
+
+    llm_subclasses = get_interfaces(loaded_plugins, InterfaceLLM)
+    data_subclasses = get_interfaces(loaded_plugins, InterfaceData)
 
     with ui.element("div") as container:
         container.classes(add="w-full max-w-5xl m-auto")
@@ -25,36 +31,29 @@ async def full_configuration(user_id: str, address: str, version: str) -> None:
                     tab_compare = ui.tab('Comparison', icon='scale')
                     tab_llms = ui.tab('LLM Interfaces', icon='psychology')
                     tab_data = ui.tab('Data Interfaces', icon='description')
-                    tab_install = ui.tab('Installation', icon='cloud_download')
 
             with splitter.after:
                 with ui.tab_panels(tabs, value=tab_settings).props('vertical').classes('w-full'):
                     with ui.tab_panel(tab_settings):
                         ui.label('General').classes('text-h4')
-                        get_section_general(user_id, version, admin=is_admin)
+                        get_section_general(user_id, version, address, admin=is_admin)
 
                     with ui.tab_panel(tab_extract):
-                        ui.label('Extraction').classes('text-h4')
+                        ui.label('Keypoint Assistant').classes('text-h4')
                         get_section_extraction(user_id, admin=is_admin)
 
                     with ui.tab_panel(tab_retrieve):
-                        ui.label('Retrieval').classes('text-h4')
+                        ui.label('Sourcefinder Assistant').classes('text-h4')
                         get_section_retrieval(user_id, admin=is_admin)
 
                     with ui.tab_panel(tab_compare):
-                        ui.label('Comparison').classes('text-h4')
+                        ui.label('Crosschecker Assistant').classes('text-h4')
                         get_section_comparison(user_id, admin=is_admin)
 
                     with ui.tab_panel(tab_llms):
                         ui.label('LLM interfaces').classes('text-h4')
-                        get_section_llms(user_id, admin=is_admin)
+                        get_section_llms(user_id, llm_subclasses, admin=is_admin)
 
                     with ui.tab_panel(tab_data):
                         ui.label('Data Interfaces').classes('text-h4')
-                        get_section_data(user_id, admin=is_admin)
-
-                    with ui.tab_panel(tab_install):
-                        ui.label('Installation').classes('text-h4')
-                        get_section_install(user_id, address, version, title=False, admin=is_admin)
-
-
+                        get_section_data(user_id, data_subclasses, admin=is_admin)
