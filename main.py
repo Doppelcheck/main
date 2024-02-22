@@ -2,7 +2,7 @@ import dataclasses
 import json
 import secrets
 import string
-from typing import Generator, Sequence, AsyncGenerator, Coroutine, Iterable
+from typing import Generator, Sequence, AsyncGenerator, Iterable
 from urllib.parse import urlparse, unquote
 
 import lingua
@@ -36,11 +36,6 @@ UNRESTRICTED = {"/", "/config", "/login"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    """This middleware restricts access to all NiceGUI pages.
-
-    It redirects the user to the login page if they are not authenticated.
-    """
-
     async def dispatch(self, request: Request, call_next):
         if not app.storage.user.get('authenticated', False):
             if request.url.path in Client.page_routes.values() and request.url.path not in UNRESTRICTED:
@@ -78,7 +73,7 @@ class Server:
 
     @staticmethod
     async def _stream_claims_to_browser(
-            response: Coroutine[any, any, AsyncGenerator[str, None]],
+            response: AsyncGenerator[str, None],
             text_lines: Sequence[str],
             num_claims: int
     ) -> Generator[ClaimSegment, None, None]:
@@ -101,6 +96,7 @@ class Server:
                         in_num_range = False
                         continue
 
+                    # todo: convert to eom / eol transmission
                     highlight_text = "".join(text_lines[line_range[0] - 1:line_range[1] - 1])
                     yield ClaimSegment("", False, False, claim_count, highlight=highlight_text)
                     in_num_range = False
@@ -244,9 +240,8 @@ class Server:
         doc_count = ConfigModel.get_retrieval_max_documents(user_id)
 
         # xxx here
-        uris = data_interface.get_uris(query, doc_count)
         doc_id = 0
-        async for each_uri in uris:
+        async for each_uri in data_interface.get_uris(query, doc_count):
             last_document = doc_id >= doc_count - 1
             content = shorten_url(each_uri.uri_string)
             yield DocumentSegment(content, True, last_document, claim_id, doc_id, each_uri.uri_string)
