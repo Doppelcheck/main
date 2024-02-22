@@ -7,7 +7,7 @@ from tools.text_processing import compile_bookmarklet
 
 def get_section(
         userid: str, address: str, version: str,
-        video: bool = True, title: bool = True, admin: bool = False) -> None:
+        video: bool = True, title: bool = True) -> None:
 
     with open("static/bookmarklet.js", mode="r") as file:
         bookmarklet_js = file.read()

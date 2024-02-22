@@ -447,7 +447,8 @@ class Store:
             self.timer.cancel()
         self.timer = ui.timer(interval=self.delay, active=True, once=True, callback=callback)
 
-    def _set_storage(self, value: any, name: str | None = None) -> None:
+    def _set_storage(self, name: str | None = None) -> None:
+        value = self.element.value
         name = "Value" if name is None else f"'{name}'"
         self.set_value(value)
         ui.notify(f"{name} set to {json.dumps(value)}", timeout=500)
@@ -459,7 +460,7 @@ class Store:
         else:
             name = event.sender._props.get("label")
         if validation is not None and all(each_validation(value) for each_validation in validation.values()):
-            self._update_timer(lambda: self._set_storage(value, name=name))
+            self._update_timer(lambda: self._set_storage(name=name))
 
     def _delay(self, event: GenericEventArguments) -> None:
         value = self.element.value
@@ -467,11 +468,11 @@ class Store:
             name = self.element.text
         else:
             name = event.sender._props.get("label")
-        self._update_timer(lambda: self._set_storage(value, name=name))
+        self._update_timer(lambda: self._set_storage(name=name))
 
     def __enter__(self) -> Store:
         if isinstance(self.element, ValidationElement):
-            def delay(value: any) -> None:
+            def delay(value: GenericEventArguments) -> None:
                 assert isinstance(self.element, ValidationElement)
                 self._delay_validation(value, validation=self.element.validation)
         else:

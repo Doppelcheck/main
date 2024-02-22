@@ -6,13 +6,15 @@ from tools.new_configuration.config_install import get_section as get_section_in
 
 def get_section(user_id: str, version: str, address: str, admin: bool = False) -> None:
 
-    get_section_install(user_id, address, version, title=False, admin=admin)
+    if not admin:
+        get_section_install(user_id, address, version, title=False)
 
     with ui.element("div").classes("w-full flex justify-end"):
         ui.label('Settings').classes('text-h5')
 
         with ui.input(
-                label="Name", placeholder="name for instance", value=ConfigModel.get_general_name(user_id)
+                label="Name", placeholder="name for instance", value=ConfigModel.get_general_name(user_id),
+                validation={"Should not be empty": lambda v: len(v) >= 1}
         ) as new_text_input, Store(
             new_text_input, lambda value: ConfigModel.set_general_name(user_id, value)
         ):

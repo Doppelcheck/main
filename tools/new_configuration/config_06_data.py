@@ -80,27 +80,31 @@ def get_section(user_id: str, data_classes: list[type[InterfaceData]], admin: bo
 
     user_accessible = admin or AccessModel.get_add_data()
 
+    callback_dict = dict()
     with ui.element("div").classes("w-full flex justify-end"):
         ui.label('New interface').classes('text-h5 p-4')
         with ui.tabs().classes('w-full') as llm_tabs:
-            tabs = {each.name(): ui.tab(each.name()) for each in data_classes}
+            name_to_tabs = {each.name(): ui.tab(each.name()) for each in data_classes}
             # todo: add panel right away
 
         for each_class in data_classes:
-            tab = tabs[each_class.name()]
-            with ui.tab_panels(llm_tabs, value=tab).classes('w-full'):
-                with ui.tab_panel(tab):
+            each_tab = name_to_tabs[each_class.name()]
+            with ui.tab_panels(llm_tabs, value=each_tab).classes('w-full') as tab_panels:
+                with ui.tab_panel(each_tab):
                     with ui.input(
                             label="Name", placeholder="name for interface",
                             validation={
-                                "Name already in use": lambda x: x not in [x["name"] for x in interface_table.rows]}
+                                "Name already in use, will overwrite!":
+                                    lambda x: x not in [x["name"] for x in interface_table.rows]}
                     ) as name_input:
                         name_input.classes('w-full')
 
-                    callbacks = each_class.configuration(user_id, user_accessible)
+                    each_callbacks = each_class.configuration(user_id, user_accessible)
+                    callback_dict[each_tab] = each_callbacks
 
         async def _add_interface() -> None:
-            interface_config = await callbacks.get_config()
+            _callbacks = callback_dict[llm_tabs.value]
+            interface_config = await _callbacks.get_config()
             interface_config.name = name_input.value
             # todo: check if fine
 
@@ -110,11 +114,11 @@ def get_section(user_id: str, data_classes: list[type[InterfaceData]], admin: bo
             )
             name_input.value = ""
 
-    with ui.row().classes('w-full justify-end'):
-        ui.button("Reset", on_click=callbacks.reset).classes("m-4")
-        ui.button("Add", on_click=_add_interface).classes("m-4")
-        if admin:
-            with ui.checkbox(
-                text="User access", value=AccessModel.get_add_data()
-            ) as checkbox, Store(checkbox, AccessModel.set_add_data):
-                pass
+        with ui.row().classes('w-full justify-end'):
+            ui.button("Reset", on_click=lambda: callback_dict[llm_tabs.value].reset()).classes("m-4")
+            ui.button("Add", on_click=_add_interface).classes("m-4")
+            if admin:
+                with ui.checkbox(
+                    text="User access", value=AccessModel.get_add_data()
+                ) as checkbox, Store(checkbox, AccessModel.set_add_data):
+                    pass

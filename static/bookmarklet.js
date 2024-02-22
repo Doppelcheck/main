@@ -1,4 +1,4 @@
-const address = "[localhost:8000]";
+const serverHost = "[localhost:8000]";
 const userID = "[unique user identification]";
 const versionClient = "[version number]";
 
@@ -6,21 +6,25 @@ const versionClient = "[version number]";
 const ProxyUrlServices = {
     localBypass(originalUrl) {
         const urlEncoded = encodeURIComponent(originalUrl);
-        return `https://${address}/get_content/?url=${urlEncoded}`;
+        return `https://${serverHost}/get_content/?url=${urlEncoded}`;
     },
 
-    async redirect() {
+    corsError() {
         const proxyUrl = ProxyUrlServices.localBypass(window.location.href);
-        // const proxyUrl = ProxyUrlServices.get12ftProxyUrl(window.location.href);
-        // const proxyUrl = ProxyUrlServices.getOutlineTTSProxyUrl(window.location.href);
-        // const proxyUrl = ProxyUrlServices.getPrintFriendlyProxyUrl(window.location.href);
-        alert(
-            `Connection to Doppelcheck server @ ${address} failed. This may be due to restrictive security settings ` +
-            `on the current website ${window.location.hostname}.\n\nWe'll try open a minimal version of the ` +
-            `website.\n\n` +
-            `${proxyUrl}\n\nPlease allow the popup and retry Doppelcheck there.`);
-        window.open(proxyUrl);
-    }
+
+        InitializeDoppelcheck.notifyUser(
+            `<p>Connection to <a href="${serverHost}">the Doppelcheck server</a> failed. This may be due to ` +
+            `restrictive security settings on the current website.</p>${window.location.hostname}<p>Please use ` +
+            `Doppelcheck on <a href="${proxyUrl}" target="_blank">an accessible version of this website.</a>`,
+            false);
+    },
+
+    setupError(error, configUrl) {
+        InitializeDoppelcheck.notifyUser(
+            `Server error: ${error}. Please install the latest bookmarklet version from ` +
+            `<a href="${configUrl}" target="_blank">here,</a> make sure all interfaces are configured, and ` +
+            `<a href="${window.location.href}">refresh</a> this page.`);
+        }
 };
 
 const InitializeDoppelcheck = {
@@ -68,7 +72,7 @@ const InitializeDoppelcheck = {
 
         const sidebarStyle = document.createElement("link");
         sidebarStyle.rel = "stylesheet";
-        sidebarStyle.href = `https://${address}/static/sidebar-content.css`;
+        sidebarStyle.href = `https://${serverHost}/static/sidebar-content.css`;
         InitializeDoppelcheck.shadowElement.appendChild(sidebarStyle);
 
         /*
@@ -92,7 +96,41 @@ const InitializeDoppelcheck = {
         body.appendChild(container);
     },
 
-    async addDoppelcheckElements(config) {
+    notifyUser(message, dismissable = true) {
+        if (!dismissable) {
+            const dismissButton = InitializeDoppelcheck.getElementById("doppelcheck-dismiss-button");
+            dismissButton.disabled = true;
+        }
+
+        const notificationContent = InitializeDoppelcheck.getElementById("doppelcheck-notification-content");
+        notificationContent.innerHTML = message;
+
+        const notificationOverlay = InitializeDoppelcheck.getElementById("doppelcheck-notification-overlay");
+        notificationOverlay.classList.remove("hidden");
+
+
+    },
+
+    addNotificationArea: function (sidebar) {
+        const notificationOverlay = document.createElement("div");
+        notificationOverlay.id = "doppelcheck-notification-overlay";
+        notificationOverlay.classList.add("hidden");
+
+        const notificationContent = document.createElement("div");
+        notificationContent.id = "doppelcheck-notification-content";
+        notificationOverlay.appendChild(notificationContent);
+
+        const dismissButton = document.createElement("button");
+        dismissButton.id = "doppelcheck-dismiss-button";
+        dismissButton.innerText = "Dismiss";
+        dismissButton.onclick = function () {
+            notificationOverlay.classList.add("hidden");
+        }
+        notificationOverlay.appendChild(dismissButton);
+        sidebar.appendChild(notificationOverlay);
+    },
+
+    async addDoppelcheckElements() {
         InitializeDoppelcheck.reduceZIndex(1000);
 
         const bodyWrapper = document.createElement("div");
@@ -104,17 +142,34 @@ const InitializeDoppelcheck = {
         bodyWrapper.appendChild(mainContent);
 
         const sidebar = await InitializeDoppelcheck.createSidebar(bodyWrapper);
-
         document.body.appendChild(bodyWrapper);
+        InitializeDoppelcheck.addNotificationArea(sidebar);
 
         const heading = document.createElement("h1");
         heading.id = "doppelcheck-heading";
-        heading.innerText = `Doppelcheck v${versionClient}`;
+        heading.innerText = `Client v${versionClient}`;
         sidebar.appendChild(heading);
+
+        let config;
+        try {
+            config = await getConfig(userID);
+
+        } catch (error) {
+            // request failed, offer redirection
+            ProxyUrlServices.corsError();
+            return;
+        }
+
+        const configUrl = `https://${serverHost}/config/${userID}`;
+        if (config["error"]) {
+            // server setup problem
+            ProxyUrlServices.setupError(config["error"], configUrl);
+            return;
+        }
 
         const nameInstance = document.createElement("h2");
         nameInstance.id = "doppelcheck-name-instance";
-        nameInstance.innerText = config.name_instance;
+        nameInstance.innerText = config["name_instance"];
         sidebar.appendChild(nameInstance);
 
         const subheading = document.createElement("h3");
@@ -125,7 +180,7 @@ const InitializeDoppelcheck = {
         const configure = document.createElement("a");
         configure.id = "doppelcheck-config";
         configure.innerText = "Config";
-        configure.href = `https://${address}/config/${userID}`;
+        configure.href = configUrl;
         configure.target = "_blank";
         sidebar.appendChild(configure);
 
@@ -133,22 +188,15 @@ const InitializeDoppelcheck = {
         claimContainer.id = "doppelcheck-claims-container";
         sidebar.appendChild(claimContainer);
 
-        if (!config.ready){
-            const warning = document.createElement("div");
-            warning.id = "doppelcheck-warning";
-            warning.innerHTML = "Please click 'Config' to set up your API keys. Then <a href='javascript:location.reload()'>refresh</a> the page.";
-            sidebar.appendChild(warning);
+        const button = document.createElement("button");
+        button.id = "doppelcheck-button-start";
+        button.innerText = "🤨 Extract Claims";
 
-        } else {
-            const button = document.createElement("button");
-            button.id = "doppelcheck-button-start";
-            button.innerText = "🤨 Extract Claims";
-
-            button.onclick = async function () {
-                button.disabled = true;
-                button.innerText = "⏳ Extracting Claims...";
-                const config = await getConfig(userID);
-                console.log("configuration ", config);
+        button.onclick = async function () {
+            button.disabled = true;
+            const selection = document.getSelection();
+            if (selection === null || 20 >= selection.toString().trim().length) {
+                button.innerText = "⏳ Extracting claims from website...";
                 const fullHTML = document.documentElement.outerHTML;
                 // todo:
                 //  1. save new claim count
@@ -156,12 +204,17 @@ const InitializeDoppelcheck = {
                 try {
                     exchange("extract", fullHTML);
                 } catch (error) {
-                    console.error('Failed to extract claims:', error);
-                    await ProxyUrlServices.redirect();
+                    console.log('Websocket connection failed: ' + error);
+                    ProxyUrlServices.corsError();
                 }
+            } else {
+                button.innerText = "⏳ Extracting claims from selection...";
+                const selectedText = selection.toString();
+                exchange("extract_selection", selectedText);
+
             }
-            sidebar.appendChild(button);
         }
+        sidebar.appendChild(button);
 
         /*
         const userIdField = document.createElement("div");
@@ -172,17 +225,17 @@ const InitializeDoppelcheck = {
 
         const doppelcheckStyle = document.createElement("link");
         doppelcheckStyle.rel = "stylesheet";
-        doppelcheckStyle.href = `https://${address}/static/main-content.css`;
+        doppelcheckStyle.href = `https://${serverHost}/static/main-content.css`;
         document.head.appendChild(doppelcheckStyle);
 
         const sidebarStyle = document.createElement("link");
         sidebarStyle.rel = "stylesheet";
-        sidebarStyle.href = `https://${address}/static/sidebar.css`;
+        sidebarStyle.href = `https://${serverHost}/static/sidebar.css`;
         document.head.appendChild(sidebarStyle);
 
         // add mark.js
         const markJs = document.createElement("script");
-        markJs.src = `https://${address}/static/mark.min.js`;
+        markJs.src = `https://${serverHost}/static/mark.min.js`;
         markJs.defer = true;
         document.head.appendChild(markJs);
 
@@ -454,7 +507,7 @@ const CompareDocuments = {
 }
 
 function exchange(purpose, data) {
-    const ws = new WebSocket(`wss://${address}/talk`);
+    const ws = new WebSocket(`wss://${serverHost}/talk`);
 
     const message = {
         purpose: purpose,
@@ -509,30 +562,24 @@ function exchange(purpose, data) {
 
 
 async function getConfig(userId) {
-    const configUrl = `https://${address}/get_config/`;
+    const configUrl = `https://${serverHost}/get_config/`;
     const userData = { user_id: userId, version: versionClient };
     console.log("user data ", userData)
 
-    try {
-        const response = await fetch(configUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(userData)
-        });
+    const response = await fetch(configUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+    });
 
-        if (!response.ok) {
-            console.warn(`HTTP error! status: ${response.status}`);
-            return;
-        }
-
-        return await response.json();
-
-    } catch (error) {
-        console.error('There was a problem retrieving the config:', error);
-        await ProxyUrlServices.redirect();
+    if (!response.ok) {
+        console.warn(`HTTP error! status: ${response.status}`);
+        return;
     }
+
+    return await response.json();
 }
 
 async function main() {
@@ -541,19 +588,8 @@ async function main() {
         sidebar.classList.toggle("doppelcheck-sidebar-hidden");
 
     } else {
-        const config = await getConfig(userID);
-        console.log("configuration ", config);
-
-        if (config.errorVersionMismatch || config.versionServer !== versionClient) {
-            alert(`Doppelcheck version mismatch.\n\nServer version: ${config.versionServer}, bookmarklet version: ${versionClient}.\n\nPlease update your bookmarklet from https://${address}/config/${userID}.`);
-
-            window.open(`https://${address}/config/${userID}`);
-
-        } else {
-            await InitializeDoppelcheck.addDoppelcheckElements(config);
-        }
+        await InitializeDoppelcheck.addDoppelcheckElements();
     }
 }
 
-
-main().then(r => console.log("done"));
+main().then(r => console.log("doppelcheck main done"));

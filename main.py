@@ -1,9 +1,8 @@
 import dataclasses
 import json
-import pathlib
 import secrets
 import string
-from typing import Generator, Sequence, AsyncGenerator, Coroutine
+from typing import Generator, Sequence, AsyncGenerator, Coroutine, Iterable
 from urllib.parse import urlparse, unquote
 
 import lingua
@@ -22,8 +21,8 @@ from tools.new_configuration.full import full_configuration
 from tools.new_configuration.config_install import get_section
 from tools.content_retrieval import get_context
 from tools.global_instances import BROWSER_INSTANCE
-from tools.data_access import get_user_config, set_data_value, get_data_value
-from tools.data_objects import GoogleCustomSearch, MessageSegment, ClaimSegment, DocumentSegment, ComparisonSegment
+from tools.data_access import set_data_value, get_data_value
+from tools.data_objects import MessageSegment, ClaimSegment, DocumentSegment, ComparisonSegment
 from tools.plugins.abstract import InterfaceData, InterfaceLLM
 from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
     get_text_lines, extract_code_block, shorten_url
@@ -31,9 +30,9 @@ from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_co
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.0.7"
+VERSION = "0.0.9"
 PASSWORDS = {'user': 'doppelcheck'}
-UNRESTRICTED = {"/", "/_test", "/config", "/login"}
+UNRESTRICTED = {"/", "/config", "/login"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -65,8 +64,8 @@ class RetrieveDocumentException(Exception):
 
 
 class User(BaseModel):
-    user_id: str
-    version: str
+    user_id: str | None
+    version: str | None
 
 
 class Server:
@@ -193,22 +192,6 @@ class Server:
         return data_interface
 
     def __init__(self) -> None:
-        self.default_openai_key = None
-        default_openai_key_file = pathlib.Path("default_openai.json")
-        if default_openai_key_file.exists():
-            with open(default_openai_key_file) as file:
-                default_openai_key = json.load(file)
-                self.default_openai_key = default_openai_key.get("openai_key")
-
-        self.default_google_key = None
-        self.default_google_id = None
-        default_google_key_file = pathlib.Path("default_google.json")
-        if default_google_key_file.exists():
-            with open(default_google_key_file) as file:
-                default_google_key = json.load(file)
-                self.default_google_key = default_google_key.get("custom_search_api_key")
-                self.default_google_id = default_google_key.get("custom_search_engine_id")
-
         nltk.download('punkt')
         detector = lingua.LanguageDetectorBuilder.from_all_languages()
         self._detector_built = detector.build()
@@ -220,17 +203,13 @@ class Server:
 
         return language.iso_code_639_1.name.lower()
 
-    async def get_claims_from_selection(self, text: str) -> Generator[ClaimSegment, None, None]:
-        pass
-
-    async def get_claims_from_html(self, body_html: str, user_id: str) -> Generator[ClaimSegment, None, None]:
+    async def get_claims_from_str(self, string_sequence: Iterable[str], user_id: str) -> Generator[ClaimSegment, None, None]:
         llm_interface = await self.get_extraction_llm_interface(user_id)
 
         claim_count = ConfigModel.get_extraction_claims(user_id)
         language = ConfigModel.get_general_language(user_id)
 
-        node_generator = text_node_generator(body_html)
-        text_lines = list(get_text_lines(node_generator, line_length=20))
+        text_lines = list(get_text_lines(string_sequence, line_length=20))
         prompt = extraction(text_lines, num_claims=claim_count, language=language)
 
         response = llm_interface.stream_reply_to_prompt(prompt)
@@ -303,15 +282,15 @@ class Server:
         async for each_segment in Server._stream_matches_to_browser(response, claim_id, document_id):
             yield each_segment
 
-    async def set_context(self, original_url: str, html_document: str, user_id: str) -> None:
-        context = await get_context(html_document, original_url, self._detect_language)
+    async def set_context(self, original_url: str, user_id: str, html_document: str | None = None) -> None:
+        context = await get_context(original_url, self._detect_language, html_document)
         if context is None:
             logger.warning(f"no context for {original_url}")
         else:
             logger.info(f"context for {original_url}: {context}")
             set_data_value(user_id, ("context", original_url), context)
 
-    def setup_routes(self) -> None:
+    def setup_api_endpoints(self) -> None:
         @app.get("/get_content/")
         async def get_content(url: str) -> HTMLResponse:
             """
@@ -333,21 +312,74 @@ class Server:
             """
             logger.info(f"getting settings for {user_data.user_id}")
 
-            if user_data.version is None:
-                logger.warning(f"client version {user_data.version} does not match server version {VERSION}")
+            # todo: check if config is set up
+
+            if user_data.version != VERSION:
+                logger.error(f"client version {user_data.version} does not match server version {VERSION}")
                 return {
-                    "errorVersionMismatch": "client version does not match server version",
+                    "error": "client version does not match server version",
                     "versionServer": VERSION,
                 }
 
-            # todo: check if config is set up
-            is_ready = True
+            if user_data.user_id is None:
+                logger.error(f"no user_id in {user_data}")
+                return {"error": "no user id provided"}
+
+            if (
+                    (ConfigModel.get_extraction_llm(user_data.user_id) is None) or
+                    (ConfigModel.get_retrieval_llm(user_data.user_id) is None) or
+                    (ConfigModel.get_retrieval_data(user_data.user_id) is None) or
+                    (ConfigModel.get_comparison_llm(user_data.user_id) is None) or
+                    (ConfigModel.get_comparison_data(user_data.user_id) is None)
+            ):
+                logger.error(f"no interface for {user_data.user_id}")
+                return {"error": "missing interfaces"}
 
             return {
                 "versionServer": VERSION,
-                "name_instance": ConfigModel.get_general_name(user_data.user_id),
-                "ready": is_ready
+                "name_instance": ConfigModel.get_general_name(user_data.user_id)
             }
+
+    def setup_website(self) -> None:
+        @ui.page("/")
+        async def coming_soon_page(client: Client) -> None:
+            address = await Server._get_address(client)
+            secret = secrets.token_urlsafe(32)
+
+            with ui.header() as header:
+                header.classes(add="bg-transparent text-white flex justify-between")
+
+                ui.label(f"{address}").classes()
+
+                with ui.button("Admin Login", on_click=lambda: ui.open("/admin")) as login_button:
+                    pass
+
+            with ui.element("div") as container:
+                container.classes(add="w-full max-w-4xl m-auto")
+
+                logo = ui.image("static/images/logo_big.svg")
+                logo.classes(add="w-full")
+
+                ui.element("div").classes(add="h-16")
+                ui.label("Installation").classes(add="text-xl font-bold text-center m-8 ")
+                get_section(secret, address, VERSION, title=False)
+
+                ui.element("div").classes(add="h-16")
+                ui.label("Claim extraction").classes(add="text-xl font-bold text-center m-8 ")
+                with ui.video("static/videos/extract.webm", autoplay=False, loop=False, muted=True) as video:
+                    video.classes(add="w-full max-w-2xl m-auto")
+
+                ui.element("div").classes(add="h-16")
+                ui.label("Document retrieval and claim checking").classes(add="text-xl font-bold text-center m-8 ")
+                with ui.video("static/videos/retrieval.webm", autoplay=False, loop=False, muted=True) as video:
+                    video.classes(add="w-full max-w-2xl m-auto")
+
+                ui.element("div").classes(add="h-8")
+
+                ui.link(
+                    text="Funded by the Media Tech Lab",
+                    target="https://www.media-lab.de/de/media-tech-lab/DoppelCheck",
+                    new_tab=True).classes(add="text-center block ")
 
         @ui.page('/login')
         def login() -> RedirectResponse | None:
@@ -378,7 +410,7 @@ class Server:
 
             def reset_context() -> None:
                 app.storage.user.clear()
-                ui.open('/_test')
+                ui.open('/')
 
             with ui.header() as header:
                 header.classes(add="bg-transparent text-white flex justify-end")
@@ -393,52 +425,7 @@ class Server:
             address = await Server._get_address(client)
             await full_configuration(userid, address, VERSION)
 
-        @ui.page("/")
-        async def coming_soon_page(client: Client) -> None:
-            address = await Server._get_address(client)
-
-            with ui.element("div") as container:
-                container.classes(add="w-full max-w-4xl m-auto")
-
-                logo = ui.image("static/images/logo_big.svg")
-                logo.classes(add="w-full")
-
-                ui.element("div").classes(add="h-16")
-                ui.label(f"Coming soon to {address}.").classes(add="text-2xl font-bold text-center")
-
-                ui.element("div").classes(add="h-16")
-                ui.label("Claim extraction").classes(add="text-xl font-bold text-center")
-                with ui.video("static/videos/extract.webm", autoplay=True, loop=False, muted=True) as video:
-                    video.classes(add="w-full max-w-2xl m-auto")
-
-                ui.element("div").classes(add="h-16")
-                ui.label("Document retrieval and claim checking").classes(add="text-xl font-bold text-center")
-                with ui.video("static/videos/retrieval.webm", autoplay=False, loop=False, muted=True) as video:
-                    video.classes(add="w-full max-w-2xl m-auto")
-
-                ui.element("div").classes(add="h-8")
-
-                ui.link(
-                    text="Funded by the Media Tech Lab",
-                    target="https://www.media-lab.de/de/media-tech-lab/DoppelCheck",
-                    new_tab=True).classes(add="text-center block ")
-
-        @ui.page("/_test")
-        async def main_page(client: Client) -> None:
-            address = await Server._get_address(client)
-            secret = secrets.token_urlsafe(32)
-
-            # https://github.com/zauberzeug/nicegui/blob/main/examples/authentication/main.py
-            with ui.header() as header:
-                header.classes(add="bg-transparent text-white flex justify-end")
-                with ui.button("Admin Login", on_click=lambda: ui.open("/admin")) as login_button:
-                    pass
-
-            with ui.element("div") as container:
-                container.classes(add="w-full max-w-2xl m-auto")
-
-                get_section(secret, address, VERSION)
-
+    def setup_websocket(self) -> None:
         @app.websocket("/talk")
         async def websocket_endpoint(websocket: WebSocket):
             # todo:
@@ -459,11 +446,11 @@ class Server:
                         json_str = json.dumps(answer)
                         await websocket.send_text(json_str)
 
-                    case "extract":
+                    case "extract" | "extract_selection":
                         # Keypoint Assistant
-                        await self.set_context(original_url, data, user_id)
-
-                        async for segment in self.get_claims_from_html(data, user_id):
+                        base_text = data if purpose == "extract" else text_node_generator(data)
+                        await self.set_context(original_url, user_id, html_document=data)
+                        async for segment in self.get_claims_from_str(base_text, user_id):
                             each_dict = dataclasses.asdict(segment)
                             json_str = json.dumps(each_dict)
                             await websocket.send_text(json_str)
@@ -514,7 +501,10 @@ def main() -> None:
 
     server = Server()
 
-    server.setup_routes()
+    server.setup_api_endpoints()
+    server.setup_website()
+    server.setup_websocket()
+
     ui.run(**nicegui_config)
 
     # todo: use gunicorn or uvicorn instead

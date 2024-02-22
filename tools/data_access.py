@@ -71,12 +71,6 @@ class UserConfig:
             self.openai_parameters = ParametersOpenAi()
 
 
-def get_user_config(userid: str) -> UserConfig:
-    config_dict = get_user_config_dict(userid)
-    # return UserConfig() if config_dict is None else UserConfig(**config_dict)
-    return UserConfig()
-
-
 def set_config_value(userid: str, config_path: Sequence[str], value: any) -> None:
     key_path = ("users", userid, "config") + tuple(config_path)
     set_nested_value(key_path, value)
