@@ -1,5 +1,4 @@
 import asyncio
-from dataclasses import dataclass
 from typing import Callable
 
 import bs4
@@ -17,7 +16,7 @@ header = {
 }
 
 
-async def parse_url(input_html: str, url: str, detect_language: Callable[[str], str]) -> newspaper.Article:
+async def parse_url(url: str, detect_language: Callable[[str], str], input_html: str | None = None) -> newspaper.Article:
     article = newspaper.Article(url, fetch_images=False)
     article.download(input_html=input_html)
 
@@ -70,8 +69,9 @@ def remove_images(html: str) -> str:
     return str(soup)
 
 
-async def get_context(input_html: str, original_url: str, detect_language: Callable[[str], str]) -> str | None:
-    article = await parse_url(input_html, original_url, detect_language)
+async def get_context(
+        original_url: str, detect_language: Callable[[str], str], input_html: str | None = None) -> str | None:
+    article = await parse_url(original_url, detect_language, input_html=input_html)
     context = f"{article.title.upper()}\n\n{article.summary}"
     if len(context.strip()) < 20:
         return None
@@ -101,6 +101,16 @@ class PlaywrightBrowser:
         if self.context is None:
             self.context = await self.browser.new_context(ignore_https_errors=True)
 
+    def remove_images(self, html: str) -> str:
+        soup = bs4.BeautifulSoup(html, 'html.parser')
+        for each_element in soup.find_all('img'):
+            each_element.decompose()
+
+        for each_element in soup.find_all('svg'):
+            each_element.decompose()
+
+        return str(soup)
+
     async def get_html_content(self, document_uri: str) -> Document:
         await self.init_browser()
 
@@ -117,7 +127,8 @@ class PlaywrightBrowser:
             await page.wait_for_load_state("domcontentloaded")
             # await page.wait_for_load_state("networkidle")
             content = await page.content()
-            return Document(uri=document_uri, content=content, error=None)
+            content_no_images = self.remove_images(content)
+            return Document(uri=document_uri, content=content_no_images, error=None)
 
         except PlaywrightError as e:
             print(f"Failed to load page: {e}")

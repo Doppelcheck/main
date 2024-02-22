@@ -92,21 +92,25 @@ def get_section(user_id: str, llm_classes: list[type[InterfaceLLM]], admin: bool
             tabs = {each.name(): ui.tab(each.name()) for each in llm_classes}
             # todo: add panel right away
 
+        callback_dict = dict()
         for each_class in llm_classes:
-            tab = tabs[each_class.name()]
-            with ui.tab_panels(llm_tabs, value=tab).classes('w-full'):
-                with ui.tab_panel(tab):
+            each_tab = tabs[each_class.name()]
+            with ui.tab_panels(llm_tabs, value=each_tab).classes('w-full') as tab_panels:
+                with ui.tab_panel(each_tab):
                     with ui.input(
                             label="Name", placeholder="name for interface",
                             validation={
-                                "Name already in use, will overwrite!": lambda x: x not in [x["name"] for x in interface_table.rows]}
+                                "Name already in use, will overwrite!":
+                                    lambda x: x not in [x["name"] for x in interface_table.rows]}
                     ) as name_input:
                         name_input.classes('w-full')
 
-                    callbacks = each_class.configuration(user_id, user_accessible)
+                    each_callbacks = each_class.configuration(user_id, user_accessible)
+                    callback_dict[each_tab] = each_callbacks
 
         async def _add_interface() -> None:
-            interface_config = await callbacks.get_config()
+            _callbacks = callback_dict[llm_tabs.value]
+            interface_config = await _callbacks.get_config()
             interface_config.name = name_input.value
             # todo: check if fine
 
@@ -117,7 +121,7 @@ def get_section(user_id: str, llm_classes: list[type[InterfaceLLM]], admin: bool
             name_input.value = ""
 
         with ui.row().classes('w-full justify-end'):
-            ui.button("Reset", on_click=callbacks.reset).classes("m-4")
+            ui.button("Reset", on_click=lambda: callback_dict[llm_tabs.value].reset()).classes("m-4")
             ui.button("Add", on_click=_add_interface).classes("m-4")
             if admin:
                 with ui.checkbox(
