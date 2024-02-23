@@ -278,7 +278,7 @@ class Server:
             yield each_segment
 
     async def set_context(self, original_url: str, user_id: str, html_document: str | None = None) -> None:
-        context = await get_context(original_url, self._detect_language, html_document)
+        context = await get_context(original_url, self._detect_language, input_html=html_document)
         if context is None:
             logger.warning(f"no context for {original_url}")
         else:
@@ -426,6 +426,9 @@ class Server:
             # todo:
             #  check out alternative implementation:
             #  https://github.com/zauberzeug/nicegui/blob/main/examples/websockets/main.py
+            #  streaming response is for files.
+            #  https://stackoverflow.com/questions/75740652/fastapi-streamingresponse-not-streaming-with-generator-function
+            #  server sent events?
             await websocket.accept()
             try:
                 message_str = await websocket.receive_text()
@@ -443,7 +446,12 @@ class Server:
 
                     case "extract" | "extract_selection":
                         # Keypoint Assistant
-                        base_text = data if purpose == "extract" else text_node_generator(data)
+                        if purpose == "extract":
+                            base_text = text_node_generator(data)
+                        else:
+                            base_text = data
+                            data = None
+
                         await self.set_context(original_url, user_id, html_document=data)
                         async for segment in self.get_claims_from_str(base_text, user_id):
                             each_dict = dataclasses.asdict(segment)
