@@ -78,9 +78,7 @@ class Google(InterfaceData):
             self.parameters = parameters
 
     @staticmethod
-    def configuration(user_id: str, user_accessible: bool) -> ConfigurationCallbacks:
-        admin = user_id == "ADMIN"
-
+    def configuration(user_id: str, user_accessible: bool, is_admin: bool) -> ConfigurationCallbacks:
         def _reset_parameters() -> None:
             default_parameters = Google.ConfigParameters("", "")
             editor.run_editor_method("set", {"json": default_parameters.object_to_state()})
@@ -90,7 +88,7 @@ class Google(InterfaceData):
             editor_content = await editor.run_editor_method("get")
             json_content = editor_content['json']
             parameters = Google.ConfigParameters(**json_content)
-            new_interface = Google.ConfigInterface(name="", parameters=parameters, from_admin=admin)
+            new_interface = Google.ConfigInterface(name="", parameters=parameters, from_admin=is_admin)
             _reset_parameters()
             return new_interface
 
@@ -111,7 +109,6 @@ class Google(InterfaceData):
         ui.label("The parameter `sort` has been set to a default value of \"date\" for news.").classes('w-full')
 
         return ConfigurationCallbacks(reset=_reset_parameters, get_config=_get_config)
-
 
     @staticmethod
     def from_object_dict(object_dict: dict[str, any]) -> DictSerializableImplementation:

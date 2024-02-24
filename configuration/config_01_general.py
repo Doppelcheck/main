@@ -4,25 +4,25 @@ from configuration.config_install import get_section_install
 from model.storages import ConfigModel, Store, AccessModel
 
 
-def get_section_general(user_id: str, version: str, address: str, admin: bool = False) -> None:
+def get_section_general(user_id: str, version: str, address: str, is_admin: bool = False) -> None:
 
-    if not admin:
+    if not is_admin:
         get_section_install(user_id, address, version, title=False)
 
     with ui.element("div").classes("w-full flex justify-end"):
         ui.label('Settings').classes('text-h5')
 
         with ui.input(
-                label="Name", placeholder="name for instance", value=ConfigModel.get_general_name(user_id),
+                label="Name", placeholder="name for instance", value=ConfigModel.get_general_name(user_id, is_admin),
                 validation={"Should not be empty": lambda v: len(v) >= 1}
         ) as new_text_input, Store(
             new_text_input, lambda value: ConfigModel.set_general_name(user_id, value)
         ):
             new_text_input.classes('w-full')
-            if not admin and not AccessModel.get_access_name():
+            if not is_admin and not AccessModel.get_access_name():
                 new_text_input.disable()
                 ui.tooltip("User does not have access to change the name.")
-        if admin:
+        if is_admin:
             with ui.checkbox(
                     text="User access", value=AccessModel.get_access_name()
             ) as checkbox, Store(checkbox, AccessModel.set_access_name) as checkbox:
@@ -30,15 +30,15 @@ def get_section_general(user_id: str, version: str, address: str, admin: bool = 
 
         with ui.select(
                 options=["default", "English", "German", "French", "Spanish"], label="Language",
-                value=ConfigModel.get_general_language(user_id)
+                value=ConfigModel.get_general_language(user_id, is_admin)
         ) as language_select, Store(
             language_select, lambda language: ConfigModel.set_general_language(user_id, language)
         ):
             language_select.classes('w-full')
-            if not admin and not AccessModel.get_access_language():
+            if not is_admin and not AccessModel.get_access_language():
                 language_select.disable()
                 ui.tooltip("User does not have access to change the language.")
-        if admin:
+        if is_admin:
             with ui.checkbox(
                     text="User access", value=AccessModel.get_access_language()
             ) as checkbox, Store(checkbox, AccessModel.set_access_language) as checkbox:
