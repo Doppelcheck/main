@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from abc import ABC
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -64,3 +65,52 @@ class Doc:
     claim_id: int
     uri: str
     content: str | None
+
+
+# ====
+
+@dataclass(kw_only=True)
+class Pong:
+    message_type: str = "pong_message"
+
+
+@dataclass(kw_only=True)
+class Message(ABC):
+    message_type: str
+    content: str | None = field(default=None)
+
+
+@dataclass(kw_only=True)
+class ErrorMessage(Message):
+    message_type: str = "error_message"
+
+
+@dataclass(kw_only=True)
+class QuoteMessage(Message):
+    keypoint_index: int
+    message_type: str = "quote_message"
+    stop: bool = field(default=False)
+
+
+@dataclass(kw_only=True)
+class KeypointMessage(Message):
+    keypoint_index: int
+    message_type: str = "keypoint_message"
+    stop: bool = field(default=False)
+    stop_all: bool = field(default=False)
+
+
+@dataclass(kw_only=True)
+class SourcesMessage(Message):
+    keypoint_index: int
+    message_type: str = "sources_message"
+    stop: bool = field(default=False)
+
+
+@dataclass(kw_only=True)
+class CrosscheckMessage(Message):
+    keypoint_index: int
+    source_index: int
+    message_type: str = "crosscheck_message"
+    match_value: float = field(default=0.0)
+    stop: bool = field(default=False)

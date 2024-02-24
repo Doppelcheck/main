@@ -12,9 +12,21 @@ def get_section(
     with open("static/bookmarklet.js", mode="r") as file:
         bookmarklet_js = file.read()
 
+    with open("static/main-content.css", mode="r") as file:
+        main_content_style_css = file.read()
+
+    with open("static/sidebar.css", mode="r") as file:
+        sidebar_style = file.read()
+
+    with open("static/sidebar-content.css", mode="r") as file:
+        sidebar_content_style = file.read()
+
     bookmarklet_js = bookmarklet_js.replace("[localhost:8000]", address)
     bookmarklet_js = bookmarklet_js.replace("[unique user identification]", userid)
     bookmarklet_js = bookmarklet_js.replace("[version number]", version)
+    bookmarklet_js = bookmarklet_js.replace("[main content style]", main_content_style_css)
+    bookmarklet_js = bookmarklet_js.replace("[sidebar style]", sidebar_style)
+    bookmarklet_js = bookmarklet_js.replace("[sidebar content style]", sidebar_content_style)
 
     with open("static/images/android-chrome-512x512.png", mode="rb") as file:
         favicon_data = file.read()

@@ -22,10 +22,12 @@ from tools.new_configuration.config_install import get_section
 from tools.content_retrieval import get_context
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_access import set_data_value, get_data_value
-from tools.data_objects import MessageSegment, ClaimSegment, DocumentSegment, ComparisonSegment
+from tools.data_objects import (
+    MessageSegment, ComparisonSegment, Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage,
+    ErrorMessage, CrosscheckMessage)
 from tools.plugins.abstract import InterfaceData, InterfaceLLM
-from tools.text_processing import text_node_generator, CodeBlockSegment, pipe_codeblock_content, get_range, \
-    get_text_lines, extract_code_block, shorten_url
+from tools.text_processing import (
+    text_node_generator, pipe_codeblock_content, get_range, get_text_lines, extract_code_block, shorten_url)
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -74,12 +76,10 @@ class Server:
     @staticmethod
     async def _stream_claims_to_browser(
             response: AsyncGenerator[str, None],
-            text_lines: Sequence[str],
-            num_claims: int
-    ) -> Generator[ClaimSegment, None, None]:
+            text_lines: Sequence[str]
+    ) -> Generator[Message, None, None]:
 
-        claim_count = 1
-        last_message_segment: CodeBlockSegment | None = None
+        claim_index = 0
         in_num_range = True
         num_range_str = ""
 
@@ -87,6 +87,7 @@ class Server:
             if in_num_range:
                 if each_segment.segment in string.digits + "-" + ":":
                     num_range_str += each_segment.segment
+
                 else:
                     try:
                         line_range = get_range(num_range_str)
@@ -96,52 +97,49 @@ class Server:
                         in_num_range = False
                         continue
 
-                    # todo: convert to eom / eol transmission
-                    highlight_text = "".join(text_lines[line_range[0] - 1:line_range[1] - 1])
-                    yield ClaimSegment("", False, False, claim_count, highlight=highlight_text)
+                    start_line, end_line = line_range
+                    highlight_text = "".join(text_lines[start_line - 1:end_line - 1])
+                    yield QuoteMessage(keypoint_index=claim_index, content=highlight_text)
                     in_num_range = False
 
                 continue
 
             last_segment = each_segment.segment == "\n"
-            last_claim = claim_count >= num_claims
-            if last_message_segment is not None:
-                if last_segment:
-                    yield ClaimSegment(last_message_segment.segment, True, last_claim, claim_count)
-                    num_range_str = ""
-                    in_num_range = True
-                else:
-                    yield ClaimSegment(last_message_segment.segment, False, last_claim, claim_count)
+            if not last_segment:
+                yield KeypointMessage(keypoint_index=claim_index, content=each_segment.segment)
 
-            claim_count += int(last_segment)
-            last_message_segment = each_segment        # last_message_segment contains only \n, can be ignored
+            else:
+                yield KeypointMessage(keypoint_index=claim_index, stop=True)
+                num_range_str = ""
+                in_num_range = True
+                claim_index += 1
 
     @staticmethod
     async def _stream_matches_to_browser(
-            response: AsyncGenerator[str, None], claim_id: int, document_id: int
-    ) -> Generator[ComparisonSegment, None, None]:
-
-        last_segment = None
+            response: AsyncGenerator[str, None], keypoint_index: int, source_index: int
+    ) -> Generator[CrosscheckMessage, None, None]:
 
         match_value = 0
         match_value_str = ""
         match_found = False
+
         async for each_segment in pipe_codeblock_content(response):
             for each_char in each_segment.segment:
                 if each_char == "\n":
                     match_found = True
-                    match_value = int(match_value_str.strip())
+                    try:
+                        match_value = int(match_value_str.strip())
+                    except Exception as e:
+                        logger.warning(f"failed to parse {match_value_str}: {e}")
+                        raise e
 
                 elif not match_found:
                     match_value_str += each_char
 
-                elif last_segment is not None:
-                    yield last_segment
-
-                last_segment = ComparisonSegment(each_char, False, True, claim_id, document_id, match_value)
-
-        last_segment.last_segment = True
-        yield last_segment
+                else:
+                    yield CrosscheckMessage(
+                        keypoint_index=keypoint_index, source_index=source_index,
+                        content=each_segment.segment, match_value=match_value)
 
     @staticmethod
     def get_match_llm_interface(user_id: str) -> InterfaceLLM:
@@ -199,7 +197,9 @@ class Server:
 
         return language.iso_code_639_1.name.lower()
 
-    async def get_claims_from_str(self, string_sequence: Iterable[str], user_id: str) -> Generator[ClaimSegment, None, None]:
+    async def get_claims_from_str(
+            self, string_sequence: Iterable[str],
+            user_id: str) -> Generator[Message, None, None]:
         llm_interface = await self.get_extraction_llm_interface(user_id)
 
         claim_count = ConfigModel.get_extraction_claims(user_id)
@@ -209,7 +209,7 @@ class Server:
         prompt = extraction(text_lines, num_claims=claim_count, language=language)
 
         response = llm_interface.stream_reply_to_prompt(prompt)
-        async for each_segment in Server._stream_claims_to_browser(response, text_lines, claim_count):
+        async for each_segment in Server._stream_claims_to_browser(response, text_lines):
             yield each_segment
 
     async def get_extraction_llm_interface(self, user_id: str) -> InterfaceLLM:
@@ -223,8 +223,8 @@ class Server:
         return llm_interface
 
     async def get_document_uris(
-            self, claim_id: int, claim_text: str, user_id: str, original_url: str
-    ) -> AsyncGenerator[DocumentSegment, None]:
+            self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str
+    ) -> AsyncGenerator[SourcesMessage, None]:
 
         llm_interface = Server.get_retrieval_llm_interface(user_id)
         data_interface = Server.get_retrieval_data_interface(user_id)
@@ -232,49 +232,40 @@ class Server:
         language = ConfigModel.get_general_language(user_id)
 
         context = get_data_value(user_id, ("context", original_url))
-        prompt = google(claim_text, context=context, language=language)
+        prompt = google(keypoint_text, context=context, language=language)
 
         response = await llm_interface.reply_to_prompt(prompt)
         query = extract_code_block(response)
 
         doc_count = ConfigModel.get_retrieval_max_documents(user_id)
 
-        # xxx here
-        doc_id = 0
         async for each_uri in data_interface.get_uris(query, doc_count):
-            last_document = doc_id >= doc_count - 1
-            content = shorten_url(each_uri.uri_string)
-            yield DocumentSegment(content, True, last_document, claim_id, doc_id, each_uri.uri_string)
-            doc_id += 1
-
-        # todo: last message does not work
-        # todo: google did not find anything does not work
-
-        if doc_id < 1:
-            yield DocumentSegment("No documents found", True, True, claim_id, 0, "No documents found", success=False)
-            return
+            # content = shorten_url(each_uri.uri_string)
+            yield SourcesMessage(keypoint_index=keypoint_index, content=each_uri.uri_string)
 
     async def get_matches(
-            self, user_id: str, claim_id: int, claim: str, document_id: int, original_url: str, document_uri: str
-    ) -> Generator[ComparisonSegment, None, None]:
+            self,
+            user_id: str, keypoint_index: int, keypoint_text: str,
+            source_index: int, original_url: str, source_uri: str
+    ) -> Generator[CrosscheckMessage, None, None]:
 
         llm_interface = Server.get_match_llm_interface(user_id)
         data_interface = Server.get_match_data_interface(user_id)
 
         language = ConfigModel.get_general_language(user_id)
 
-        source = await data_interface.get_document_content(document_uri)
+        source = await data_interface.get_document_content(source_uri)
         document_html = source.content
 
         node_generator = text_node_generator(document_html)
         document_text = "".join(node_generator)
 
         context = get_data_value(user_id, ("context", original_url))
-        prompt = compare(claim, document_text, context=context, language=language)
+        prompt = compare(keypoint_text, document_text, context=context, language=language)
 
-        response = await llm_interface.stream_reply_to_prompt(prompt)
+        response = llm_interface.stream_reply_to_prompt(prompt)
 
-        async for each_segment in Server._stream_matches_to_browser(response, claim_id, document_id):
+        async for each_segment in Server._stream_matches_to_browser(response, keypoint_index, source_index):
             yield each_segment
 
     async def set_context(self, original_url: str, user_id: str, html_document: str | None = None) -> None:
@@ -421,6 +412,12 @@ class Server:
             await full_configuration(userid, address, VERSION)
 
     def setup_websocket(self) -> None:
+
+        def to_json(message: dataclasses.dataclass, user_id: str) -> dict:
+            dc_dict = dataclasses.asdict(message)
+            dc_dict["user_id"] = user_id
+            return dc_dict
+
         @app.websocket("/talk")
         async def websocket_endpoint(websocket: WebSocket):
             # todo:
@@ -431,66 +428,83 @@ class Server:
             #  server sent events?
             await websocket.accept()
             try:
-                message_str = await websocket.receive_text()
-                message = json.loads(message_str)
-                purpose = message['purpose']
+                message = await websocket.receive_json()
+                message_type = message['message_type']
                 user_id = message['user_id']
-                original_url = message['url']
-                data = message['data']
+                original_url = message['original_url']
+                content = message['content']
 
-                match purpose:
+                match message_type:
                     case "ping":
-                        answer = {"purpose": "pong", "data": "pong"}
-                        json_str = json.dumps(answer)
-                        await websocket.send_text(json_str)
+                        answer = Pong()
+                        json_dict = to_json(answer, user_id)
+                        await websocket.send_json(json_dict)
 
-                    case "extract" | "extract_selection":
-                        # Keypoint Assistant
-                        if purpose == "extract":
-                            base_text = text_node_generator(data)
+                    case "keypoint" | "keypoint_selection":
+                        # [x] Keypoint Assistant
+                        if message_type == "keypoint":
+                            base_text = text_node_generator(content)
                         else:
-                            base_text = data
-                            data = None
+                            base_text = content
+                            content = None
 
-                        await self.set_context(original_url, user_id, html_document=data)
+                        await self.set_context(original_url, user_id, html_document=content)
                         async for segment in self.get_claims_from_str(base_text, user_id):
+                            each_dict = to_json(segment, user_id)
+                            await websocket.send_json(each_dict)
+
+                        stop_message = KeypointMessage(stop_all=True, keypoint_index=-1)
+                        stop_dict = to_json(stop_message, user_id)
+                        await websocket.send_json(stop_dict)
+
+                    case "sourcefinder":
+                        # [x] Sourcefinder Assistant
+                        keypoint_index = content['keypoint_index']
+                        keypoint_text = content['keypoint_text']
+
+                        uri_generator = self.get_document_uris(keypoint_index, keypoint_text, user_id, original_url)
+                        async for segment in uri_generator:
                             each_dict = dataclasses.asdict(segment)
-                            json_str = json.dumps(each_dict)
-                            await websocket.send_text(json_str)
+                            await websocket.send_json(each_dict)
 
-                    case "retrieve":
-                        # Sourcefinder Assistant
-                        claim_id = data['id']
-                        claim_text = data['text']
+                        stop_message = SourcesMessage(stop=True, keypoint_index=keypoint_index)
+                        stop_dict = dataclasses.asdict(stop_message)
+                        await websocket.send_json(stop_dict)
 
-                        async for segment in self.get_document_uris(claim_id, claim_text, user_id, original_url):
-                            each_dict = dataclasses.asdict(segment)
-                            json_str = json.dumps(each_dict)
-                            await websocket.send_text(json_str)
-
-                    case "compare":
-                        # Crosschecker Assistant
-                        claim_id = data['claim_id']
-                        claim_text = data['claim_text']
-                        document_id = data['document_id']
-                        document_uri = data['document_uri']
+                    case "crosschecker":
+                        # [ ] Crosschecker Assistant
+                        # todo: here xxx
+                        keypoint_index = content['keypoint_index']
+                        keypoint_text = content['keypoint_text']
+                        source_index = content['source_index']
+                        source_uri = content['source_uri']
                         async for segment in self.get_matches(
-                                user_id, claim_id, claim_text, document_id, original_url, document_uri):
+                                user_id, keypoint_index, keypoint_text, source_index, original_url, source_uri):
                             each_dict = dataclasses.asdict(segment)
-                            json_str = json.dumps(each_dict)
-                            await websocket.send_text(json_str)
+                            await websocket.send_json(each_dict)
+
+                        stop_message = CrosscheckMessage(
+                            stop=True, keypoint_index=keypoint_index, source_index=source_index)
+                        stop_dict = dataclasses.asdict(stop_message)
+                        await websocket.send_json(stop_dict)
 
                     case "log":
-                        raise NotImplementedError("log purpose not implemented")
+                        raise NotImplementedError("log not implemented")
 
                     case _:
-                        message_segment = MessageSegment(f"unknown purpose {purpose}, len {len(data)}", True, True)
+                        message_segment = ErrorMessage(
+                            content=f"unknown message type {message_type}, len {len(content)}")
                         each_dict = dataclasses.asdict(message_segment)
-                        json_str = json.dumps(each_dict)
-                        await websocket.send_text(json_str)
+                        await websocket.send_json(each_dict)
 
             except WebSocketDisconnect as e:
-                print(e)
+                logger.error(f"websocket disconnected: {e}")
+
+            except Exception as e:
+                error_message = ErrorMessage(content=str(e))
+                error_dict = dataclasses.asdict(error_message)
+                await websocket.send_json(error_dict)
+                raise e
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
