@@ -4,7 +4,7 @@ import os
 from types import ModuleType
 from typing import TypeVar
 
-from tools.plugins.abstract import InterfaceLLM, Interface, InterfaceData
+from plugins.abstract import Interface
 
 
 def load_plugins(plugin_path: str) -> list[ModuleType]:

@@ -1,10 +1,10 @@
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel, AccessModel, Store
-from tools.new_configuration.config_install import get_section as get_section_install
+from configuration.config_install import get_section_install
+from model.storages import ConfigModel, Store, AccessModel
 
 
-def get_section(user_id: str, version: str, address: str, admin: bool = False) -> None:
+def get_section_general(user_id: str, version: str, address: str, admin: bool = False) -> None:
 
     if not admin:
         get_section_install(user_id, address, version, title=False)

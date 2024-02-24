@@ -541,8 +541,7 @@ function exchange(messageType, content) {
                 break;
 
             case "crosscheck_message":
-                // [ ]
-                // todo: here xxx
+                // [x]
                 CrosscheckSources.processCrosscheckerMessage(response);
                 break;
 

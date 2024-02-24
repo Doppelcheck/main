@@ -15,24 +15,23 @@ from loguru import logger
 from nicegui import ui, app, Client
 from pydantic import BaseModel
 
+from configuration.config_install import get_section_install
+from configuration.full import full_configuration
+from model.data_access import get_data_value, set_data_value
+from model.storages import ConfigModel
+from plugins.abstract import InterfaceLLM, InterfaceData
 from prompts.agent_patterns import extraction, google, compare
-from tools.configuration.data.config_objects import ConfigModel
-from tools.new_configuration.full import full_configuration
-from tools.new_configuration.config_install import get_section
 from tools.content_retrieval import get_context
 from tools.global_instances import BROWSER_INSTANCE
-from tools.data_access import set_data_value, get_data_value
 from tools.data_objects import (
-    MessageSegment, ComparisonSegment, Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage,
-    ErrorMessage, CrosscheckMessage)
-from tools.plugins.abstract import InterfaceData, InterfaceLLM
+    Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, CrosscheckMessage)
 from tools.text_processing import (
-    text_node_generator, pipe_codeblock_content, get_range, get_text_lines, extract_code_block, shorten_url)
+    text_node_generator, pipe_codeblock_content, get_range, get_text_lines, extract_code_block)
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.0.9"
+VERSION = "0.1.0"
 PASSWORDS = {'user': 'doppelcheck'}
 UNRESTRICTED = {"/", "/config", "/login"}
 
@@ -328,7 +327,7 @@ class Server:
 
     def setup_website(self) -> None:
         @ui.page("/")
-        async def coming_soon_page(client: Client) -> None:
+        async def start_page(client: Client) -> None:
             address = await Server._get_address(client)
             secret = secrets.token_urlsafe(32)
 
@@ -348,7 +347,7 @@ class Server:
 
                 ui.element("div").classes(add="h-16")
                 ui.label("Installation").classes(add="text-xl font-bold text-center m-8 ")
-                get_section(secret, address, VERSION, title=False)
+                get_section_install(secret, address, VERSION, title=False)
 
                 ui.element("div").classes(add="h-16")
                 ui.label("Claim extraction").classes(add="text-xl font-bold text-center m-8 ")
@@ -472,8 +471,7 @@ class Server:
                         await websocket.send_json(stop_dict)
 
                     case "crosschecker":
-                        # [ ] Crosschecker Assistant
-                        # todo: here xxx
+                        # [x] Crosschecker Assistant
                         keypoint_index = content['keypoint_index']
                         keypoint_text = content['keypoint_text']
                         source_index = content['source_index']

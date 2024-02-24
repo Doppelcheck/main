@@ -8,7 +8,7 @@ from loguru import logger
 from playwright import async_api
 from playwright._impl._errors import Error as PlaywrightError
 
-from tools.plugins.abstract import Document
+from plugins.abstract import Document
 
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "

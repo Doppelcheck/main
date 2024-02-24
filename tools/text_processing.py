@@ -1,7 +1,6 @@
 import dataclasses
-import re
 import string
-from typing import Generator, Iterable, AsyncGenerator, Callable, TypeVar
+from typing import Generator, Iterable, AsyncGenerator
 from urllib import parse
 
 from loguru import logger

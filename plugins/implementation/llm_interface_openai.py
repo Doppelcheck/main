@@ -1,10 +1,6 @@
 from __future__ import annotations
 
 from nicegui import ui
-from nicegui.elements.table import Table
-
-from tools.plugins.abstract import InterfaceLLMConfig, Parameters, DictSerializableImplementation, DictSerializable, \
-    ConfigurationCallbacks
 
 import time
 from typing import AsyncGenerator, Callable
@@ -12,7 +8,8 @@ from typing import AsyncGenerator, Callable
 import openai
 from loguru import logger
 
-from tools.plugins.abstract import InterfaceLLM
+from plugins.abstract import InterfaceLLM, Parameters, InterfaceLLMConfig, DictSerializableImplementation, \
+    DictSerializable, ConfigurationCallbacks
 
 
 class OpenAi(InterfaceLLM):
