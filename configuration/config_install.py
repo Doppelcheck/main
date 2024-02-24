@@ -5,7 +5,7 @@ from nicegui import ui
 from tools.text_processing import compile_bookmarklet
 
 
-def get_section(
+def get_section_install(
         userid: str, address: str, version: str,
         video: bool = True, title: bool = True) -> None:
 

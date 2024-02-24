@@ -1,19 +1,19 @@
 from nicegui import ui
 
-from tools.new_configuration.config_01_general import get_section as get_section_general
-from tools.new_configuration.config_02_extraction import get_section as get_section_extraction
-from tools.new_configuration.config_03_retrieval import get_section as get_section_retrieval
-from tools.new_configuration.config_04_comparison import get_section as get_section_comparison
-from tools.new_configuration.config_05_llms import get_section as get_section_llms
-from tools.new_configuration.config_06_data import get_section as get_section_data
-from tools.plugins.abstract import InterfaceLLM, InterfaceData
-from tools.plugins.parse_plugins import load_plugins, get_interfaces
+from configuration.config_01_general import get_section_general
+from configuration.config_02_extraction import get_section_keypoint
+from configuration.config_03_retrieval import get_section_sourcefinder
+from configuration.config_04_comparison import get_section_crosschecker
+from configuration.config_05_llms import get_section_language_models
+from configuration.config_06_data import get_section_data_sources
+from plugins.abstract import InterfaceLLM, InterfaceData
+from plugins.parse_plugins import load_plugins, get_interfaces
 
 
 async def full_configuration(user_id: str, address: str, version: str) -> None:
     is_admin = user_id == "ADMIN"
 
-    plugin_directory = 'tools/plugins/implementation'  # Update with the actual path
+    plugin_directory = 'plugins/implementation'  # Update with the actual path
     loaded_plugins = load_plugins(plugin_directory)
 
     llm_subclasses = get_interfaces(loaded_plugins, InterfaceLLM)
@@ -40,20 +40,20 @@ async def full_configuration(user_id: str, address: str, version: str) -> None:
 
                     with ui.tab_panel(tab_extract):
                         ui.label('Keypoint Assistant').classes('text-h4')
-                        get_section_extraction(user_id, admin=is_admin)
+                        get_section_keypoint(user_id, admin=is_admin)
 
                     with ui.tab_panel(tab_retrieve):
                         ui.label('Sourcefinder Assistant').classes('text-h4')
-                        get_section_retrieval(user_id, admin=is_admin)
+                        get_section_sourcefinder(user_id, admin=is_admin)
 
                     with ui.tab_panel(tab_compare):
                         ui.label('Crosschecker Assistant').classes('text-h4')
-                        get_section_comparison(user_id, admin=is_admin)
+                        get_section_crosschecker(user_id, admin=is_admin)
 
                     with ui.tab_panel(tab_llms):
                         ui.label('Language Models').classes('text-h4')
-                        get_section_llms(user_id, llm_subclasses, admin=is_admin)
+                        get_section_language_models(user_id, llm_subclasses, admin=is_admin)
 
                     with ui.tab_panel(tab_data):
                         ui.label('Data Sources').classes('text-h4')
-                        get_section_data(user_id, data_subclasses, admin=is_admin)
+                        get_section_data_sources(user_id, data_subclasses, admin=is_admin)

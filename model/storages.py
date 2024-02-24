@@ -10,8 +10,8 @@ from nicegui.elements.mixins.validation_element import ValidationElement
 from nicegui.elements.mixins.value_element import ValueElement
 from nicegui.events import GenericEventArguments
 
-from tools.data_access import get_nested_value, set_nested_value
-from tools.plugins.abstract import InterfaceLLMConfig, InterfaceDataConfig
+from model.data_access import get_nested_value, set_nested_value
+from plugins.abstract import InterfaceLLMConfig, InterfaceDataConfig
 
 
 class AccessModel:
@@ -489,10 +489,3 @@ class Store:
         return
 
 
-def get_interface(interfaces: list[dict[str, any]], name: str) -> dict[str, any] | None:
-    for each_interface in interfaces:
-        if each_interface[name] == name:
-            return each_interface
-
-    logger.error(f"Interface {name} not found")
-    return None

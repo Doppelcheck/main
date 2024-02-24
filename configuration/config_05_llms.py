@@ -1,11 +1,11 @@
 from loguru import logger
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel, AccessModel, Store
-from tools.plugins.abstract import InterfaceLLM
+from model.storages import ConfigModel, AccessModel, Store
+from plugins.abstract import InterfaceLLM
 
 
-def get_section(user_id: str, llm_classes: list[type[InterfaceLLM]], admin: bool = False) -> None:
+def get_section_language_models(user_id: str, llm_classes: list[type[InterfaceLLM]], admin: bool = False) -> None:
     def _remove_llm_interface() -> None:
         if len(interface_table.selected) != 1:
             ui.notify("Please select exactly one LLM interface to remove.")

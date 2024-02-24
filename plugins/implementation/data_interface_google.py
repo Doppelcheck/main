@@ -5,10 +5,10 @@ from typing import AsyncGenerator
 from loguru import logger
 from nicegui import ui
 
+from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
+    DictSerializable, ConfigurationCallbacks, Uri
 from tools.content_retrieval import Document
 from tools.global_instances import BROWSER_INSTANCE, HTTPX_SESSION
-from tools.plugins.abstract import InterfaceData, Uri, Parameters, InterfaceDataConfig, DictSerializableImplementation, \
-    DictSerializable, ConfigurationCallbacks
 
 
 class Google(InterfaceData):

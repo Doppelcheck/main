@@ -1,11 +1,11 @@
 from loguru import logger
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel, AccessModel, Store
-from tools.plugins.abstract import InterfaceData
+from model.storages import ConfigModel, AccessModel, Store
+from plugins.abstract import InterfaceData
 
 
-def get_section(user_id: str, data_classes: list[type[InterfaceData]], admin: bool = False) -> None:
+def get_section_data_sources(user_id: str, data_classes: list[type[InterfaceData]], admin: bool = False) -> None:
     def _remove_data_interface() -> None:
         if len(interface_table.selected) != 1:
             ui.notify("Please select exactly one data interface to remove.")

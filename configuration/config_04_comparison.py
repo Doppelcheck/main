@@ -1,9 +1,9 @@
 from nicegui import ui
 
-from tools.configuration.data.config_objects import ConfigModel, AccessModel, Store
+from model.storages import ConfigModel, Store, AccessModel
 
 
-def get_section(user_id: str, admin: bool = False) -> None:
+def get_section_crosschecker(user_id: str, admin: bool = False) -> None:
     llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
     data_interfaces = ConfigModel.get_data_interfaces(user_id)
 
