@@ -26,11 +26,11 @@ async def full_configuration(user_id: str, address: str, version: str) -> None:
             with splitter.before:
                 with ui.tabs().props('vertical').classes('w-full') as tabs:
                     tab_settings = ui.tab('General', icon='settings')
-                    tab_extract = ui.tab('Extraction', icon='group_work')
-                    tab_retrieve = ui.tab('Retrieval', icon='search')
-                    tab_compare = ui.tab('Comparison', icon='scale')
-                    tab_llms = ui.tab('LLM Interfaces', icon='psychology')
-                    tab_data = ui.tab('Data Interfaces', icon='description')
+                    tab_extract = ui.tab('Keypoint Assistant', icon='group_work')
+                    tab_retrieve = ui.tab('Sourcefinder Assistant', icon='search')
+                    tab_compare = ui.tab('Crosschecker Assistant', icon='scale')
+                    tab_llms = ui.tab('Language Models', icon='psychology')
+                    tab_data = ui.tab('Data Sources', icon='description')
 
             with splitter.after:
                 with ui.tab_panels(tabs, value=tab_settings).props('vertical').classes('w-full'):
@@ -51,9 +51,9 @@ async def full_configuration(user_id: str, address: str, version: str) -> None:
                         get_section_comparison(user_id, admin=is_admin)
 
                     with ui.tab_panel(tab_llms):
-                        ui.label('LLM interfaces').classes('text-h4')
+                        ui.label('Language Models').classes('text-h4')
                         get_section_llms(user_id, llm_subclasses, admin=is_admin)
 
                     with ui.tab_panel(tab_data):
-                        ui.label('Data Interfaces').classes('text-h4')
+                        ui.label('Data Sources').classes('text-h4')
                         get_section_data(user_id, data_subclasses, admin=is_admin)

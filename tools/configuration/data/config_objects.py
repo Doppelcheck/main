@@ -190,7 +190,7 @@ class ConfigModel:
     def get_general_name(user_id: str) -> str:
         return ConfigModel._get_value(
             user_id, "general_name",
-            default=ConfigModel._get_value("ADMIN", "general_name", default="standard instance")
+            default=ConfigModel._get_value("ADMIN", "general_name", default="Doppelcheck")
         )
 
     @staticmethod

@@ -11,10 +11,6 @@ from tools.plugins.abstract import InterfaceData, Uri, Parameters, InterfaceData
     DictSerializable, ConfigurationCallbacks
 
 
-class ReceiveGoogleResultsException(Exception):
-    pass
-
-
 class Google(InterfaceData):
     @staticmethod
     def name() -> str:
@@ -147,15 +143,14 @@ class Google(InterfaceData):
         response = await HTTPX_SESSION.get(url, params=params)
 
         if response.status_code != 200:
-            raise ReceiveGoogleResultsException(
-                f"Request failed with status code {response.status_code}: {response.text}"
-            )
+            items = list()
 
-        result = response.json()
+        else:
+            result = response.json()
 
-        items = result.get("items")
-        if items is None:
-            raise ReceiveGoogleResultsException(f"Google did not return results for {query}")
+            items = result.get("items")
+            if items is None:
+                items = list()
 
         for each_item in items:
             yield Uri(uri_string=each_item['link'])
