@@ -5,7 +5,6 @@ from nicegui import app
 from nicegui.observables import ObservableDict, ObservableList, ObservableSet
 
 
-
 def get_nested_value(key_path: Sequence[str], default: any = None) -> any:
     data = app.storage.general
     for i, each_key in enumerate(key_path):

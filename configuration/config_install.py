@@ -6,7 +6,7 @@ from tools.text_processing import compile_bookmarklet
 
 
 def get_section_install(
-        userid: str, address: str, version: str,
+        user_id: str, address: str, version: str,
         video: bool = True, title: bool = True) -> None:
 
     with open("static/bookmarklet.js", mode="r") as file:
@@ -22,7 +22,7 @@ def get_section_install(
         sidebar_content_style = file.read()
 
     bookmarklet_js = bookmarklet_js.replace("[localhost:8000]", address)
-    bookmarklet_js = bookmarklet_js.replace("[unique user identification]", userid)
+    bookmarklet_js = bookmarklet_js.replace("[unique user identification]", user_id)
     bookmarklet_js = bookmarklet_js.replace("[version number]", version)
     bookmarklet_js = bookmarklet_js.replace("[main content style]", main_content_style_css)
     bookmarklet_js = bookmarklet_js.replace("[sidebar style]", sidebar_style)
@@ -49,7 +49,7 @@ def get_section_install(
         f'Drag <a href="{compiled_bookmarklet}" id="doppelcheck-bookmarklet-name" class="bg-blue-500 '
         f'hover:bg-blue-700 text-white font-bold py-2 px-4 mx-2 rounded inline-block" onclick="return false;" '
         f'icon="{favicon_base64_str}">'
-        f'🔍 Doppelcheck 🔎</a> to your bookmarks to use it on any website.'
+        f'Doppelcheck</a> to your bookmarks to use it on any website.'
     )
     # ⦾ 👁️ 🤨 🧐
     with ui.html(link_html) as bookmarklet_text:

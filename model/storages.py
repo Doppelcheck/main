@@ -151,69 +151,49 @@ class ConfigModel:
         return get_nested_value(user_key_path, default=default)
 
     @staticmethod
-    def get_llm_interface(user_id: str, interface_name: str) -> InterfaceLLMConfig | None:
-        llm_interface_dicts = ConfigModel._get_value(
-            "ADMIN", "llm_interfaces", default=dict[str, dict[str, any]]()
-        )
-        user_llm_interface_dicts = ConfigModel._get_value(
-            user_id, "llm_interfaces", default=dict[str, dict[str, any]]()
-        )
-        llm_interface_dicts.update(user_llm_interface_dicts)
-
-        interface_dict = llm_interface_dicts.get(interface_name)
-        if interface_dict is None:
-            logger.error(f"LLM interface {interface_name} not found")
-            return None
-
-        interface = InterfaceLLMConfig.from_object_dict(interface_dict)
-        return interface
+    def get_llm_interface(user_id: str, interface_name: str, is_admin: bool) -> InterfaceLLMConfig | None:
+        interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
+        for each_interface in interfaces:
+            if each_interface.name == interface_name:
+                return each_interface
+        return None
 
     @staticmethod
-    def get_data_interface(user_id: str, name: str) -> InterfaceDataConfig | None:
-        data_interface_dicts = ConfigModel._get_value(
-            "ADMIN", "data_interfaces", default=dict[str, dict[str, any]]()
-        )
-        user_data_interface_dicts = ConfigModel._get_value(
-            user_id, "data_interfaces", default=dict[str, dict[str, any]]()
-        )
-        data_interface_dicts.update(user_data_interface_dicts)
-
-        interface_dict = data_interface_dicts.get(name)
-        if interface_dict is None:
-            logger.error(f"Data interface {name} not found")
-            return None
-
-        interface = InterfaceDataConfig.from_object_dict(interface_dict)
-        return interface
+    def get_data_interface(user_id: str, name: str, is_admin: bool) -> InterfaceDataConfig | None:
+        interfaces = ConfigModel.get_data_interfaces(user_id, is_admin)
+        for each_interface in interfaces:
+            if each_interface.name == name:
+                return each_interface
+        return None
 
     @staticmethod
-    def get_general_name(user_id: str) -> str:
-        return ConfigModel._get_value(
-            user_id, "general_name",
-            default=ConfigModel._get_value("ADMIN", "general_name", default="Doppelcheck")
-        )
+    def get_general_name(user_id: str, is_admin: bool) -> str:
+        admin_value = ConfigModel._get_value("ADMIN", "general_name", default="Doppelcheck")
+        if is_admin:
+            return admin_value
+        return ConfigModel._get_value(user_id,  "general_name", default=admin_value)
 
     @staticmethod
     def set_general_name(user_id: str, value: str) -> None:
         ConfigModel._set_value(user_id, "general_name", value)
 
     @staticmethod
-    def get_general_language(user_id: str) -> str:
-        return ConfigModel._get_value(
-            user_id, "general_language",
-            default=ConfigModel._get_value("ADMIN", "general_language", default="default")
-        )
+    def get_general_language(user_id: str, is_admin: bool) -> str:
+        admin_value = ConfigModel._get_value("ADMIN", "general_language", default="default")
+        if is_admin:
+            return admin_value
+        return ConfigModel._get_value(user_id, "general_language", default=admin_value)
 
     @staticmethod
     def set_general_language(user_id, value: str) -> None:
         ConfigModel._set_value(user_id, "general_language", value)
 
     @staticmethod
-    def get_llm_interfaces(user_id: str) -> list[InterfaceLLMConfig]:
-        interface_dicts = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
-        if user_id != "ADMIN":
-            admin_interfaces = ConfigModel._get_value("ADMIN", "llm_interfaces", default=dict[str, dict[str, any]]())
-            interface_dicts.update(admin_interfaces)
+    def get_llm_interfaces(user_id: str, is_admin: bool) -> list[InterfaceLLMConfig]:
+        interface_dicts = ConfigModel._get_value("ADMIN", "llm_interfaces", default=dict[str, dict[str, any]]())
+        if not is_admin:
+            user_interfaces = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
+            interface_dicts.update(user_interfaces)
 
         interfaces = list[InterfaceLLMConfig]()
 
@@ -232,9 +212,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "llm_interfaces", value)
 
     @staticmethod
-    def remove_llm_interface(user_id: str, llm_interface_name: str) -> None:
-        is_admin = user_id == "ADMIN"
-
+    def remove_llm_interface(user_id: str, llm_interface_name: str, is_admin: bool) -> None:
         value = ConfigModel._get_value(user_id, "llm_interfaces", default=dict[str, dict[str, any]]())
         interface = value.get(llm_interface_name)
         if not is_admin and interface["from_admin"]:
@@ -243,17 +221,18 @@ class ConfigModel:
 
         try:
             del value[llm_interface_name]
+
         except KeyError as e:
             logger.error(f"Could not remove {llm_interface_name} from {user_id}: {e}")
 
         ConfigModel._set_value(user_id, "llm_interfaces", value)
 
     @staticmethod
-    def get_data_interfaces(user_id: str) -> list[InterfaceDataConfig]:
+    def get_data_interfaces(user_id: str, is_admin: bool) -> list[InterfaceDataConfig]:
         interface_dicts = ConfigModel._get_value("ADMIN", "data_interfaces", default=dict[str, dict[str, any]]())
-        if user_id != "ADMIN":
-            admin_interfaces = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
-            interface_dicts.update(admin_interfaces)
+        if not is_admin:
+            user_interfaces = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
+            interface_dicts.update(user_interfaces)
 
         interfaces = list[InterfaceDataConfig]()
 
@@ -272,9 +251,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "data_interfaces", value)
 
     @staticmethod
-    def remove_data_interface(user_id: str, data_interface_name: str) -> None:
-        is_admin = user_id == "ADMIN"
-
+    def remove_data_interface(user_id: str, data_interface_name: str, is_admin: bool) -> None:
         value = ConfigModel._get_value(user_id, "data_interfaces", default=dict[str, dict[str, any]]())
         interface = value.get(data_interface_name)
         if not is_admin and interface["from_admin"]:
@@ -283,28 +260,29 @@ class ConfigModel:
 
         try:
             del value[data_interface_name]
+
         except KeyError as e:
             logger.error(f"Could not remove {data_interface_name} from {user_id}: {e}")
 
         ConfigModel._set_value(user_id, "data_interfaces", value)
 
     @staticmethod
-    def get_extraction_llm(user_id: str) -> InterfaceLLMConfig | None:
+    def get_extraction_llm(user_id: str, is_admin: bool) -> InterfaceLLMConfig | None:
         interface_name = ConfigModel._get_value(user_id, "extraction_llm")
         if interface_name is not None:
-            interface = ConfigModel.get_llm_interface(user_id, interface_name)
+            interface = ConfigModel.get_llm_interface(user_id, interface_name, is_admin)
             return interface
 
         interface_name = ConfigModel._get_value("ADMIN", "extraction_llm")
         if interface_name is not None:
-            interface = ConfigModel.get_llm_interface(user_id, interface_name)
+            interface = ConfigModel.get_llm_interface(user_id, interface_name, is_admin)
             return interface
 
-        interfaces = ConfigModel.get_llm_interfaces(user_id)
+        interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
-        interfaces = ConfigModel.get_llm_interfaces("ADMIN")
+        interfaces = ConfigModel.get_llm_interfaces("ADMIN", is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
@@ -327,20 +305,20 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "extraction_claims", value)
 
     @staticmethod
-    def get_retrieval_llm(user_id: str) -> InterfaceLLMConfig | None:
+    def get_retrieval_llm(user_id: str, is_admin: bool) -> InterfaceLLMConfig | None:
         interface_name = ConfigModel._get_value(user_id, "retrieval_llm")
         if interface_name is not None:
-            return ConfigModel.get_llm_interface(user_id, interface_name)
+            return ConfigModel.get_llm_interface(user_id, interface_name, is_admin)
 
         interface_name = ConfigModel._get_value("ADMIN", "retrieval_llm")
         if interface_name is not None:
-            return ConfigModel.get_llm_interface(user_id, interface_name)
+            return ConfigModel.get_llm_interface(user_id, interface_name, is_admin)
 
-        interfaces = ConfigModel.get_llm_interfaces(user_id)
+        interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
-        interfaces = ConfigModel.get_llm_interfaces("ADMIN")
+        interfaces = ConfigModel.get_llm_interfaces("ADMIN", is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
@@ -351,20 +329,20 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "retrieval_llm", interface_name)
 
     @staticmethod
-    def get_retrieval_data(user_id: str) -> InterfaceDataConfig | None:
+    def get_retrieval_data(user_id: str, is_admin: bool) -> InterfaceDataConfig | None:
         interface_name = ConfigModel._get_value(user_id, "retrieval_data")
         if interface_name is not None:
-            return ConfigModel.get_data_interface(user_id, interface_name)
+            return ConfigModel.get_data_interface(user_id, interface_name, is_admin)
 
         interface_name = ConfigModel._get_value("ADMIN", "retrieval_data")
         if interface_name is not None:
-            return ConfigModel.get_data_interface(user_id, interface_name)
+            return ConfigModel.get_data_interface(user_id, interface_name, is_admin)
 
-        interfaces = ConfigModel.get_data_interfaces(user_id)
+        interfaces = ConfigModel.get_data_interfaces(user_id, is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
-        interfaces = ConfigModel.get_data_interfaces("ADMIN")
+        interfaces = ConfigModel.get_data_interfaces("ADMIN", is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
@@ -387,20 +365,20 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "retrieval_max_documents", value)
 
     @staticmethod
-    def get_comparison_llm(user_id: str) -> InterfaceLLMConfig | None:
+    def get_comparison_llm(user_id: str, is_admin: bool) -> InterfaceLLMConfig | None:
         interface_name = ConfigModel._get_value(user_id, "comparison_llm")
         if interface_name is not None:
-            return ConfigModel.get_llm_interface(user_id, interface_name)
+            return ConfigModel.get_llm_interface(user_id, interface_name, is_admin)
 
         interface_name = ConfigModel._get_value("ADMIN", "comparison_llm")
         if interface_name is not None:
-            return ConfigModel.get_llm_interface(user_id, interface_name)
+            return ConfigModel.get_llm_interface(user_id, interface_name, is_admin)
 
-        interfaces = ConfigModel.get_llm_interfaces(user_id)
+        interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
-        interfaces = ConfigModel.get_llm_interfaces("ADMIN")
+        interfaces = ConfigModel.get_llm_interfaces("ADMIN", is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
@@ -411,20 +389,20 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "comparison_llm", interface_name)
 
     @staticmethod
-    def get_comparison_data(user_id: str) -> InterfaceDataConfig | None:
+    def get_comparison_data(user_id: str, is_admin: bool) -> InterfaceDataConfig | None:
         interface_name = ConfigModel._get_value(user_id, "comparison_data")
         if interface_name is not None:
-            return ConfigModel.get_data_interface(user_id, interface_name)
+            return ConfigModel.get_data_interface(user_id, interface_name, is_admin)
 
         interface_name = ConfigModel._get_value("ADMIN", "comparison_data")
         if interface_name is not None:
-            return ConfigModel.get_data_interface(user_id, interface_name)
+            return ConfigModel.get_data_interface(user_id, interface_name, is_admin)
 
-        interfaces = ConfigModel.get_data_interfaces(user_id)
+        interfaces = ConfigModel.get_data_interfaces(user_id, is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
-        interfaces = ConfigModel.get_data_interfaces("ADMIN")
+        interfaces = ConfigModel.get_data_interfaces("ADMIN", is_admin)
         if len(interfaces) > 0:
             return interfaces[0]
 
