@@ -230,7 +230,6 @@ class Server:
 
         doc_count = ConfigModel.get_retrieval_max_documents(user_id)
         async for each_uri in data_interface.get_uris(query, doc_count):
-            # content = shorten_url(each_uri.uri_string)
             yield SourcesMessage(keypoint_index=keypoint_index, content=each_uri.uri_string)
 
     async def get_matches(

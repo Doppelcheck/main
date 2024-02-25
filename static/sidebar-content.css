@@ -45,6 +45,10 @@
     line-height: 1.5em;
 }
 
+.doppelcheck-each-claim-container {
+    margin-bottom: 1em;
+}
+
 .doppelcheck-retrieval-progress-image {
     width: 3em;
     height: 3em;
