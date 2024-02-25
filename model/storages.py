@@ -12,6 +12,7 @@ from nicegui.events import GenericEventArguments
 
 from model.data_access import get_nested_value, set_nested_value
 from plugins.abstract import InterfaceLLMConfig, InterfaceDataConfig
+from tools.text_processing import truncate_text
 
 
 class AccessModel:
@@ -133,6 +134,23 @@ class AccessModel:
     def get_remove_data() -> bool:
         return AccessModel._get_user_access("remove_data")
 
+    @staticmethod
+    def set_extraction_prompt(value: bool) -> None:
+        return AccessModel._set_user_access("change_extraction_prompt", value)
+
+    @staticmethod
+    def get_extraction_prompt() -> bool:
+        return AccessModel._get_user_access("change_extraction_prompt")
+
+    @staticmethod
+    def set_comparison_prompt(value: bool) -> None:
+        return AccessModel._set_user_access("change_comparison_prompt", value)
+
+    @staticmethod
+    def get_comparison_prompt() -> bool:
+        return AccessModel._get_user_access("change_comparison_prompt")
+
+
 
 class ConfigModel:
 
@@ -187,6 +205,48 @@ class ConfigModel:
     @staticmethod
     def set_general_language(user_id, value: str) -> None:
         ConfigModel._set_value(user_id, "general_language", value)
+
+    @classmethod
+    def get_extraction_prompt(cls, user_id: str, is_admin: bool) -> str:
+        default = (
+            "The text is a news report. Extract its key factual claims, converting any relative time and place "
+            "references to their absolute counterparts. Exclude examples, questions, opinions, personal feelings, "
+            "prose, advertisements, and other non-factual elements."
+        )
+        admin_value = cls._get_value("ADMIN", "extraction_prompt", default=default)
+        if is_admin:
+            return admin_value
+        return cls._get_value(user_id, "extraction_prompt", default=admin_value)
+
+    @classmethod
+    def set_extraction_prompt(cls, user_id: str, value: str) -> None:
+        cls._set_value(user_id, "extraction_prompt", value)
+
+    @staticmethod
+    def get_comparison_prompt(user_id: str, is_admin: bool) -> str:
+        default = (
+            "The keypoint is a claim and the source reference is a news report. Now rate the claim based on the "
+            "report by picking one of the following options:\n"
+            "\n"
+            "  \"🟩 Strong support\": report strongly supports claim\n"
+            "  \"🟨 Some support\": report generally supports claim, with limitations or minor contradictions\n"
+            "  \"⬜️ No mention\": report neither clearly supports nor contradicts claim, or is unclear\n"
+            "  \"🟧​ Some contradiction\": report contradicts claim but not completely\n"
+            "  \"🟥 Strong contradiction\": report is in strong opposition to claim\n"
+            "\n"
+            "IMPORTANT: Do not assess the correctness of either claim or report, determine your rating only based on "
+            "how well the claim holds up against the news report.\n"
+        )
+
+        admin_value = ConfigModel._get_value("ADMIN", "comparison_prompt", default=default)
+        if is_admin:
+            return admin_value
+        return ConfigModel._get_value(user_id, "comparison_prompt", default=admin_value)
+
+    @staticmethod
+    def set_comparison_prompt(user_id: str, value: str) -> None:
+        ConfigModel._set_value(user_id, "comparison_prompt", value)
+
 
     @staticmethod
     def get_llm_interfaces(user_id: str, is_admin: bool) -> list[InterfaceLLMConfig]:
@@ -429,7 +489,8 @@ class Store:
         value = self.element.value
         name = "Value" if name is None else f"'{name}'"
         self.set_value(value)
-        ui.notify(f"{name} set to {json.dumps(value)}", timeout=500)
+        truncated = truncate_text(json.dumps(value), 50)
+        ui.notify(f"{name} set to {truncated}", timeout=500)
 
     def _delay_validation(self, event: GenericEventArguments, validation: dict[str, Callable[[str], bool]] | None = None) -> None:
         value = self.element.value

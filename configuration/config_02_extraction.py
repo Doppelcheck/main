@@ -46,7 +46,15 @@ def get_section_keypoint(user_id: str, is_admin: bool = False) -> None:
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_claims):
                 pass
 
-        with ui.textarea(label="Extraction prompt", validation=None) as textarea:
-            # todo: add validation to make sure variables are included etc
+        with ui.textarea(
+                label="Extraction prompt", validation=None, value=ConfigModel.get_extraction_prompt(user_id, is_admin)
+        ) as textarea, Store(textarea, lambda value: ConfigModel.set_extraction_prompt(user_id, value)):
             textarea.classes('w-full')
-            textarea.disable()
+            if not is_admin and not AccessModel.get_extraction_prompt():
+                textarea.disable()
+
+        if is_admin:
+            with ui.checkbox(
+                text="User access", value=AccessModel.get_extraction_prompt()
+            ) as checkbox, Store(checkbox, AccessModel.set_extraction_prompt):
+                pass
