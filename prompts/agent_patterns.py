@@ -18,14 +18,6 @@ def instruction_keypoint_extraction(
 
     numbered_text = lined_text(lines)
 
-    _customizable = (
-        f"Identify and extract the text's most important claims as its keypoints. Exclude any and all examples, "
-        f"questions, opinions, descriptions of personal feelings, prose, advertisements, and other non-factual "
-        f"content.\n"
-        f"\n"
-        f"IMPORTANT: Convert relative references to time and place to absolute references.\n"
-    )
-
     customizable = customized_instruction or (
         "The text is a news report. Extract its key factual claims, converting any relative time and place references "
         "to their absolute counterparts. Exclude examples, questions, opinions, personal feelings, prose, "
