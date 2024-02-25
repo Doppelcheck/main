@@ -61,5 +61,5 @@ def get_section_install(
 
         with ui.video(
                 "static/videos/installation.webm",
-                autoplay=True, loop=True, muted=True, controls=False) as video:
+                autoplay=True, loop=True, muted=True, controls=True) as video:
             video.classes(add="w-full max-w-2xl m-auto")

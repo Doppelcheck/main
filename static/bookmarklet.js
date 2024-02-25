@@ -160,11 +160,6 @@ const InitializeDoppelcheck = {
         document.body.appendChild(bodyWrapper);
         InitializeDoppelcheck.addNotificationArea(sidebar);
 
-        const heading = document.createElement("h1");
-        heading.id = "doppelcheck-heading";
-        heading.innerText = `Client v${versionClient}`;
-        sidebar.appendChild(heading);
-
         let config;
         try {
             config = await getConfig(userID);
@@ -182,22 +177,33 @@ const InitializeDoppelcheck = {
             return;
         }
 
+        const heading = document.createElement("h1");
+        heading.id = "doppelcheck-heading";
+        heading.innerText = config["name_instance"];
+        sidebar.appendChild(heading);
+
         const nameInstance = document.createElement("h2");
-        nameInstance.id = "doppelcheck-name-instance";
-        nameInstance.innerText = config["name_instance"];
+        nameInstance.id = "doppelcheck-version";
+        nameInstance.innerText = `Client v${versionClient}`;
         sidebar.appendChild(nameInstance);
+
+        const instanceId = document.createElement("div");
+        instanceId.id = "doppelcheck-instance-id";
+        instanceId.innerText = userID;
+        sidebar.appendChild(instanceId);
+
+        const menu = document.createElement("div");
+        menu.id = "doppelcheck-menu";
+        menu.innerHTML =
+            `<a href="${configUrl}" target="_blank">config</a> | ` +
+            `<a href="https://${serverHost}/doc/" target="_blank">doc</a> | ` +
+            `<a href="https://github.com/Doppelcheck" target="_blank">github</a>`
+        sidebar.appendChild(menu);
 
         const subheading = document.createElement("h3");
         subheading.id = "doppelcheck-subheading";
         subheading.innerText = "Keypoints";
         sidebar.appendChild(subheading);
-
-        const configure = document.createElement("a");
-        configure.id = "doppelcheck-config";
-        configure.innerText = "Config";
-        configure.href = configUrl;
-        configure.target = "_blank";
-        sidebar.appendChild(configure);
 
         const claimContainer = document.createElement("div");
         claimContainer.id = "doppelcheck-claims-container";
@@ -326,7 +332,7 @@ const ExtractKeypoints = {
 
 const RetrieveSources = {
     addSource(claimId, documentId, documentsContainer) {
-        const documentContainer = document.createElement("li");
+        const documentContainer = document.createElement("div");
         documentContainer.classList.add("doppelcheck-document-container");
         documentContainer.id = `doppelcheck-document${claimId}-${documentId}`;
         documentsContainer.appendChild(documentContainer);
@@ -343,7 +349,7 @@ const RetrieveSources = {
     },
 
     addSourcesContainer(keypointIndex) {
-        const sourcesContainer = document.createElement("ul");
+        const sourcesContainer = document.createElement("div");
         sourcesContainer.id = `doppelcheck-documents-container${keypointIndex}`;
         sourcesContainer.classList.add("doppelcheck-documents-container");
 
@@ -400,7 +406,7 @@ const RetrieveSources = {
         crosscheckButton.id = `doppelcheck-compare-button${keypointIndex}-${sourceIndex}`;
         crosscheckButton.classList.add("doppelcheck-compare-button");
         buttonContainer.appendChild(crosscheckButton);
-        crosscheckButton.textContent = "Crosscheck claim";
+        crosscheckButton.textContent = "Crosscheck";
         crosscheckButton.onclick = function () {
             crosscheckButton.disabled = true;
             crosscheckButton.textContent = "🧐 Crosschecking...";
@@ -418,7 +424,7 @@ const CrosscheckSources = {
 
         const sourceLink = InitializeDoppelcheck.getElementById(`doppelcheck-document-link${keypointIndex}-${sourceIndex}`);
         if (!sourceLink) {
-            alert(`Document URI not found for claim ${keypointIndex} and document ${sourceIndex}`);
+            alert(`Document URI not found for keypoint ${keypointIndex} and source ${sourceIndex}`);
             return;
         }
         const sourceUri = sourceLink.href;
@@ -434,28 +440,20 @@ const CrosscheckSources = {
         );
     },
 
-    processCrosscheckerMessage(response){
+    processRatingMessage(response){
         console.log("comparison");
 
         const content = response["content"];
-        const lastMessage = response["stop"];
         const keypointIndex = response["keypoint_index"];
         const sourceIndex = response["source_index"]
-        const matchValue = response["match_value"];
 
-        let sourceSummaryElement;
-        if (lastMessage) {
-            sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${keypointIndex}-${sourceIndex}`);
-            sourceSummaryElement.textContent = sourceSummaryElement.textContent.replace("⏳ ", "");
-            return;
-        }
 
-        let matchExplanation;
-
-        const sourceContainer = InitializeDoppelcheck.getElementById(`doppelcheck-document${keypointIndex}-${sourceIndex}`);
-        const buttonContainer = InitializeDoppelcheck.getElementById(`doppelcheck-button-container${keypointIndex}-${sourceIndex}`);
-        if (buttonContainer) {
+        let sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${keypointIndex}-${sourceIndex}`);
+        if (!sourceSummaryElement) {
+            const buttonContainer = InitializeDoppelcheck.getElementById(`doppelcheck-button-container${keypointIndex}-${sourceIndex}`);
             buttonContainer.remove();
+
+            const sourceContainer = InitializeDoppelcheck.getElementById(`doppelcheck-document${keypointIndex}-${sourceIndex}`);
 
             const sourceDetailsElement = document.createElement("details");
             sourceDetailsElement.id = `doppelcheck-document-details${keypointIndex}-${sourceIndex}`;
@@ -465,30 +463,34 @@ const CrosscheckSources = {
             sourceSummaryElement = document.createElement("summary");
             sourceSummaryElement.id = `doppelcheck-document-summary${keypointIndex}-${sourceIndex}`;
             sourceSummaryElement.classList.add("doppelcheck-document-summary");
-            sourceSummaryElement.textContent = "⏳ Crosschecking...";
+            sourceSummaryElement.textContent = "⏳ ";
             sourceDetailsElement.appendChild(sourceSummaryElement);
 
-            matchExplanation = document.createElement("div");
-            matchExplanation.id = `doppelcheck-document-explanation${keypointIndex}-${sourceIndex}`;
-            matchExplanation.classList.add("doppelcheck-document-explanation", "doppelcheck-explanation-container");
-            sourceDetailsElement.appendChild(matchExplanation);
+            const crosscheckExplanation = document.createElement("div");
+            crosscheckExplanation.id = `doppelcheck-document-explanation${keypointIndex}-${sourceIndex}`;
+            crosscheckExplanation.classList.add("doppelcheck-document-explanation", "doppelcheck-explanation-container");
+            sourceDetailsElement.appendChild(crosscheckExplanation);
 
-            if (matchValue >= 2) {
-                sourceSummaryElement.textContent = "⏳ 🟩 Strong support";
-            } else if (matchValue >= 1) {
-                sourceSummaryElement.textContent = "⏳ 🟨 Some support";
-            } else if (matchValue >= 0) {
-                sourceSummaryElement.textContent = "⏳ ⬜️ No mention";
-            } else if (matchValue >= -1) {
-                sourceSummaryElement.textContent = "⏳ 🟧​ Some contradiction";
-            } else {
-                sourceSummaryElement.textContent = "⏳ 🟥 Strong contradiction";
-            }
-
-        } else {
-            matchExplanation = InitializeDoppelcheck.getElementById(`doppelcheck-document-explanation${keypointIndex}-${sourceIndex}`);
-            sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${keypointIndex}-${sourceIndex}`);
         }
+
+        sourceSummaryElement.textContent += content;
+    },
+
+    processExplanationMessage(response){
+        console.log("comparison");
+
+        const content = response["content"];
+        const lastMessage = response["stop"];
+        const keypointIndex = response["keypoint_index"];
+        const sourceIndex = response["source_index"]
+
+        if (lastMessage) {
+            const sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${keypointIndex}-${sourceIndex}`);
+            sourceSummaryElement.textContent = sourceSummaryElement.textContent.replace("⏳ ", "");
+            return;
+        }
+
+        const matchExplanation = InitializeDoppelcheck.getElementById(`doppelcheck-document-explanation${keypointIndex}-${sourceIndex}`);
         matchExplanation.textContent += content;
     }
 }
@@ -540,9 +542,14 @@ function exchange(messageType, content) {
                 RetrieveSources.processSourcefinderMessage(response);
                 break;
 
-            case "crosscheck_message":
+            case "rating_message":
                 // [x]
-                CrosscheckSources.processCrosscheckerMessage(response);
+                CrosscheckSources.processRatingMessage(response);
+                break;
+
+            case "explanation_message":
+                // [x]
+                CrosscheckSources.processExplanationMessage(response);
                 break;
 
             case "log_message":

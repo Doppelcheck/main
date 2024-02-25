@@ -52,7 +52,17 @@ def get_section_crosschecker(user_id: str, is_admin: bool = False) -> None:
             ) as checkbox, Store(checkbox, AccessModel.set_comparison_data):
                 pass
 
-        with ui.textarea(label="Comparison prompt", validation=None) as textarea:
-            # todo: add validation to make sure variables are included etc
+        # ===
+        with ui.textarea(
+                label="Comparison prompt", validation=None, value=ConfigModel.get_comparison_prompt(user_id, is_admin)
+        ) as textarea, Store(textarea, lambda value: ConfigModel.set_comparison_prompt(user_id, value)):
             textarea.classes('w-full')
-            textarea.disable()
+            if not is_admin and not AccessModel.get_comparison_prompt():
+                textarea.disable()
+
+        if is_admin:
+            with ui.checkbox(
+                text="User access", value=AccessModel.get_comparison_prompt()
+            ) as checkbox, Store(checkbox, AccessModel.set_comparison_prompt):
+                pass
+

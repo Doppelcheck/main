@@ -20,18 +20,18 @@ from configuration.full import full_configuration
 from model.data_access import get_data_value, set_data_value
 from model.storages import ConfigModel
 from plugins.abstract import InterfaceLLM, InterfaceData
-from prompts.agent_patterns import extraction, google, compare
+from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
 from tools.content_retrieval import get_context
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_objects import (
-    Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, CrosscheckMessage)
+    Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, RatingMessage, ExplanationMessage)
 from tools.text_processing import (
-    text_node_generator, pipe_codeblock_content, get_range, get_text_lines, extract_code_block)
+    text_node_generator, pipe_codeblock_content, get_range, get_text_lines)
 
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 PASSWORDS = {'user': 'doppelcheck'}
 UNRESTRICTED = {"/", "/config", "/login"}
 
@@ -114,31 +114,23 @@ class Server:
                 claim_index += 1
 
     @staticmethod
-    async def _stream_matches_to_browser(
+    async def _stream_crosscheck_to_browser(
             response: AsyncGenerator[str, None], keypoint_index: int, source_index: int
-    ) -> Generator[CrosscheckMessage, None, None]:
+    ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
-        match_value = 0
-        match_value_str = ""
-        match_found = False
+        in_rating = True
 
         async for each_segment in pipe_codeblock_content(response):
             for each_char in each_segment.segment:
                 if each_char == "\n":
-                    match_found = True
-                    try:
-                        match_value = int(match_value_str.strip())
-                    except Exception as e:
-                        logger.warning(f"failed to parse {match_value_str}: {e}")
-                        raise e
+                    in_rating = False
+                    continue
 
-                elif not match_found:
-                    match_value_str += each_char
-
+                if in_rating:
+                    yield RatingMessage(keypoint_index=keypoint_index, source_index=source_index, content=each_char)
                 else:
-                    yield CrosscheckMessage(
-                        keypoint_index=keypoint_index, source_index=source_index,
-                        content=each_segment.segment, match_value=match_value)
+                    yield ExplanationMessage(
+                        keypoint_index=keypoint_index, source_index=source_index, content=each_char)
 
     @staticmethod
     def get_match_llm_interface(user_id: str, is_admin: bool) -> InterfaceLLM:
@@ -205,7 +197,9 @@ class Server:
         language = ConfigModel.get_general_language(user_id, is_admin)
 
         text_lines = list(get_text_lines(string_sequence, line_length=20))
-        prompt = extraction(text_lines, num_claims=claim_count, language=language)
+        customized_instruction = ConfigModel.get_extraction_prompt(user_id, is_admin)
+        prompt = instruction_keypoint_extraction(
+            text_lines, num_keypoints=claim_count, customized_instruction=customized_instruction, language=language)
 
         response = llm_interface.stream_reply_to_prompt(prompt)
         async for each_segment in Server._stream_claims_to_browser(response, text_lines):
@@ -225,19 +219,16 @@ class Server:
             self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str, is_admin: bool
     ) -> AsyncGenerator[SourcesMessage, None]:
 
-        llm_interface = Server.get_retrieval_llm_interface(user_id, is_admin)
         data_interface = Server.get_retrieval_data_interface(user_id, is_admin)
 
+        llm_interface = Server.get_retrieval_llm_interface(user_id, is_admin)
         language = ConfigModel.get_general_language(user_id, is_admin)
-
         context = get_data_value(user_id, ("context", original_url))
-        prompt = google(keypoint_text, context=context, language=language)
-
-        response = await llm_interface.reply_to_prompt(prompt)
-        query = extract_code_block(response)
+        query = await data_interface.get_search_query(
+            llm_interface, keypoint_text, context=context, language=language
+        )
 
         doc_count = ConfigModel.get_retrieval_max_documents(user_id)
-
         async for each_uri in data_interface.get_uris(query, doc_count):
             # content = shorten_url(each_uri.uri_string)
             yield SourcesMessage(keypoint_index=keypoint_index, content=each_uri.uri_string)
@@ -246,7 +237,7 @@ class Server:
             self,
             user_id: str, keypoint_index: int, keypoint_text: str,
             source_index: int, original_url: str, source_uri: str, is_admin: bool
-    ) -> Generator[CrosscheckMessage, None, None]:
+    ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
         llm_interface = Server.get_match_llm_interface(user_id, is_admin)
         data_interface = Server.get_match_data_interface(user_id, is_admin)
@@ -260,11 +251,14 @@ class Server:
         document_text = "".join(node_generator)
 
         context = get_data_value(user_id, ("context", original_url))
-        prompt = compare(keypoint_text, document_text, context=context, language=language)
+        customized_instruction = ConfigModel.get_comparison_prompt(user_id, is_admin)
+        prompt = instruction_crosschecking(
+            keypoint_text, document_text, context=context,
+            customized_instruction=customized_instruction, language=language)
 
         response = llm_interface.stream_reply_to_prompt(prompt)
 
-        async for each_segment in Server._stream_matches_to_browser(response, keypoint_index, source_index):
+        async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_index, source_index):
             yield each_segment
 
     async def set_context(self, original_url: str, user_id: str, html_document: str | None = None) -> None:
@@ -484,7 +478,7 @@ class Server:
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)
 
-                        stop_message = CrosscheckMessage(
+                        stop_message = ExplanationMessage(
                             stop=True, keypoint_index=keypoint_index, source_index=source_index)
                         stop_dict = dataclasses.asdict(stop_message)
                         await websocket.send_json(stop_dict)

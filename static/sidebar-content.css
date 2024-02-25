@@ -32,6 +32,15 @@
     font-size: .5em;
 }
 
+#doppelcheck-instance-id {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+    margin-bottom: 2em;
+    font-size: .5em;
+}
+
 .doppelcheck-claim {
     line-height: 1.5em;
 }

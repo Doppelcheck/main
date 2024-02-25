@@ -51,8 +51,3 @@ def get_section_sourcefinder(user_id: str, is_admin: bool = False) -> None:
                 text="User access", value=AccessModel.get_retrieval_data()
             ) as checkbox, Store(checkbox, AccessModel.set_retrieval_data):
                 pass
-
-        with ui.textarea(label="Retrieval prompt", validation=None) as textarea:
-            # todo: add validation to make sure variables are included etc
-            textarea.classes('w-full')
-            textarea.disable()

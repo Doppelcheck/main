@@ -21,6 +21,13 @@ EXCLUDED_IDS = {
 }
 
 
+def truncate_text(text: str, max_len: int, ellipsis_str: str = "…") -> str:
+    len_ellipsis = len(ellipsis_str)
+    if len(text) + len_ellipsis <= max_len:
+        return text
+    return text[:max_len - len_ellipsis] + ellipsis_str
+
+
 def is_excluded(node: XmlElement) -> bool:
     """Check if any node in the absolute path is in EXCLUDED_TAGS"""
     if node.tag in EXCLUDED_TAGS or node.get("id") in EXCLUDED_IDS or node.tag == etree.Comment:  # Skip comments

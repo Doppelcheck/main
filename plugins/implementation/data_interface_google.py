@@ -6,12 +6,49 @@ from loguru import logger
 from nicegui import ui
 
 from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
-    DictSerializable, ConfigurationCallbacks, Uri
+    DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM
 from tools.content_retrieval import Document
 from tools.global_instances import BROWSER_INSTANCE, HTTPX_SESSION
+from tools.text_processing import extract_code_block
 
 
 class Google(InterfaceData):
+    @staticmethod
+    def _get_query(claim: str, context: str | None = None, language: str | None = None) -> str:
+        context_data = (
+            f"```context\n"
+            f"{context}\n"
+            f"```\n"
+            f"\n"
+        ) if context else ""
+
+        context_instruction = (
+            f" Refine your query according to the provided context."
+        ) if context else ""
+
+        language_instruction = f"Respond in {language}" if language else "Respond in the language of the claim"
+
+        return (
+            f"{context_data}"
+            f"```claim\n"
+            f"{claim}\n"
+            f"```\n"
+            f"\n"
+            f"Generate the optimal Google search query to get results that allow for the verification of the claim "
+            f"above.{context_instruction}\n"
+            f"\n"
+            f"Make use of special Google search operators to improve result quality. Do not restrict the query to "
+            f"particular top-level domains like with `site:ru` or similar and make sure not to make it too specific.\n"
+            f"\n"
+            f"IMPORTANT: Split up compound words! Don't wrap the full query in double quotes!\n"
+            f"\n"
+            f"{language_instruction} and exactly and only with the search query requested in a fenced code block according "
+            f"to the following pattern.\n"
+            f"```\n"
+            f"[query]\n"
+            f"```\n"
+        )
+
     @staticmethod
     def name() -> str:
         return "Google"
@@ -123,6 +160,15 @@ class Google(InterfaceData):
 
     def __init__(self, name: str, parameters: Google.ConfigParameters, from_admin: bool) -> None:
         super().__init__(name, parameters, from_admin)
+
+    async def get_search_query(
+            self, llm_interface: InterfaceLLM, keypoint_text: str,
+            context: str | None = None, language: str | None = None):
+        prompt = Google._get_query(keypoint_text, context=context, language=language)
+
+        response = await llm_interface.reply_to_prompt(prompt)
+        query = extract_code_block(response)
+        return query
 
     async def get_uris(self, query: str, doc_count: int) -> AsyncGenerator[Uri, None]:
 

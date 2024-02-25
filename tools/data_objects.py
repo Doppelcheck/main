@@ -1,5 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass, field
+from typing import Literal
 
 
 @dataclass
@@ -68,9 +69,16 @@ class SourcesMessage(Message):
 
 
 @dataclass(kw_only=True)
-class CrosscheckMessage(Message):
+class RatingMessage(Message):
     keypoint_index: int
     source_index: int
-    message_type: str = "crosscheck_message"
-    match_value: float = field(default=0.0)
+    message_type: str = "rating_message"
+    stop: bool = field(default=False)
+
+
+@dataclass(kw_only=True)
+class ExplanationMessage(Message):
+    keypoint_index: int
+    source_index: int
+    message_type: str = "explanation_message"
     stop: bool = field(default=False)

@@ -131,6 +131,12 @@ class InterfaceData(Interface, ABC, metaclass=InterfaceMeta):
     async def get_document_content(self, uri: str) -> Document:
         raise NotImplementedError("Method not implemented")
 
+    @abstractmethod
+    async def get_search_query(
+            self, llm_interface: InterfaceLLM, keypoint_text: str,
+            context: str | None = None, language: str | None = None):
+        raise NotImplementedError("Method not implemented")
+
 
 class InterfaceLLM(Interface, ABC, metaclass=InterfaceMeta):
     async def summarize(
