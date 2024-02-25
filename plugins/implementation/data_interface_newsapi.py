@@ -205,7 +205,7 @@ class NewsApi(InterfaceData):
 
 
 if __name__ == "__main__":
-    newsapi = NewsApiClient(api_key='9e9afcad6ca340faae5e253895db02da')
+    newsapi = NewsApiClient(api_key='')
 
     # /v2/top-headlines
     top_headlines = newsapi.get_top_headlines(
