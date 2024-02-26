@@ -17,12 +17,16 @@ async def full_configuration(user_id: str, address: str, version: str, is_admin:
     llm_subclasses = get_interfaces(loaded_plugins, InterfaceLLM)
     data_subclasses = get_interfaces(loaded_plugins, InterfaceData)
 
-    with ui.element("div") as container:
-        container.classes(add="w-full max-w-5xl m-auto")
+    with ui.header() as container:
+        container.classes(add="min-h-fit bg-black")
+        ui.label("Doppelcheck configuration").classes("w-full text-h2 text-white text-right p-4")
 
-        with ui.splitter(value=30, limits=(30, 30)).classes('w-full h-56 h-full ') as splitter:
+    with ui.element("div") as container:
+        container.classes(add="w-full max-w-7xl ")
+
+        with ui.splitter(value=20, limits=(20, 20)).classes('h-full ') as splitter:
             with splitter.before:
-                with ui.tabs().props('vertical').classes('w-full') as tabs:
+                with ui.tabs().props('vertical').classes("text-wrap") as tabs:
                     tab_settings = ui.tab('General', icon='settings')
                     tab_extract = ui.tab('Keypoint Assistant', icon='group_work')
                     tab_retrieve = ui.tab('Sourcefinder Assistant', icon='search')
