@@ -27,7 +27,7 @@ def get_section_keypoint(user_id: str | None) -> None:
                 # select.tooltip("User does not have access to change this setting.")
                 select.disable()
 
-        if user_id is not None:
+        if user_id is None:
             with ui.checkbox(
                     text="User access", value=AccessModel.get_extraction_llm()
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_llm):
@@ -42,7 +42,7 @@ def get_section_keypoint(user_id: str | None) -> None:
                 number.disable()
                 # ui.tooltip("User does not have access to change this setting.")
 
-        if user_id is not None:
+        if user_id is None:
             with ui.checkbox(
                     text="User access", value=AccessModel.get_extraction_claims()
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_claims):
@@ -61,7 +61,7 @@ def get_section_keypoint(user_id: str | None) -> None:
             if user_id is not None and not AccessModel.get_extraction_prompt():
                 textarea.disable()
 
-        if user_id is not None:
+        if user_id is None:
             with ui.checkbox(
                 text="User access", value=AccessModel.get_extraction_prompt()
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_prompt):
