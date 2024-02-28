@@ -117,7 +117,7 @@ class NewsApi(InterfaceData):
             self.parameters = parameters
 
     @staticmethod
-    def configuration(user_id: str, user_accessible: bool, is_admin: bool) -> ConfigurationCallbacks:
+    def configuration(user_id: str, user_accessible: bool) -> ConfigurationCallbacks:
         def _reset_parameters() -> None:
             default_parameters = NewsApi.ConfigParameters("", "")
             editor.run_editor_method("set", {"json": default_parameters.object_to_state()})
@@ -127,7 +127,7 @@ class NewsApi(InterfaceData):
             editor_content = await editor.run_editor_method("get")
             json_content = editor_content['json']
             parameters = NewsApi.ConfigParameters(**json_content)
-            new_interface = NewsApi.ConfigInterface(name="", parameters=parameters, from_admin=is_admin)
+            new_interface = NewsApi.ConfigInterface(name="", parameters=parameters, from_admin=user_id is None)
             _reset_parameters()
             return new_interface
 

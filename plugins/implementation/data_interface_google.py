@@ -115,7 +115,7 @@ class Google(InterfaceData):
             self.parameters = parameters
 
     @staticmethod
-    def configuration(user_id: str, user_accessible: bool, is_admin: bool) -> ConfigurationCallbacks:
+    def configuration(user_id: str | None, user_accessible: bool) -> ConfigurationCallbacks:
         def _reset_parameters() -> None:
             default_parameters = Google.ConfigParameters("", "")
             editor.run_editor_method("set", {"json": default_parameters.object_to_state()})
@@ -125,7 +125,7 @@ class Google(InterfaceData):
             editor_content = await editor.run_editor_method("get")
             json_content = editor_content['json']
             parameters = Google.ConfigParameters(**json_content)
-            new_interface = Google.ConfigInterface(name="", parameters=parameters, from_admin=is_admin)
+            new_interface = Google.ConfigInterface(name="", parameters=parameters, from_admin=user_id is None)
             _reset_parameters()
             return new_interface
 

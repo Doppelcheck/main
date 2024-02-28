@@ -1,3 +1,4 @@
+import asyncio
 import dataclasses
 import json
 import secrets
@@ -18,7 +19,7 @@ from pydantic import BaseModel
 from configuration.config_install import get_section_install
 from configuration.full import full_configuration
 from model.data_access import get_data_value, set_data_value
-from model.storages import ConfigModel
+from model.storages import ConfigModel, PasswordsModel
 from plugins.abstract import InterfaceLLM, InterfaceData
 from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
 from tools.content_retrieval import get_context
@@ -32,7 +33,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 
 VERSION = "0.1.1"
-PASSWORDS = {'user': 'doppelcheck'}
 UNRESTRICTED = {"/", "/config", "/login"}
 
 
@@ -133,8 +133,8 @@ class Server:
                         keypoint_index=keypoint_index, source_index=source_index, content=each_char)
 
     @staticmethod
-    def get_match_llm_interface(user_id: str, is_admin: bool) -> InterfaceLLM:
-        llm_interface_config = ConfigModel.get_comparison_llm(user_id, is_admin)
+    def get_match_llm_interface(user_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_comparison_llm(user_id)
         if llm_interface_config is None:
             logger.error(f"ConfigModel.get_comparison_llm({user_id})")
             raise RetrieveDocumentException(f"ConfigModel.get_comparison_llm({user_id})")
@@ -144,8 +144,8 @@ class Server:
         return llm_interface
 
     @staticmethod
-    def get_match_data_interface(user_id: str, is_admin: bool) -> InterfaceData:
-        data_interface_config = ConfigModel.get_comparison_data(user_id, is_admin)
+    def get_match_data_interface(user_id: str) -> InterfaceData:
+        data_interface_config = ConfigModel.get_comparison_data(user_id)
         if data_interface_config is None:
             logger.error(f"ConfigModel.get_comparison_data({user_id})")
             raise RetrieveDocumentException(f"ConfigModel.get_comparison_data({user_id})")
@@ -155,8 +155,8 @@ class Server:
         return data_interface
 
     @staticmethod
-    def get_retrieval_llm_interface(user_id: str, is_admin: bool) -> InterfaceLLM:
-        llm_interface_config = ConfigModel.get_retrieval_llm(user_id, is_admin)
+    def get_retrieval_llm_interface(user_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_retrieval_llm(user_id)
         if llm_interface_config is None:
             logger.error(f"ConfigModel.get_retrieval_llm({user_id})")
             raise RetrieveDocumentException(f"ConfigModel.get_retrieval_llm({user_id})")
@@ -166,8 +166,8 @@ class Server:
         return llm_interface
 
     @staticmethod
-    def get_retrieval_data_interface(user_id: str, is_admin: bool) -> InterfaceData:
-        data_interface_config = ConfigModel.get_retrieval_data(user_id, is_admin)
+    def get_retrieval_data_interface(user_id: str) -> InterfaceData:
+        data_interface_config = ConfigModel.get_retrieval_data(user_id)
         if data_interface_config is None:
             logger.error(f"ConfigModel.get_retrieval_data({user_id})")
             raise RetrieveDocumentException(f"ConfigModel.get_retrieval_data({user_id})")
@@ -190,14 +190,14 @@ class Server:
 
     async def get_claims_from_str(
             self, string_sequence: Iterable[str],
-            user_id: str, is_admin: bool) -> Generator[Message, None, None]:
-        llm_interface = await self.get_extraction_llm_interface(user_id, is_admin)
+            user_id: str) -> Generator[Message, None, None]:
+        llm_interface = await self.get_extraction_llm_interface(user_id)
 
         claim_count = ConfigModel.get_extraction_claims(user_id)
-        language = ConfigModel.get_general_language(user_id, is_admin)
+        language = ConfigModel.get_general_language(user_id)
 
         text_lines = list(get_text_lines(string_sequence, line_length=20))
-        customized_instruction = ConfigModel.get_extraction_prompt(user_id, is_admin)
+        customized_instruction = ConfigModel.get_extraction_prompt(user_id)
         prompt = instruction_keypoint_extraction(
             text_lines, num_keypoints=claim_count, customized_instruction=customized_instruction, language=language)
 
@@ -205,8 +205,8 @@ class Server:
         async for each_segment in Server._stream_claims_to_browser(response, text_lines):
             yield each_segment
 
-    async def get_extraction_llm_interface(self, user_id: str, is_admin: bool) -> InterfaceLLM:
-        llm_interface_config = ConfigModel.get_extraction_llm(user_id, is_admin)
+    async def get_extraction_llm_interface(self, user_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_extraction_llm(user_id)
         if llm_interface_config is None:
             logger.error(f"ConfigModel.get_extraction_llm({user_id})")
             raise RetrieveDocumentException(f"ConfigModel.get_extraction_llm({user_id})")
@@ -216,13 +216,13 @@ class Server:
         return llm_interface
 
     async def get_document_uris(
-            self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str, is_admin: bool
+            self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str
     ) -> AsyncGenerator[SourcesMessage, None]:
 
-        data_interface = Server.get_retrieval_data_interface(user_id, is_admin)
+        data_interface = Server.get_retrieval_data_interface(user_id)
 
-        llm_interface = Server.get_retrieval_llm_interface(user_id, is_admin)
-        language = ConfigModel.get_general_language(user_id, is_admin)
+        llm_interface = Server.get_retrieval_llm_interface(user_id)
+        language = ConfigModel.get_general_language(user_id)
         context = get_data_value(user_id, ("context", original_url))
         query = await data_interface.get_search_query(
             llm_interface, keypoint_text, context=context, language=language
@@ -235,13 +235,13 @@ class Server:
     async def get_matches(
             self,
             user_id: str, keypoint_index: int, keypoint_text: str,
-            source_index: int, original_url: str, source_uri: str, is_admin: bool
+            source_index: int, original_url: str, source_uri: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
-        llm_interface = Server.get_match_llm_interface(user_id, is_admin)
-        data_interface = Server.get_match_data_interface(user_id, is_admin)
+        llm_interface = Server.get_match_llm_interface(user_id)
+        data_interface = Server.get_match_data_interface(user_id)
 
-        language = ConfigModel.get_general_language(user_id, is_admin)
+        language = ConfigModel.get_general_language(user_id)
 
         source = await data_interface.get_document_content(source_uri)
         document_html = source.content
@@ -250,7 +250,7 @@ class Server:
         document_text = "".join(node_generator)
 
         context = get_data_value(user_id, ("context", original_url))
-        customized_instruction = ConfigModel.get_comparison_prompt(user_id, is_admin)
+        customized_instruction = ConfigModel.get_comparison_prompt(user_id)
         prompt = instruction_crosschecking(
             keypoint_text, document_text, context=context,
             customized_instruction=customized_instruction, language=language)
@@ -304,18 +304,18 @@ class Server:
                 return {"error": "no user id provided"}
 
             if (
-                    (ConfigModel.get_extraction_llm(user_data.user_id, False) is None) or
-                    (ConfigModel.get_retrieval_llm(user_data.user_id, False) is None) or
-                    (ConfigModel.get_retrieval_data(user_data.user_id, False) is None) or
-                    (ConfigModel.get_comparison_llm(user_data.user_id, False) is None) or
-                    (ConfigModel.get_comparison_data(user_data.user_id, False) is None)
+                    (ConfigModel.get_extraction_llm(user_data.user_id) is None) or
+                    (ConfigModel.get_retrieval_llm(user_data.user_id) is None) or
+                    (ConfigModel.get_retrieval_data(user_data.user_id) is None) or
+                    (ConfigModel.get_comparison_llm(user_data.user_id) is None) or
+                    (ConfigModel.get_comparison_data(user_data.user_id) is None)
             ):
                 logger.error(f"no interface for {user_data.user_id}")
                 return {"error": "missing interfaces"}
 
             return {
                 "versionServer": VERSION,
-                "name_instance": ConfigModel.get_general_name(user_data.user_id, False)
+                "name_instance": ConfigModel.get_general_name(user_data.user_id)
             }
 
     def setup_website(self) -> None:
@@ -361,10 +361,18 @@ class Server:
 
         @ui.page('/login')
         def login() -> RedirectResponse | None:
-            def try_login() -> None:
-                if PASSWORDS.get(username.value) == password.value:
+            async def try_login() -> None:
+                if not PasswordsModel.admin_registered():
+                    PasswordsModel.add_password(username.value, password.value)
+                    ui.notify(f"Admin user '{username.value}' created", color='positive')
+                    await asyncio.sleep(3)
+                    app.storage.user.update({'username': username.value, 'authenticated': True})
+                    ui.open(app.storage.user.get('referrer_path', '/'))
+
+                elif PasswordsModel.check_password(username.value, password.value):
                     app.storage.user.update({'username': username.value, 'authenticated': True})
                     ui.open(app.storage.user.get('referrer_path', '/'))  # go back to where the user wanted to go
+
                 else:
                     ui.notify('Wrong username or password', color='negative')
 
@@ -372,6 +380,9 @@ class Server:
                 return RedirectResponse('/')
 
             with ui.card().classes('absolute-center'):
+                if not PasswordsModel.admin_registered():
+                    ui.label("Attention! You are creating the admin user!").classes("text-center")
+
                 username = ui.input('Username')
                 username.on('keydown.enter', try_login)
 
@@ -396,12 +407,16 @@ class Server:
                 with ui.button(f"Logout {user_name}", on_click=reset_context) as logout_button:
                     pass
 
-            await full_configuration("ADMIN", address, VERSION, True)
+            await full_configuration(None, address, VERSION)
 
         @ui.page("/config/{userid}")
         async def config(userid: str, client: Client) -> None:
+            if userid is None or len(userid) < 1:
+                ui.open("/")
+                return
+
             address = await Server._get_address(client)
-            await full_configuration(userid, address, VERSION, False)
+            await full_configuration(userid, address, VERSION)
 
     def setup_websocket(self) -> None:
 
@@ -441,7 +456,7 @@ class Server:
                             content = None
 
                         await self.set_context(original_url, user_id, html_document=content)
-                        async for segment in self.get_claims_from_str(base_text, user_id, False):
+                        async for segment in self.get_claims_from_str(base_text, user_id):
                             each_dict = to_json(segment, user_id)
                             await websocket.send_json(each_dict)
 
@@ -454,9 +469,7 @@ class Server:
                         keypoint_index = content['keypoint_index']
                         keypoint_text = content['keypoint_text']
 
-                        uri_generator = self.get_document_uris(
-                            keypoint_index, keypoint_text, user_id, original_url, False
-                        )
+                        uri_generator = self.get_document_uris(keypoint_index, keypoint_text, user_id, original_url)
                         async for segment in uri_generator:
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)
@@ -472,7 +485,7 @@ class Server:
                         source_index = content['source_index']
                         source_uri = content['source_uri']
                         async for segment in self.get_matches(
-                                user_id, keypoint_index, keypoint_text, source_index, original_url, source_uri, False
+                                user_id, keypoint_index, keypoint_text, source_index, original_url, source_uri
                         ):
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)
