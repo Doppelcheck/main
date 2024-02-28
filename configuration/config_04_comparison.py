@@ -1,66 +1,80 @@
 from nicegui import ui
 
-from model.storages import ConfigModel, Store, AccessModel
+from model.storages import ConfigModel, AccessModel
+from model.storage_tools import Store
 
 
-def get_section_crosschecker(user_id: str, is_admin: bool = False) -> None:
-    llm_interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
-    data_interfaces = ConfigModel.get_data_interfaces(user_id, is_admin)
+def get_section_crosschecker(user_id: str | None) -> None:
+    llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
+    data_interfaces = ConfigModel.get_data_interfaces(user_id)
 
     def _update_llms() -> None:
         nonlocal llm_interfaces
-        llm_interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
-        llm_select.options = [each_interface.name for each_interface in llm_interfaces]
+        llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
+        llm_select.options = [each_name for each_name in llm_interfaces]
         llm_select.update()
 
     def _update_data() -> None:
         nonlocal data_interfaces
-        data_interfaces = ConfigModel.get_data_interfaces(user_id, is_admin)
-        data_select.options = [each_interface.name for each_interface in data_interfaces]
+        data_interfaces = ConfigModel.get_data_interfaces(user_id)
+        data_select.options = [each_name for each_name in data_interfaces]
         data_select.update()
 
     with ui.element("div").classes("w-full flex justify-end"):
-        default_llm = ConfigModel.get_comparison_llm(user_id, is_admin)
+        default_llm = ConfigModel.get_comparison_llm(user_id)
         with ui.select(
-            options=[each_interface.name for each_interface in llm_interfaces],
+            options=[each_name for each_name in llm_interfaces],
             value=None if default_llm is None else default_llm.name, label="LLM interface for comparison"
         ) as llm_select, Store(llm_select, lambda name: ConfigModel.set_comparison_llm(user_id, name)):
             llm_select.classes('w-full').on("click", _update_llms)
-            if not is_admin and not AccessModel.get_comparison_llm():
+            if user_id is not None and not AccessModel.get_comparison_llm():
                 llm_select.disable()
                 ui.tooltip("User does not have access to change this setting.")
 
-        if is_admin:
+        if user_id is None:
             with ui.checkbox(
                 text="User access", value=AccessModel.get_comparison_llm()
             ) as checkbox, Store(checkbox, AccessModel.set_comparison_llm):
                 pass
 
-        default_data = ConfigModel.get_comparison_data(user_id, is_admin)
+        default_data = ConfigModel.get_comparison_data(user_id)
         with ui.select(
-            options=[each_interface.name for each_interface in data_interfaces],
+            options=[each_name for each_name in data_interfaces],
             value=None if default_data is None else default_data.name, label="Data interface for comparison"
         ) as data_select, Store(data_select, lambda name: ConfigModel.set_comparison_data(user_id, name)):
             data_select.classes('w-full').on("click", _update_data)
-            if not is_admin and not AccessModel.get_comparison_data():
+            if user_id is not None and not AccessModel.get_comparison_data():
                 data_select.disable()
                 ui.tooltip("User does not have access to change this setting.")
 
-        if is_admin:
+        if user_id is None:
             with ui.checkbox(
                 text="User access", value=AccessModel.get_comparison_data()
             ) as checkbox, Store(checkbox, AccessModel.set_comparison_data):
                 pass
 
-        # ===
+        comparison_prompt = ConfigModel.get_comparison_prompt(user_id) or (
+            "The keypoint is a claim and the source reference is a news report. Now rate the claim based on the "
+            "report by picking one of the following options:\n"
+            "\n"
+            "  \"🟩 Strong support\": report strongly supports claim\n"
+            "  \"🟨 Some support\": report generally supports claim, with limitations or minor contradictions\n"
+            "  \"⬜️ No mention\": report neither clearly supports nor contradicts claim, or is unclear\n"
+            "  \"🟧​ Some contradiction\": report contradicts claim but not completely\n"
+            "  \"🟥 Strong contradiction\": report is in strong opposition to claim\n"
+            "\n"
+            "IMPORTANT: Do not assess the correctness of either claim or report, determine your rating only based on "
+            "how well the claim holds up against the news report.\n"
+        )
+
         with ui.textarea(
-                label="Comparison prompt", validation=None, value=ConfigModel.get_comparison_prompt(user_id, is_admin)
+                label="Comparison prompt", validation=None, value=comparison_prompt
         ) as textarea, Store(textarea, lambda value: ConfigModel.set_comparison_prompt(user_id, value)):
             textarea.classes('w-full')
-            if not is_admin and not AccessModel.get_comparison_prompt():
+            if user_id is not None and not AccessModel.get_comparison_prompt():
                 textarea.disable()
 
-        if is_admin:
+        if user_id is None:
             with ui.checkbox(
                 text="User access", value=AccessModel.get_comparison_prompt()
             ) as checkbox, Store(checkbox, AccessModel.set_comparison_prompt):

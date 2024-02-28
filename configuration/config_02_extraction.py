@@ -1,31 +1,33 @@
 from nicegui import ui
 
-from model.storages import ConfigModel, Store, AccessModel
+from model.storages import ConfigModel, AccessModel
+from model.storage_tools import Store
 
 
-def get_section_keypoint(user_id: str, is_admin: bool = False) -> None:
+def get_section_keypoint(user_id: str | None) -> None:
     # todo: if locked by admin: https://nicegui.io/documentation/badge
-    llm_interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
+    llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
 
     def _update() -> None:
         nonlocal llm_interfaces
-        llm_interfaces = ConfigModel.get_llm_interfaces(user_id, is_admin)
-        select.options = [each_interface.name for each_interface in llm_interfaces]
+        llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
+        select.options = [each_name for each_name in llm_interfaces]
         select.update()
 
     with ui.element("div").classes("w-full flex justify-end"):
-        default_llm = ConfigModel.get_extraction_llm(user_id, is_admin)
+        default_llm = ConfigModel.get_extraction_llm(user_id)
 
         with ui.select(
-                options=[each_interface.name for each_interface in llm_interfaces], label="LLM interface for extraction",
+                options=[each_name for each_name in llm_interfaces],
+                label="LLM interface for extraction",
                 value=None if default_llm is None else default_llm.name
         ) as select, Store(select, lambda name: ConfigModel.set_extraction_llm(user_id, name)):
             select.classes('w-full').on("click", _update)
-            if not is_admin and not AccessModel.get_extraction_llm():
+            if user_id is not None and not AccessModel.get_extraction_llm():
                 # select.tooltip("User does not have access to change this setting.")
                 select.disable()
 
-        if is_admin:
+        if user_id is not None:
             with ui.checkbox(
                     text="User access", value=AccessModel.get_extraction_llm()
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_llm):
@@ -36,24 +38,30 @@ def get_section_keypoint(user_id: str, is_admin: bool = False) -> None:
             value=ConfigModel.get_extraction_claims(user_id)
         ) as number, Store(number, lambda count: ConfigModel.set_extraction_claims(user_id, count)):
             number.classes('w-full')
-            if not is_admin and not AccessModel.get_extraction_claims():
+            if user_id is not None and not AccessModel.get_extraction_claims():
                 number.disable()
                 # ui.tooltip("User does not have access to change this setting.")
 
-        if is_admin:
+        if user_id is not None:
             with ui.checkbox(
                     text="User access", value=AccessModel.get_extraction_claims()
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_claims):
                 pass
 
+        default_extraction_prompt = ConfigModel.get_extraction_prompt(user_id) or (
+            "The text is a news report. Extract its key factual claims, converting any relative time and place "
+            "references to their absolute counterparts. Exclude examples, questions, opinions, personal feelings, "
+            "prose, advertisements, and other non-factual elements."
+        )
+
         with ui.textarea(
-                label="Extraction prompt", validation=None, value=ConfigModel.get_extraction_prompt(user_id, is_admin)
+                label="Extraction prompt", validation=None, value=default_extraction_prompt
         ) as textarea, Store(textarea, lambda value: ConfigModel.set_extraction_prompt(user_id, value)):
             textarea.classes('w-full')
-            if not is_admin and not AccessModel.get_extraction_prompt():
+            if user_id is not None and not AccessModel.get_extraction_prompt():
                 textarea.disable()
 
-        if is_admin:
+        if user_id is not None:
             with ui.checkbox(
                 text="User access", value=AccessModel.get_extraction_prompt()
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_prompt):

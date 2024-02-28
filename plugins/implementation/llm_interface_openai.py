@@ -71,7 +71,7 @@ class OpenAi(InterfaceLLM):
             self.api_key = api_key
 
     @staticmethod
-    def configuration(user_id: str, user_accessible: bool, is_admin: bool) -> ConfigurationCallbacks:
+    def configuration(user_id: str, user_accessible: bool) -> ConfigurationCallbacks:
         def _reset_parameters() -> None:
             api_key_input.value = ""
             default_parameters = OpenAi.ConfigParameters()
@@ -85,7 +85,7 @@ class OpenAi(InterfaceLLM):
 
             parameters = OpenAi.ConfigParameters(**json_content)
             new_interface = OpenAi.ConfigInterface(
-                name="", parameters=parameters, from_admin=is_admin, api_key=api_key_input.value
+                name="", parameters=parameters, from_admin=user_id is None, api_key=api_key_input.value
             )
             _reset_parameters()
             return new_interface
