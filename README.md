@@ -12,6 +12,18 @@ professionals. Leveraging advanced AI models, Doppelcheck automates the process 
 biases in news content. It simplifies the identification of strategic disinformation, enabling users to receive
 customized press reviews efficiently and effortlessly.
 
+Doppelcheck abstracts the process of information verification. Starting from an initial `content`, the system extracts the `essence` of the information, retrieves `sources` relevant to this essence, and then compares these sources to the content to determine the `support` the content has given the chosen information context.
+```mermaid
+stateDiagram-v2
+    [*] --> content
+    content --> essence: extract
+    essence --> sources: retrieve
+    sources --> content: select new
+    sources --> support: compare to content
+    support --> [*]
+
+```
+
 [Installation](https://github.com/Doppelcheck/main/assets/9195325/f604e167-cb44-4287-a5f9-fbcf6f63860f)
 
 [Extraction](https://github.com/Doppelcheck/main/assets/9195325/e13e1313-b912-412e-bd42-5671496cda8a)
