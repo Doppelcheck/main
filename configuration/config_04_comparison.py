@@ -4,6 +4,21 @@ from model.storages import ConfigModel, AccessModel
 from model.storage_tools import Store
 
 
+DEFAULT_CUSTOM_COMPARISON_PROMPT = (
+            "The keypoint is a claim and the source reference is a news report. Now rate the claim based on the "
+            "report by picking one of the following options:\n"
+            "\n"
+            "  \"🟩 Strong support\": report strongly supports claim\n"
+            "  \"🟨 Some support\": report generally supports claim, with limitations or minor contradictions\n"
+            "  \"⬜️ No mention\": report neither clearly supports nor contradicts claim, or is unclear\n"
+            "  \"🟧​ Some contradiction\": report contradicts claim but not completely\n"
+            "  \"🟥 Strong contradiction\": report is in strong opposition to claim\n"
+            "\n"
+            "IMPORTANT: Do not assess the correctness of either claim or report, determine your rating only based on "
+            "how well the claim holds up against the news report.\n"
+        )
+
+
 def get_section_crosschecker(user_id: str | None) -> None:
     llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
     data_interfaces = ConfigModel.get_data_interfaces(user_id)
@@ -53,19 +68,7 @@ def get_section_crosschecker(user_id: str | None) -> None:
             ) as checkbox, Store(checkbox, AccessModel.set_comparison_data):
                 pass
 
-        comparison_prompt = ConfigModel.get_comparison_prompt(user_id) or (
-            "The keypoint is a claim and the source reference is a news report. Now rate the claim based on the "
-            "report by picking one of the following options:\n"
-            "\n"
-            "  \"🟩 Strong support\": report strongly supports claim\n"
-            "  \"🟨 Some support\": report generally supports claim, with limitations or minor contradictions\n"
-            "  \"⬜️ No mention\": report neither clearly supports nor contradicts claim, or is unclear\n"
-            "  \"🟧​ Some contradiction\": report contradicts claim but not completely\n"
-            "  \"🟥 Strong contradiction\": report is in strong opposition to claim\n"
-            "\n"
-            "IMPORTANT: Do not assess the correctness of either claim or report, determine your rating only based on "
-            "how well the claim holds up against the news report.\n"
-        )
+        comparison_prompt = ConfigModel.get_comparison_prompt(user_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
 
         with ui.textarea(
                 label="Comparison prompt", validation=None, value=comparison_prompt

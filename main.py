@@ -16,6 +16,8 @@ from loguru import logger
 from nicegui import ui, app, Client
 from pydantic import BaseModel
 
+from configuration.config_02_extraction import DEFAULT_CUSTOM_EXTRACTION_PROMPT
+from configuration.config_04_comparison import DEFAULT_CUSTOM_COMPARISON_PROMPT
 from configuration.config_install import get_section_install
 from configuration.full import full_configuration
 from model.data_access import get_data_value, set_data_value
@@ -197,9 +199,10 @@ class Server:
         language = ConfigModel.get_general_language(user_id)
 
         text_lines = list(get_text_lines(string_sequence, line_length=20))
-        customized_instruction = ConfigModel.get_extraction_prompt(user_id)
+        customized_instruction = ConfigModel.get_extraction_prompt(user_id) or DEFAULT_CUSTOM_EXTRACTION_PROMPT
         prompt = instruction_keypoint_extraction(
-            text_lines, num_keypoints=claim_count, customized_instruction=customized_instruction, language=language)
+            text_lines, customized_instruction, num_keypoints=claim_count, language=language
+        )
 
         response = llm_interface.stream_reply_to_prompt(prompt)
         async for each_segment in Server._stream_claims_to_browser(response, text_lines):
@@ -250,10 +253,10 @@ class Server:
         document_text = "".join(node_generator)
 
         context = get_data_value(user_id, ("context", original_url))
-        customized_instruction = ConfigModel.get_comparison_prompt(user_id)
+        customized_instruction = ConfigModel.get_comparison_prompt(user_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
         prompt = instruction_crosschecking(
-            keypoint_text, document_text, context=context,
-            customized_instruction=customized_instruction, language=language)
+            keypoint_text, document_text, customized_instruction, context=context, language=language
+        )
 
         response = llm_interface.stream_reply_to_prompt(prompt)
 
