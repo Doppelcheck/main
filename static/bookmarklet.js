@@ -496,79 +496,87 @@ const CrosscheckSources = {
 }
 
 function exchange(messageType, content) {
-    const ws = new WebSocket(`wss://${serverHost}/talk`);
+    try {
+        const ws = new WebSocket(`wss://${serverHost}/talk`);
 
-    const message = {
-        "message_type": messageType,
-        "user_id": userID,
-        "original_url": window.location.href,
-        "content": content
-    };
+        const message = {
+            "message_type": messageType,
+            "user_id": userID,
+            "original_url": window.location.href,
+            "content": content
+        };
 
-    const messageStr = JSON.stringify(message);
+        const messageStr = JSON.stringify(message);
 
-    ws.onopen = function(event) {
-        ws.send(messageStr);
-    }
-
-    ws.onmessage = function(event) {
-        const response = JSON.parse(event.data);
-        switch (response["message_type"]) {
-            case "pong_message":
-                if (messageType === "ping") {
-                    console.log(`Communication with ${response["user_id"]} established`);
-                } else {
-                    console.log(`unexpected pong response to: ${messageType}`);
-                }
-                break;
-
-            case "error_message":
-                console.error("error message: ", response);
-                InitializeDoppelcheck.notifyUser("<p>Server error!</p>" + response["content"], false);
-                break;
-
-            case "quote_message":
-                // [x]
-                ExtractKeypoints.processQuoteMessage(response);
-                break;
-
-            case "keypoint_message":
-                // [x]
-                ExtractKeypoints.processKeypointMessage(response);
-                break;
-
-            case "sources_message":
-                // [x]
-                RetrieveSources.processSourcefinderMessage(response);
-                break;
-
-            case "rating_message":
-                // [x]
-                CrosscheckSources.processRatingMessage(response);
-                break;
-
-            case "explanation_message":
-                // [x]
-                CrosscheckSources.processExplanationMessage(response);
-                break;
-
-            case "log_message":
-                // [ ]
-                console.error("logs not implemented");
-                InitializeDoppelcheck.notifyUser("<p>Server logs:</p>" + response["content"], false);
-                break;
-
-            default:
-                console.log(`unknown message type: ${response["message_type"]}`);
-                InitializeDoppelcheck.notifyUser(
-                    `<p>Unknown message type: ${response["message_type"]}</p>`, false);
+        ws.onopen = function(event) {
+            ws.send(messageStr);
         }
-    }
 
-    ws.onerror = function(event) {
-        console.log("Error performing WebSocket communication ", event);
+        ws.onmessage = function(event) {
+            const response = JSON.parse(event.data);
+            switch (response["message_type"]) {
+                case "pong_message":
+                    if (messageType === "ping") {
+                        console.log(`Communication with ${response["user_id"]} established`);
+                    } else {
+                        console.log(`unexpected pong response to: ${messageType}`);
+                    }
+                    break;
+
+                case "error_message":
+                    console.error("error message: ", response);
+                    InitializeDoppelcheck.notifyUser("<p>Server error!</p>" + response["content"], false);
+                    break;
+
+                case "quote_message":
+                    // [x]
+                    ExtractKeypoints.processQuoteMessage(response);
+                    break;
+
+                case "keypoint_message":
+                    // [x]
+                    ExtractKeypoints.processKeypointMessage(response);
+                    break;
+
+                case "sources_message":
+                    // [x]
+                    RetrieveSources.processSourcefinderMessage(response);
+                    break;
+
+                case "rating_message":
+                    // [x]
+                    CrosscheckSources.processRatingMessage(response);
+                    break;
+
+                case "explanation_message":
+                    // [x]
+                    CrosscheckSources.processExplanationMessage(response);
+                    break;
+
+                case "log_message":
+                    // [ ]
+                    console.error("logs not implemented");
+                    InitializeDoppelcheck.notifyUser("<p>Server logs:</p>" + response["content"], false);
+                    break;
+
+                default:
+                    console.log(`unknown message type: ${response["message_type"]}`);
+                    InitializeDoppelcheck.notifyUser(
+                        `<p>Unknown message type: ${response["message_type"]}</p>`, false);
+            }
+        }
+
+        ws.onerror = function(event) {
+            console.log("Error performing WebSocket communication ", event);
+            ProxyUrlServices.corsError();
+        }
+
+
+    } catch (error) {
+        console.error("Websocket connection failed: ", error);
         ProxyUrlServices.corsError();
     }
+
 }
 
 

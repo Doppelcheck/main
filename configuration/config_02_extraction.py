@@ -4,6 +4,13 @@ from model.storages import ConfigModel, AccessModel
 from model.storage_tools import Store
 
 
+DEFAULT_CUSTOM_EXTRACTION_PROMPT = (
+    "The text is a news report. Extract its key factual claims, make absolute time and place references where "
+    "possible. Exclude examples, questions, opinions, personal feelings, prose, advertisements, and other "
+    "non-factual elements. IMPORTANT: Use telegram style (aka. \"telegraphese\")."
+)
+
+
 def get_section_keypoint(user_id: str | None) -> None:
     # todo: if locked by admin: https://nicegui.io/documentation/badge
     llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
@@ -48,11 +55,7 @@ def get_section_keypoint(user_id: str | None) -> None:
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_claims):
                 pass
 
-        default_extraction_prompt = ConfigModel.get_extraction_prompt(user_id) or (
-            "The text is a news report. Extract its key factual claims, converting any relative time and place "
-            "references to their absolute counterparts. Exclude examples, questions, opinions, personal feelings, "
-            "prose, advertisements, and other non-factual elements."
-        )
+        default_extraction_prompt = ConfigModel.get_extraction_prompt(user_id) or DEFAULT_CUSTOM_EXTRACTION_PROMPT
 
         with ui.textarea(
                 label="Extraction prompt", validation=None, value=default_extraction_prompt
