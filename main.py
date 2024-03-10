@@ -15,6 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from nicegui import ui, app, Client
 from pydantic import BaseModel
+from starlette.responses import Response
 
 from configuration.config_02_extraction import DEFAULT_CUSTOM_EXTRACTION_PROMPT
 from configuration.config_04_comparison import DEFAULT_CUSTOM_COMPARISON_PROMPT
@@ -39,7 +40,7 @@ UNRESTRICTED = {"/", "/config", "/login"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next) -> Response:
         if not app.storage.user.get('authenticated', False):
             if request.url.path in Client.page_routes.values() and request.url.path not in UNRESTRICTED:
                 app.storage.user['referrer_path'] = request.url.path  # remember where the user wanted to go
@@ -361,6 +362,10 @@ class Server:
                     text="Funded by the Media Tech Lab",
                     target="https://www.media-lab.de/de/media-tech-lab/DoppelCheck",
                     new_tab=True).classes(add="text-center block ")
+
+        @app.get("/doc/")
+        def documentation() -> RedirectResponse:
+            return RedirectResponse("https://github.com/Doppelcheck/main/wiki")
 
         @ui.page('/login')
         def login() -> RedirectResponse | None:
