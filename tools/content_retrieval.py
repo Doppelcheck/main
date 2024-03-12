@@ -81,7 +81,9 @@ async def get_context(
 
 
 class PlaywrightBrowser:
-    def __init__(self) -> None:
+    def __init__(self, headless: bool = True) -> None:
+        self.headless = headless
+
         self.active_tasks = 0
         self.all_tasks_done = asyncio.Event()
 
@@ -96,7 +98,7 @@ class PlaywrightBrowser:
             self.playwright = await async_api.async_playwright().start()
 
         if self.browser is None:
-            self.browser = await self.playwright.firefox.launch(headless=True)
+            self.browser = await self.playwright.firefox.launch(headless=self.headless)
 
         if self.context is None:
             self.context = await self.browser.new_context(ignore_https_errors=True)
@@ -111,7 +113,7 @@ class PlaywrightBrowser:
 
         return str(soup)
 
-    async def get_html_content(self, document_uri: str) -> Document:
+    async def get_html_content(self, document_uri: str, scroll: bool = False) -> Document:
         await self.init_browser()
 
         event_loop = asyncio.get_event_loop()
@@ -123,9 +125,21 @@ class PlaywrightBrowser:
 
         page = await self.context.new_page()
         try:
-            await page.goto(document_uri)
+            await page.goto(document_uri, wait_until="domcontentloaded")
             await page.wait_for_load_state("domcontentloaded")
             # await page.wait_for_load_state("networkidle")
+
+            if scroll:
+                async def scroll_to_bottom() -> bool:
+                    previous_position = await page.evaluate("window.scrollY")
+                    await page.keyboard.press('End')
+                    await asyncio.sleep(2)  # Adjust delay as necessary
+                    current_position = await page.evaluate("window.scrollY")
+                    return current_position <= previous_position
+
+                while not await scroll_to_bottom():
+                    pass
+
             content = await page.content()
             content_no_images = self.remove_images(content)
             return Document(uri=document_uri, content=content_no_images, error=None)
