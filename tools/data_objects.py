@@ -65,6 +65,7 @@ class KeypointMessage(Message):
 class SourcesMessage(Message):
     keypoint_index: int
     message_type: str = "sources_message"
+    title: str | None = field(default=None)
     stop: bool = field(default=False)
 
 

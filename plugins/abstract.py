@@ -182,6 +182,7 @@ class InterfaceLLM(Interface, ABC, metaclass=InterfaceMeta):
 @dataclasses.dataclass(frozen=True)
 class Uri:
     uri_string: str | None
+    title: str | None = None
     error: str | None = None
 
 
