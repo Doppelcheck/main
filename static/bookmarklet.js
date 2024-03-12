@@ -394,12 +394,13 @@ const RetrieveSources = {
         buttonContainer.id = `doppelcheck-button-container${keypointIndex}-${sourceIndex}`;
 
         const documentUri = response["content"];
+        const documentTitle = response["title"] || documentUri;
 
         const link = document.createElement("a");
         link.id = `doppelcheck-document-link${keypointIndex}-${sourceIndex}`;
         link.href = documentUri;
         link.target = "_blank";
-        link.textContent = documentUri;
+        link.textContent = documentTitle;
         eachSourceContainer.appendChild(link);
 
         const crosscheckButton = document.createElement("button");

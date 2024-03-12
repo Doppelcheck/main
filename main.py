@@ -35,7 +35,7 @@ from tools.text_processing import (
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.1.1"
+VERSION = "0.1.3"
 UNRESTRICTED = {"/", "/config", "/login"}
 
 
@@ -234,7 +234,7 @@ class Server:
 
         doc_count = ConfigModel.get_retrieval_max_documents(user_id)
         async for each_uri in data_interface.get_uris(query, doc_count):
-            yield SourcesMessage(keypoint_index=keypoint_index, content=each_uri.uri_string)
+            yield SourcesMessage(keypoint_index=keypoint_index, content=each_uri.uri_string, title=each_uri.title)
 
     async def get_matches(
             self,
