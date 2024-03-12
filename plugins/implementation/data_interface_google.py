@@ -174,6 +174,7 @@ class Google(InterfaceData):
 
         url = "https://www.googleapis.com/customsearch/v1"
         # https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list#response
+        # https://customsearch.googleapis.com/customsearch/v1/siterestrict
         # todo: use llm to craft parameter dict
 
         params = {k: v for k, v in self.parameters.object_to_state().items() if v is not None}
