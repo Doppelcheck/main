@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
-from draganddrop import DraggableRow, ToDo
+from draganddrop import DraggableRow, Item
 
 from nicegui import ui
 
 
-def handle_drop(todo: ToDo, location: str) -> None:
-    ui.notify(f'"{todo.title}" is now in {location}')
+def main() -> None:
+    with DraggableRow() as row:
+        row.add_column('Next', [
+            Item('Simplify Layouting'),
+            Item('Provide Deployment')
+        ])
+        row.add_column('Doing', [
+            Item('Improve Documentation')
+        ])
+        row.add_column('Done', [
+            Item('Invent NiceGUI'),
+            Item('Test in own Projects'),
+            Item('Publish as Open Source'),
+            Item('Release Native-Mode')
+        ])
+
+    ui.run()
 
 
-with DraggableRow() as row:
-    row.add_column('Next', [
-        ToDo('Simplify Layouting'),
-        ToDo('Provide Deployment')
-    ], handle_drop)
-    row.add_column('Doing', [
-        ToDo('Improve Documentation')
-    ], handle_drop)
-    row.add_column('Done', [
-        ToDo('Invent NiceGUI'),
-        ToDo('Test in own Projects'),
-        ToDo('Publish as Open Source'),
-        ToDo('Release Native-Mode')
-    ], handle_drop)
-
-ui.run()
+if __name__ in {"__main__", "__mp_main__"}:
+    main()
