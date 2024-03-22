@@ -147,11 +147,11 @@ class Server:
         return llm_interface
 
     @staticmethod
-    def get_match_data_interface(user_id: str) -> InterfaceData:
-        data_interface_config = ConfigModel.get_comparison_data(user_id)
+    def get_data_interface(user_id: str) -> InterfaceData:
+        data_interface_config = ConfigModel.get_data(user_id)
         if data_interface_config is None:
-            logger.error(f"ConfigModel.get_comparison_data({user_id})")
-            raise RetrieveDocumentException(f"ConfigModel.get_comparison_data({user_id})")
+            logger.error(f"ConfigModel.get_data({user_id})")
+            raise RetrieveDocumentException(f"ConfigModel.get_data({user_id})")
         keywords = data_interface_config.object_to_state()
         class_ = data_interface_config.get_interface_class()
         data_interface: InterfaceData = class_.from_state(keywords)
@@ -167,17 +167,6 @@ class Server:
         class_ = llm_interface_config.get_interface_class()
         llm_interface: InterfaceLLM = class_.from_state(keywords)
         return llm_interface
-
-    @staticmethod
-    def get_retrieval_data_interface(user_id: str) -> InterfaceData:
-        data_interface_config = ConfigModel.get_retrieval_data(user_id)
-        if data_interface_config is None:
-            logger.error(f"ConfigModel.get_retrieval_data({user_id})")
-            raise RetrieveDocumentException(f"ConfigModel.get_retrieval_data({user_id})")
-        keywords = data_interface_config.object_to_state()
-        class_ = data_interface_config.get_interface_class()
-        data_interface: InterfaceData = class_.from_state(keywords)
-        return data_interface
 
     def __init__(self) -> None:
         nltk.download('punkt')
@@ -223,7 +212,7 @@ class Server:
             self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str
     ) -> AsyncGenerator[SourcesMessage, None]:
 
-        data_interface = Server.get_retrieval_data_interface(user_id)
+        data_interface = Server.get_data_interface(user_id)
 
         llm_interface = Server.get_retrieval_llm_interface(user_id)
         language = ConfigModel.get_general_language(user_id)
@@ -243,7 +232,7 @@ class Server:
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
         llm_interface = Server.get_match_llm_interface(user_id)
-        data_interface = Server.get_match_data_interface(user_id)
+        data_interface = Server.get_data_interface(user_id)
 
         language = ConfigModel.get_general_language(user_id)
 
@@ -310,9 +299,8 @@ class Server:
             if (
                     (ConfigModel.get_extraction_llm(user_data.user_id) is None) or
                     (ConfigModel.get_retrieval_llm(user_data.user_id) is None) or
-                    (ConfigModel.get_retrieval_data(user_data.user_id) is None) or
-                    (ConfigModel.get_comparison_llm(user_data.user_id) is None) or
-                    (ConfigModel.get_comparison_data(user_data.user_id) is None)
+                    (ConfigModel.get_data(user_data.user_id) is None) or
+                    (ConfigModel.get_comparison_llm(user_data.user_id) is None)
             ):
                 logger.error(f"no interface for {user_data.user_id}")
                 return {"error": "missing interfaces"}
