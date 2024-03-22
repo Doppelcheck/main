@@ -21,19 +21,12 @@ DEFAULT_CUSTOM_COMPARISON_PROMPT = (
 
 def get_section_crosschecker(user_id: str | None) -> None:
     llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
-    data_interfaces = ConfigModel.get_data_interfaces(user_id)
 
     def _update_llms() -> None:
         nonlocal llm_interfaces
         llm_interfaces = ConfigModel.get_llm_interfaces(user_id)
         llm_select.options = [each_name for each_name in llm_interfaces]
         llm_select.update()
-
-    def _update_data() -> None:
-        nonlocal data_interfaces
-        data_interfaces = ConfigModel.get_data_interfaces(user_id)
-        data_select.options = [each_name for each_name in data_interfaces]
-        data_select.update()
 
     with ui.element("div").classes("w-full flex justify-end"):
         default_llm = ConfigModel.get_comparison_llm(user_id)
@@ -52,21 +45,6 @@ def get_section_crosschecker(user_id: str | None) -> None:
             ) as checkbox, Store(checkbox, AccessModel.set_comparison_llm):
                 pass
 
-        default_data = ConfigModel.get_comparison_data(user_id)
-        with ui.select(
-            options=[each_name for each_name in data_interfaces],
-            value=None if default_data is None else default_data.name, label="Data interface for comparison"
-        ) as data_select, Store(data_select, lambda name: ConfigModel.set_comparison_data(user_id, name)):
-            data_select.classes('w-full').on("click", _update_data)
-            if user_id is not None and not AccessModel.get_comparison_data():
-                data_select.disable()
-                ui.tooltip("User does not have access to change this setting.")
-
-        if user_id is None:
-            with ui.checkbox(
-                text="User access", value=AccessModel.get_comparison_data()
-            ) as checkbox, Store(checkbox, AccessModel.set_comparison_data):
-                pass
 
         comparison_prompt = ConfigModel.get_comparison_prompt(user_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
 

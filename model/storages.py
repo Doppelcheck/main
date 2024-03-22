@@ -204,7 +204,7 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "retrieval_llm", interface_name)
 
     @staticmethod
-    def get_retrieval_data(user_id: str | None) -> InterfaceDataConfig | None:
+    def get_data(user_id: str | None) -> InterfaceDataConfig | None:
         interface_name = ConfigModel._get_value(user_id, "retrieval_data")
         if interface_name is None:
             interface_name = ConfigModel._get_value(None, "retrieval_data")
@@ -215,7 +215,7 @@ class ConfigModel:
         return interface
 
     @staticmethod
-    def set_retrieval_data(user_id: str | None, interface_name: str) -> None:
+    def set_data(user_id: str | None, interface_name: str) -> None:
         ConfigModel._set_value(user_id, "retrieval_data", interface_name)
 
     @staticmethod
@@ -244,21 +244,6 @@ class ConfigModel:
     @staticmethod
     def set_comparison_llm(user_id: str | None, interface_name: str) -> None:
         ConfigModel._set_value(user_id, "comparison_llm", interface_name)
-
-    @staticmethod
-    def get_comparison_data(user_id: str | None) -> InterfaceDataConfig | None:
-        interface_name = ConfigModel._get_value(user_id, "comparison_data")
-        if interface_name is None:
-            interface_name = ConfigModel._get_value(None, "comparison_data")
-            if interface_name is None:
-                return None
-
-        interface = ConfigModel.get_data_interface(user_id, interface_name)
-        return interface
-
-    @staticmethod
-    def set_comparison_data(user_id: str | None, interface_name: str) -> None:
-        ConfigModel._set_value(user_id, "comparison_data", interface_name)
 
 
 class PasswordsModel:
