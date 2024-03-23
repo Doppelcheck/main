@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+from nicegui.events import GenericEventArguments
+
 from draganddrop import DraggableRow, Item
 
 from nicegui import ui
@@ -23,25 +25,16 @@ def _main() -> None:
     ui.run()
 
 
-def drop_event(event) -> None:
-    print('drop', event)
-
-
 def main() -> None:
-    with ui.column() as draggable_list:
-        draggable_list.classes('bg-grey-3 p-4 rounded')
+    def update_chips(event) -> None:
+        if len(ds_select.value) < 2:
+            ds_select.props(remove='use-chips')
+        else:
+            ds_select.props(add='use-chips')
 
-        draggable_list.on('drop', drop_event)
-        draggable_list.on('dragover.prevent', lambda event: None)
-
-        for each_text in ["Next", "Doing", "Done"]:
-            with ui.card() as each_card:
-                each_card.classes('w-full p-4 cursor-move')
-                each_card.props('draggable')
-
-                ui.label(each_text)
-
-            each_separator = ui.separator()
+    names = ['Alice', 'Bob', 'Carol']
+    with ui.select(names, multiple=True, value=names[:1], label='Select data sources', on_change=update_chips) as ds_select:
+        ds_select.classes(add='w-64')
 
     ui.run()
 
