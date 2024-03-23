@@ -23,11 +23,16 @@ def _main() -> None:
     ui.run()
 
 
+def drop_event(event) -> None:
+    print('drop', event)
+
+
 def main() -> None:
     with ui.column() as draggable_list:
         draggable_list.classes('bg-grey-3 p-4 rounded')
 
-        draggable_list.on('drop', lambda event: print('drop', event))
+        draggable_list.on('drop', drop_event)
+        draggable_list.on('dragover.prevent', lambda event: None)
 
         for each_text in ["Next", "Doing", "Done"]:
             with ui.card() as each_card:
@@ -37,7 +42,6 @@ def main() -> None:
                 ui.label(each_text)
 
             each_separator = ui.separator()
-            each_separator.on('drop', lambda event: print('drop', event))
 
     ui.run()
 
