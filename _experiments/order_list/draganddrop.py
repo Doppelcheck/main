@@ -71,23 +71,6 @@ class Element:
         DropSeparator(column, index + 1)
 
 
-class DraggableRow(ui.row):
-    def __init__(self) -> None:
-        super().__init__()
-        self.dragged: Optional[DraggableCard] = None
-
-    def add_column(self, name: str, todos: List[Item]) -> None:
-        with DraggableColumn(name, row=self) as column:
-            for i, each_todo in enumerate(todos):
-                Element(each_todo, self, column, i)
-
-    def set_dragged(self, card: DraggableCard | None) -> None:
-        self.dragged = card
-
-    def get_dragged(self) -> Optional[DraggableCard]:
-        return self.dragged
-
-
 class DraggableColumn(ui.column):
     def __init__(self, name: str, row: DraggableRow) -> None:
         super().__init__()
@@ -117,3 +100,20 @@ class DraggableColumn(ui.column):
                 DraggableCard(dragged.item, row=self.row)
 
             self.row.set_dragged(None)
+
+
+class DraggableRow(ui.row):
+    def __init__(self) -> None:
+        super().__init__()
+        self.dragged: Optional[DraggableCard] = None
+
+    def add_column(self, name: str, todos: List[Item]) -> None:
+        with DraggableColumn(name, row=self) as column:
+            for i, each_todo in enumerate(todos):
+                Element(each_todo, self, column, i)
+
+    def set_dragged(self, card: DraggableCard | None) -> None:
+        self.dragged = card
+
+    def get_dragged(self) -> Optional[DraggableCard]:
+        return self.dragged
