@@ -23,7 +23,7 @@ from configuration.config_install import get_section_install
 from configuration.full import full_configuration
 from model.data_access import get_data_value, set_data_value
 from model.storages import ConfigModel, PasswordsModel
-from plugins.abstract import InterfaceLLM, InterfaceData
+from plugins.abstract import InterfaceLLM, InterfaceData, InterfaceDataConfig
 from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
 from tools.content_retrieval import get_context
 from tools.global_instances import BROWSER_INSTANCE
@@ -35,7 +35,7 @@ from tools.text_processing import (
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.1.3"
+VERSION = "0.1.5"
 UNRESTRICTED = {"/", "/config", "/login"}
 
 
@@ -147,13 +147,23 @@ class Server:
         return llm_interface
 
     @staticmethod
-    def get_data_interface(user_id: str) -> InterfaceData:
-        data_interface_config = ConfigModel.get_data(user_id)
-        if data_interface_config is None:
+    def get_data_interfaces(user_id: str) -> list[InterfaceData]:
+        data_interface_configs = ConfigModel.get_selected_data_interfaces(user_id)
+        if data_interface_configs is None:
             logger.error(f"ConfigModel.get_data({user_id})")
             raise RetrieveDocumentException(f"ConfigModel.get_data({user_id})")
-        keywords = data_interface_config.object_to_state()
-        class_ = data_interface_config.get_interface_class()
+
+        selected_interfaces = list()
+        for each_data_interface_config in data_interface_configs:
+            data_interface = Server._data_interface_from_config(each_data_interface_config)
+            selected_interfaces.append(data_interface)
+
+        return selected_interfaces
+
+    @staticmethod
+    def _data_interface_from_config(each_data_interface_config: InterfaceDataConfig) -> InterfaceData:
+        keywords = each_data_interface_config.object_to_state()
+        class_ = each_data_interface_config.get_interface_class()
         data_interface: InterfaceData = class_.from_state(keywords)
         return data_interface
 
@@ -209,30 +219,37 @@ class Server:
         return llm_interface
 
     async def get_document_uris(
-            self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str
+        self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str
     ) -> AsyncGenerator[SourcesMessage, None]:
 
-        data_interface = Server.get_data_interface(user_id)
+        data_interfaces = Server.get_data_interfaces(user_id)
 
         llm_interface = Server.get_retrieval_llm_interface(user_id)
         language = ConfigModel.get_general_language(user_id)
         context = get_data_value(user_id, ("context", original_url))
-        query = await data_interface.get_search_query(
-            llm_interface, keypoint_text, context=context, language=language
-        )
 
-        doc_count = ConfigModel.get_retrieval_max_documents(user_id)
-        async for each_uri in data_interface.get_uris(query, doc_count):
-            yield SourcesMessage(keypoint_index=keypoint_index, content=each_uri.uri_string, title=each_uri.title)
+        for each_interface in data_interfaces:
+            query = await each_interface.get_search_query(
+                llm_interface, keypoint_text, context=context, language=language
+            )
+
+            doc_count = ConfigModel.get_retrieval_max_documents(user_id)
+            async for each_uri in each_interface.get_uris(query, doc_count):
+                yield SourcesMessage(
+                    keypoint_index=keypoint_index, data_source=each_interface.name,
+                    query=query, content=each_uri.uri_string, title=each_uri.title
+                )
 
     async def get_matches(
             self,
             user_id: str, keypoint_index: int, keypoint_text: str,
-            source_index: int, original_url: str, source_uri: str
+            source_index: int, original_url: str, source_uri: str,
+            data_interface_name: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
         llm_interface = Server.get_match_llm_interface(user_id)
-        data_interface = Server.get_data_interface(user_id)
+        data_interface_config = ConfigModel.get_data_interface(user_id, data_interface_name)
+        data_interface = Server._data_interface_from_config(data_interface_config)
 
         language = ConfigModel.get_general_language(user_id)
 
@@ -299,7 +316,7 @@ class Server:
             if (
                     (ConfigModel.get_extraction_llm(user_data.user_id) is None) or
                     (ConfigModel.get_retrieval_llm(user_data.user_id) is None) or
-                    (ConfigModel.get_data(user_data.user_id) is None) or
+                    (ConfigModel.get_selected_data_interfaces(user_data.user_id) is None) or
                     (ConfigModel.get_comparison_llm(user_data.user_id) is None)
             ):
                 logger.error(f"no interface for {user_data.user_id}")
@@ -470,7 +487,9 @@ class Server:
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)
 
-                        stop_message = SourcesMessage(stop=True, keypoint_index=keypoint_index)
+                        stop_message = SourcesMessage(
+                            stop=True, keypoint_index=keypoint_index, data_source="", query=""
+                        )
                         stop_dict = dataclasses.asdict(stop_message)
                         await websocket.send_json(stop_dict)
 
@@ -480,8 +499,9 @@ class Server:
                         keypoint_text = content['keypoint_text']
                         source_index = content['source_index']
                         source_uri = content['source_uri']
+                        data_source = content['data_source']
                         async for segment in self.get_matches(
-                                user_id, keypoint_index, keypoint_text, source_index, original_url, source_uri
+                            user_id, keypoint_index, keypoint_text, source_index, original_url, source_uri, data_source
                         ):
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)

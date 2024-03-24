@@ -23,7 +23,7 @@ def get_section_data_sources(user_id: str | None, data_classes: list[type[Interf
             ui.notify(f"Data interface '{selected_name}' is from admin and cannot be removed by user.")
             return
 
-        interface_retrieval = ConfigModel.get_data(user_id)
+        interface_retrieval = ConfigModel.get_selected_data_interfaces(user_id)
         if interface_retrieval is not None and selected_name == interface_retrieval.name:
             ui.notify(f"Data interface '{selected_name}' in use for retrieval.")
             return

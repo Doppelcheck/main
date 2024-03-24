@@ -204,19 +204,19 @@ class ConfigModel:
         ConfigModel._set_value(user_id, "retrieval_llm", interface_name)
 
     @staticmethod
-    def get_data(user_id: str | None) -> InterfaceDataConfig | None:
-        interface_name = ConfigModel._get_value(user_id, "retrieval_data")
-        if interface_name is None:
-            interface_name = ConfigModel._get_value(None, "retrieval_data")
-            if interface_name is None:
-                return None
+    def get_selected_data_interfaces(user_id: str | None) -> list[InterfaceDataConfig]:
+        selected_interfaces = ConfigModel._get_value(user_id, "selected_data_interfaces")
+        if selected_interfaces is None:
+            selected_interfaces = ConfigModel._get_value(None, "selected_data_interfaces")
+            if selected_interfaces is None:
+                return list()
 
-        interface = ConfigModel.get_data_interface(user_id, interface_name)
-        return interface
+        interfaces = [ConfigModel.get_data_interface(user_id, each_name) for each_name in selected_interfaces]
+        return interfaces
 
     @staticmethod
-    def set_data(user_id: str | None, interface_name: str) -> None:
-        ConfigModel._set_value(user_id, "retrieval_data", interface_name)
+    def set_selected_data_interfaces(user_id: str | None, interface_names: list[str]) -> None:
+        ConfigModel._set_value(user_id, "selected_data_interfaces", interface_names)
 
     @staticmethod
     def get_retrieval_max_documents(user_id: str | None) -> int:
@@ -327,12 +327,12 @@ class AccessModel:
         return AccessModel._get_user_access("retrieval_llm_name")
 
     @staticmethod
-    def set_retrieval_data(user_access: bool) -> None:
-        AccessModel._set_user_access("retrieval_data_name", user_access)
+    def set_select_data(user_access: bool) -> None:
+        AccessModel._set_user_access("select_data_interfaces", user_access)
 
     @staticmethod
-    def get_retrieval_data() -> bool:
-        return AccessModel._get_user_access("retrieval_data_name")
+    def get_select_data() -> bool:
+        return AccessModel._get_user_access("select_data_interfaces")
 
     @staticmethod
     def set_retrieval_max_documents(user_access: bool) -> None:
@@ -349,14 +349,6 @@ class AccessModel:
     @staticmethod
     def get_comparison_llm() -> bool:
         return AccessModel._get_user_access("comparison_llm_name")
-
-    @staticmethod
-    def set_comparison_data(user_access: bool) -> None:
-        AccessModel._set_user_access("comparison_data_name", user_access)
-
-    @staticmethod
-    def get_comparison_data() -> bool:
-        return AccessModel._get_user_access("comparison_data_name")
 
     @staticmethod
     def set_add_llm(user_access: bool) -> None:
