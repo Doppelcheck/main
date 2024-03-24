@@ -179,7 +179,7 @@ const InitializeDoppelcheck = {
 
         const heading = document.createElement("h1");
         heading.id = "doppelcheck-heading";
-        heading.innerText = config["name_instance"];
+        heading.innerText = config["nameInstance"];
         sidebar.appendChild(heading);
 
         const nameInstance = document.createElement("h2");
@@ -192,6 +192,15 @@ const InitializeDoppelcheck = {
         instanceId.innerText = userID;
         sidebar.appendChild(instanceId);
 
+        const dataSourcesList = document.createElement("ol");
+        dataSourcesList.id = "doppelcheck-data-sources-list";
+        config["dataSources"].forEach(source => {
+            const listItem = document.createElement("li");
+            listItem.innerText = source;
+            dataSourcesList.appendChild(listItem);
+        });
+
+        sidebar.appendChild(dataSourcesList);
         const menu = document.createElement("div");
         menu.id = "doppelcheck-menu";
         menu.innerHTML =
