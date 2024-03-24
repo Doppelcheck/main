@@ -64,6 +64,8 @@ class KeypointMessage(Message):
 @dataclass(kw_only=True)
 class SourcesMessage(Message):
     keypoint_index: int
+    data_source: str
+    query: str
     message_type: str = "sources_message"
     title: str | None = field(default=None)
     stop: bool = field(default=False)

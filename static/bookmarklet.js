@@ -45,7 +45,7 @@ const CSSStyling = {
             }
         });
     },
-    
+
     addStyle(url, parentElement) {
         const doppelcheckStyle = document.createElement("link");
         doppelcheckStyle.rel = "stylesheet";
@@ -365,6 +365,8 @@ const RetrieveSources = {
 
         const keypointIndex = response["keypoint_index"];
         const lastMessage = response["stop"];
+        const dataSource = response["data_source"];
+        const query = response["query"];
 
         // replace button with documents container
         let allSourcesContainer = InitializeDoppelcheck.getElementById(
@@ -400,7 +402,10 @@ const RetrieveSources = {
         link.id = `doppelcheck-document-link${keypointIndex}-${sourceIndex}`;
         link.href = documentUri;
         link.target = "_blank";
-        link.textContent = documentTitle;
+        link.innerHTML = `${dataSource}:<br />${documentTitle}`;
+        link.title = query;
+        link.setAttribute("data-source", dataSource);
+
         eachSourceContainer.appendChild(link);
 
         const crosscheckButton = document.createElement("button");
@@ -429,6 +434,7 @@ const CrosscheckSources = {
             return;
         }
         const sourceUri = sourceLink.href;
+        const dataSource = sourceLink.getAttribute('data-source');
 
         const keypoint = keypointContainer.textContent.replace("📑", "").trim();
         exchange("crosschecker",
@@ -436,7 +442,8 @@ const CrosscheckSources = {
                 "keypoint_index": keypointIndex,
                 "keypoint_text": keypoint,
                 "source_index": sourceIndex,
-                "source_uri": sourceUri
+                "source_uri": sourceUri,
+                "data_source": dataSource
             }
         );
     },
