@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y libxcursor1 libxdamage1 libgtk-3-0 libp
     libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2
 
 # Install dependencies via pip
-RUN pip install --upgrade pip && pip install -r requirements.txt && playwright install
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt && playwright install
 
 # Copy the config.example.json to config.json
 COPY config.example.json config.json
