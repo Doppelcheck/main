@@ -35,7 +35,7 @@ from tools.text_processing import (
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.1.5"
+VERSION = "0.1.6"
 UNRESTRICTED = {"/", "/config", "/login"}
 
 
@@ -313,10 +313,12 @@ class Server:
                 logger.error(f"no user_id in {user_data}")
                 return {"error": "no user id provided"}
 
+            data_interfaces = ConfigModel.get_selected_data_interfaces(user_data.user_id)
+
             if (
                     (ConfigModel.get_extraction_llm(user_data.user_id) is None) or
                     (ConfigModel.get_retrieval_llm(user_data.user_id) is None) or
-                    (ConfigModel.get_selected_data_interfaces(user_data.user_id) is None) or
+                    (len(data_interfaces) < 1) or
                     (ConfigModel.get_comparison_llm(user_data.user_id) is None)
             ):
                 logger.error(f"no interface for {user_data.user_id}")
@@ -324,7 +326,8 @@ class Server:
 
             return {
                 "versionServer": VERSION,
-                "name_instance": ConfigModel.get_general_name(user_data.user_id)
+                "nameInstance": ConfigModel.get_general_name(user_data.user_id),
+                "dataSources": [each.name for each in data_interfaces],
             }
 
     def setup_website(self) -> None:
