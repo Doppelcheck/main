@@ -214,35 +214,42 @@ const InitializeDoppelcheck = {
         subheading.innerText = "Keypoints";
         sidebar.appendChild(subheading);
 
+        const addKeypoint = document.createElement("button");
+        addKeypoint.id = "doppelcheck-button-add";
+        addKeypoint.innerText = "📝 Add keypoint";
+        addKeypoint.disabled = true;
+        addKeypoint.addEventListener("click", async function () {
+            addKeypoint.disabled = true;
+            addKeypoint.innerText = "⏳ Adding keypoint from selection...";
+            const selection = document.getSelection();
+            const selectedText = selection.toString();
+            exchange("keypoint_selection", selectedText);
+        });
+        sidebar.appendChild(addKeypoint);
+
+        document.addEventListener("selectionchange", function () {
+            const selection = document.getSelection();
+            if (selection === null || 100 >= selection.toString().trim().length) {
+                addKeypoint.disabled = true;
+            } else {
+                addKeypoint.disabled = false;
+            }
+        });
+
         const claimContainer = document.createElement("div");
         claimContainer.id = "doppelcheck-claims-container";
         sidebar.appendChild(claimContainer);
 
-        const button = document.createElement("button");
-        button.id = "doppelcheck-button-start";
-        button.innerText = "🤨 Extract keypoints";
-
-        button.onclick = async function () {
-            button.disabled = true;
-            const selection = document.getSelection();
-            if (selection === null || 20 >= selection.toString().trim().length) {
-                button.innerText = "⏳ Extracting keypoints from website...";
-                const fullHTML = document.documentElement.outerHTML;
-                //try {
-                exchange("keypoint", fullHTML);
-                //} catch (error) {
-                //    console.log('Websocket connection failed: ' + error);
-                //    ProxyUrlServices.corsError();
-                //}
-
-            } else {
-                button.innerText = "⏳ Extracting keypoints from selection...";
-                const selectedText = selection.toString();
-                exchange("keypoint_selection", selectedText);
-
-            }
-        }
-        sidebar.appendChild(button);
+        const extractKeypoints = document.createElement("button");
+        extractKeypoints.id = "doppelcheck-button-start";
+        extractKeypoints.innerText = "🤨 Extract keypoints";
+        extractKeypoints.addEventListener("click", async function () {
+            extractKeypoints.disabled = true;
+            extractKeypoints.innerText = "⏳ Extracting keypoints from website...";
+            const fullHTML = document.documentElement.outerHTML;
+            exchange("keypoint", fullHTML);
+        });
+        sidebar.appendChild(extractKeypoints);
 
         // add disabled text area as log?
 
@@ -257,6 +264,8 @@ const InitializeDoppelcheck = {
 }
 
 const ExtractKeypoints = {
+    finishedKeypoints: 0,
+
     addKeypoint(keypointIndex, claimsContainer) {
         const eachClaimContainer = document.createElement("details");
         eachClaimContainer.classList.add("doppelcheck-each-claim-container");
@@ -273,12 +282,12 @@ const ExtractKeypoints = {
         const getDocumentsButton = document.createElement("button");
         getDocumentsButton.innerText = "🕵 Find sources";
         getDocumentsButton.id = `doppelcheck-retrieve-button${keypointIndex}`;
-        getDocumentsButton.onclick = function () {
+        getDocumentsButton.addEventListener("click", function () {
             getDocumentsButton.disabled = true;
             claim.textContent = claim.textContent + " 🕵";
             getDocumentsButton.innerText = "⏳ Finding sources...";
             RetrieveSources.getDocuments(keypointIndex);
-        }
+        });
         eachClaimContainer.appendChild(getDocumentsButton);
 
         return claim;
@@ -310,15 +319,21 @@ const ExtractKeypoints = {
     },
 
     processKeypointMessage(response) {
+        const stopMessage = response["stop"];
         const stopAllMessages = response["stop_all"];
+
         if (stopAllMessages) {
             const button = InitializeDoppelcheck.getElementById("doppelcheck-button-start");
             button.remove();
             return;
         }
 
-        const keypointIndex = response["keypoint_index"];
-        const stopMessage = response["stop"];
+        const keypointIndex = ExtractKeypoints.finishedKeypoints;
+
+        if (stopMessage || stopAllMessages) {
+            ExtractKeypoints.finishedKeypoints++;
+        }
+
         if (stopMessage) {
             const eachKeypointContainer = InitializeDoppelcheck.getElementById(
                 `doppelcheck-each-claim-container${keypointIndex}`

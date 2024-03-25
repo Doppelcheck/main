@@ -35,7 +35,7 @@ from tools.text_processing import (
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.1.6"
+VERSION = "0.2.0"
 UNRESTRICTED = {"/", "/config", "/login"}
 
 
@@ -191,11 +191,10 @@ class Server:
         return language.iso_code_639_1.name.lower()
 
     async def get_claims_from_str(
-            self, string_sequence: Iterable[str],
+            self, string_sequence: Iterable[str], claim_count: int,
             user_id: str) -> Generator[Message, None, None]:
         llm_interface = await self.get_extraction_llm_interface(user_id)
 
-        claim_count = ConfigModel.get_extraction_claims(user_id)
         language = ConfigModel.get_general_language(user_id)
 
         text_lines = list(get_text_lines(string_sequence, line_length=20))
@@ -351,7 +350,7 @@ class Server:
                 logo.classes(add="w-full")
 
                 ui.element("div").classes(add="h-16")
-                ui.label("Installation").classes(add="text-xl font-bold text-center m-8 ")
+                ui.label(f"Installation v{VERSION}").classes(add="text-xl font-bold text-center m-8 ")
                 get_section_install(secret, address, VERSION, title=False)
 
                 ui.element("div").classes(add="h-16")
@@ -467,12 +466,15 @@ class Server:
                         # [x] Keypoint Assistant
                         if message_type == "keypoint":
                             base_text = text_node_generator(content)
+                            claim_count = ConfigModel.get_extraction_claims(user_id)
+
                         else:
                             base_text = content
+                            claim_count = 1
                             content = None
 
                         await self.set_context(original_url, user_id, html_document=content)
-                        async for segment in self.get_claims_from_str(base_text, user_id):
+                        async for segment in self.get_claims_from_str(base_text, claim_count, user_id):
                             each_dict = to_json(segment, user_id)
                             await websocket.send_json(each_dict)
 
