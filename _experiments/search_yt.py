@@ -1,3 +1,5 @@
+import math
+
 import yt_dlp
 import youtube_transcript_api
 
@@ -144,15 +146,15 @@ def test_transcript() -> list[dict[str, str | float]]:
 
 def timestamped_youtube_video_url(youtube_url: str, timestamp: float) -> str:
     # Convert the timestamp from seconds to an integer
-    timestamp = int(timestamp)
+    timestamp = math.floor(timestamp)
 
     # Check if the URL already has query parameters
     if '?' in youtube_url:
         # If the URL already contains query parameters, append the timestamp with an '&'
-        return f"{youtube_url}&t={timestamp}s"
+        return f"{youtube_url}&t={timestamp:d}s"
 
     # If the URL does not contain any query parameters, append the timestamp with a '?'
-    return f"{youtube_url}?t={timestamp}s"
+    return f"{youtube_url}?t={timestamp:d}s"
 
 
 def main() -> None:
