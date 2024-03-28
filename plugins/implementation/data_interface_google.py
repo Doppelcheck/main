@@ -6,8 +6,8 @@ from loguru import logger
 from nicegui import ui
 
 from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
-    DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM
-from tools.content_retrieval import Document
+    DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM, Document
+from tools.content_retrieval import parse_url
 from tools.global_instances import BROWSER_INSTANCE, HTTPX_SESSION
 from tools.text_processing import extract_code_block
 
@@ -37,7 +37,7 @@ class Google(InterfaceData):
             f"Generate the optimal Google search query to get results that allow for the verification of the claim "
             f"above.{context_instruction}\n"
             f"\n"
-            f"Make use of special Google search operators to improve result quality. Do not restrict the query to "
+            f"Consider using special Google search operators to improve result quality. Do not restrict the query to "
             f"particular top-level domains like with `site:ru` or similar and make sure not to make it too specific.\n"
             f"\n"
             f"IMPORTANT: Split up compound words! Don't wrap the full query in double quotes!\n"
@@ -68,7 +68,6 @@ class Google(InterfaceData):
                 sort: str | None = "date", start: int = 1,
                 **kwargs: any  # discard the rest
         ) -> None:
-
             # https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list
             self.cx = cx
             self.key = key
@@ -92,7 +91,7 @@ class Google(InterfaceData):
             self.safe = safe
             self.siteSearch = siteSearch
             self.siteSearchFilter = siteSearchFilter
-            self.sort = sort   # changed default for news focus
+            self.sort = sort  # changed default for news focus
             self.start = start
 
     class ConfigInterface(InterfaceDataConfig):
@@ -200,4 +199,19 @@ class Google(InterfaceData):
             yield Uri(uri_string=each_item['link'], title=each_item['title'])
 
     async def get_document_content(self, uri: str) -> Document:
-        return await BROWSER_INSTANCE.get_html_content(uri)
+        html_response = await BROWSER_INSTANCE.get_html_content(uri)
+        document = Document(uri=html_response.uri, content=html_response.content, error=html_response.error)
+        return document
+
+    async def get_context(
+            self, uri: str, full_content: str | None = None) -> str | None:
+
+        article = await parse_url(uri, input_html=full_content)
+        context = f"{article.title.upper()}\n\n{article.summary}"
+        if len(context.strip()) < 20:
+            return None
+
+        if article.publish_date is not None:
+            context += f"\n\npublished on {article.publish_date}"
+
+        return context

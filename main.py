@@ -6,7 +6,6 @@ import string
 from typing import Generator, Sequence, AsyncGenerator, Iterable
 from urllib.parse import urlparse, unquote
 
-import lingua
 import nltk
 from fastapi import WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -21,11 +20,10 @@ from configuration.config_02_extraction import DEFAULT_CUSTOM_EXTRACTION_PROMPT
 from configuration.config_04_comparison import DEFAULT_CUSTOM_COMPARISON_PROMPT
 from configuration.config_install import get_section_install
 from configuration.full import full_configuration
-from model.data_access import get_data_value, set_data_value
 from model.storages import ConfigModel, PasswordsModel
 from plugins.abstract import InterfaceLLM, InterfaceData, InterfaceDataConfig
 from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
-from tools.content_retrieval import get_context
+from tools.content_retrieval import parse_url
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_objects import (
     Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, RatingMessage, ExplanationMessage)
@@ -180,15 +178,6 @@ class Server:
 
     def __init__(self) -> None:
         nltk.download('punkt')
-        detector = lingua.LanguageDetectorBuilder.from_all_languages()
-        self._detector_built = detector.build()
-
-    def _detect_language(self, text: str) -> str:
-        language = self._detector_built.detect_language_of(text)
-        if language is None:
-            return "en"
-
-        return language.iso_code_639_1.name.lower()
 
     async def get_claims_from_str(
             self, string_sequence: Iterable[str], claim_count: int,
@@ -225,7 +214,15 @@ class Server:
 
         llm_interface = Server.get_retrieval_llm_interface(user_id)
         language = ConfigModel.get_general_language(user_id)
-        context = get_data_value(user_id, ("context", original_url))
+
+        content = await BROWSER_INSTANCE.get_html_content(original_url)
+        article = await parse_url(original_url, input_html=content.content)
+        context = f"{article.title.upper()}\n\n{article.summary}"
+        if len(context.strip()) < 20:
+            context = None
+
+        elif article.publish_date is not None:
+            context += f"\n\npublished on {article.publish_date}"
 
         for each_interface in data_interfaces:
             query = await each_interface.get_search_query(
@@ -242,8 +239,7 @@ class Server:
     async def get_matches(
             self,
             user_id: str, keypoint_index: int, keypoint_text: str,
-            source_index: int, original_url: str, source_uri: str,
-            data_interface_name: str
+            source_index: int, source_uri: str, data_interface_name: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
         llm_interface = Server.get_match_llm_interface(user_id)
@@ -258,24 +254,15 @@ class Server:
         node_generator = text_node_generator(document_html)
         document_text = "".join(node_generator)
 
-        context = get_data_value(user_id, ("context", original_url))
         customized_instruction = ConfigModel.get_comparison_prompt(user_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
         prompt = instruction_crosschecking(
-            keypoint_text, document_text, customized_instruction, context=context, language=language
+            keypoint_text, document_text, customized_instruction, language=language
         )
 
         response = llm_interface.stream_reply_to_prompt(prompt)
 
         async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_index, source_index):
             yield each_segment
-
-    async def set_context(self, original_url: str, user_id: str, html_document: str | None = None) -> None:
-        context = await get_context(original_url, self._detect_language, input_html=html_document)
-        if context is None:
-            logger.warning(f"no context for {original_url}")
-        else:
-            logger.info(f"context for {original_url}: {context}")
-            set_data_value(user_id, ("context", original_url), context)
 
     def setup_api_endpoints(self) -> None:
         @app.get("/get_content/")
@@ -471,9 +458,7 @@ class Server:
                         else:
                             base_text = content
                             claim_count = 1
-                            content = None
 
-                        await self.set_context(original_url, user_id, html_document=content)
                         async for segment in self.get_claims_from_str(base_text, claim_count, user_id):
                             each_dict = to_json(segment, user_id)
                             await websocket.send_json(each_dict)
@@ -506,7 +491,7 @@ class Server:
                         source_uri = content['source_uri']
                         data_source = content['data_source']
                         async for segment in self.get_matches(
-                            user_id, keypoint_index, keypoint_text, source_index, original_url, source_uri, data_source
+                            user_id, keypoint_index, keypoint_text, source_index, source_uri, data_source
                         ):
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)

@@ -43,33 +43,17 @@ def instruction_keypoint_extraction(lines: Iterable[str], customized_instruction
 
 
 def instruction_crosschecking(claim: str, report: str, customized_instruction: str,
-                              context: str | None = None, language: str | None = None) -> str:
+                              language: str | None = None) -> str:
 
     if language is None or language == "default":
         language_instruction = "the language of the keypoint"
     else:
         language_instruction = language
 
-    if context is None:
-        context_data = ""
-        context_instruction = ""
-    else:
-        context_data = (
-            f"```context\n"
-            f"{context}\n"
-            f"```\n"
-            f"\n"
-        )
-        context_instruction = (
-            " Use the provided context as additional information about the keypoint. Do not mention the context "
-            "explicitly."
-        )
-
     return (
         f"Carefully read the following information. Your task is to assess how well the keypoint matches "
-        f"the information in the source.{context_instruction}\n"
+        f"the information in the source.\n"
         f"\n"
-        f"{context_data}"
         f"```keypoint\n"
         f"{claim}\n"
         f"```\n"

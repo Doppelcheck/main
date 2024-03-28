@@ -4,6 +4,8 @@ import os
 from types import ModuleType
 from typing import TypeVar
 
+from loguru import logger
+
 from plugins.abstract import Interface
 
 
@@ -24,6 +26,7 @@ def load_plugins(plugin_path: str) -> list[ModuleType]:
             module_path = f"{plugin_path.replace('/', '.')}.{module_name}"
             module = importlib.import_module(module_path)
             modules.append(module)
+            logger.info(f"Loaded plugin: {module_name}")
     return modules
 
 

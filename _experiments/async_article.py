@@ -6,11 +6,12 @@ from newspaper import network
 from newspaper.article import ArticleDownloadState
 from newspaper.utils import extract_meta_refresh
 
-from tools.content_retrieval import PlaywrightBrowser
+from tools.browser import PlaywrightBrowser
 
 
 class AsyncArticle(newspaper.Article):
-    async def async_download(self, browser: PlaywrightBrowser, input_html=None, title=None, recursion_counter=0) -> None:
+    async def async_download(
+            self, browser: PlaywrightBrowser, input_html=None, title=None, recursion_counter=0) -> None:
         """Downloads the link's HTML content asynchronously, don't use if you are batch async
         downloading articles
 

@@ -2,7 +2,7 @@ import asyncio
 import random
 import time
 
-from tools.content_retrieval import PlaywrightBrowser
+from tools.browser import PlaywrightBrowser
 
 
 async def fetch_url_content(url: str, pb: PlaywrightBrowser) -> None:
