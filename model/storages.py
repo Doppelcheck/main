@@ -222,7 +222,7 @@ class ConfigModel:
     def get_retrieval_max_documents(user_id: str | None) -> int:
         value = ConfigModel._get_value(
             user_id, "retrieval_max_documents",
-            default=ConfigModel._get_value("ADMIN", "retrieval_max_documents", default=10)
+            default=ConfigModel._get_value("ADMIN", "retrieval_max_documents", default=5)
         )
         return value
 
