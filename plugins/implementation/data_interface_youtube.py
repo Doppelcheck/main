@@ -4,12 +4,18 @@ import math
 from typing import AsyncGenerator
 
 import pytube
+from pytube import request as pytube_request
 import youtube_transcript_api
 from loguru import logger
+from pytube.extract import video_id
+from youtube_transcript_api import YouTubeTranscriptApi, TranscriptList
+from youtube_transcript_api._transcripts import TranscriptListFetcher
 
 from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
     DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM, Document
 from thefuzz import fuzz
+
+from tools.global_instances import HTTPX_SESSION
 from tools.text_processing import extract_code_block
 
 
@@ -179,14 +185,13 @@ class Youtube(InterfaceData):
         # If the URL does not contain any query parameters, append the timestamp with a '?'
         return f"{youtube_url}?t={timestamp:d}s"
 
-    def _timestamped_url(self, youtube_url: str, keywords: list[str]) -> tuple[str, float] | None:
+    async def _timestamped_url(self, youtube_url: str, keywords: list[str]) -> tuple[str, float] | None:
         min_mentions = 1
 
-        v = pytube.YouTube(youtube_url)
-        video_id = v.video_id
+        v_id = video_id(youtube_url)
 
         try:
-            transcript = self._get_transcript(video_id)
+            transcript = await self._get_transcript(v_id)
 
         except youtube_transcript_api._errors.TranscriptsDisabled:
             logger.warning("transcripts disabled.")
@@ -203,13 +208,16 @@ class Youtube(InterfaceData):
 
     async def get_uris(self, query: str, doc_count: int) -> AsyncGenerator[Uri, None]:
         search = pytube.Search(query)
+        # search.get_next_results()
         search_results = search.results
         keyword_list = query.split()
 
         all_results = list()
-        for each_result in search_results:
+        for i, each_result in enumerate(search_results):
+            if i >= doc_count:
+                break
             each_url = each_result.watch_url
-            each_result = self._timestamped_url(each_url, keyword_list)
+            each_result = await self._timestamped_url(each_url, keyword_list)
             if each_result is not None:
                 all_results.append(each_result)
 
@@ -218,12 +226,12 @@ class Youtube(InterfaceData):
             each_title = pytube.YouTube(ts_url).title
             yield Uri(uri_string=ts_url, title=each_title)
 
-    def _get_transcript(self, video_id: str) -> list[dict[str, any]]:
+    async def _get_transcript(self, video_id: str) -> list[dict[str, any]]:
         transcripts = youtube_transcript_api.YouTubeTranscriptApi.list_transcripts(video_id)
-        if len(transcripts._manually_created_transcripts) > 0:
+        if 0 < len(transcripts._manually_created_transcripts):
             transcript_lang = list(transcripts._manually_created_transcripts.keys())[0]
 
-        elif len(transcripts._generated_transcripts) > 0:
+        elif 0 < len(transcripts._generated_transcripts):
             transcript_lang = list(transcripts._generated_transcripts.keys())[0]
 
         else:
@@ -233,14 +241,12 @@ class Youtube(InterfaceData):
         return transcript
 
     async def get_document_content(self, uri: str) -> Document:
-        v = pytube.YouTube(uri)
-        video_id = v.video_id
-        transcript = self._get_transcript(video_id)
+        v_id = video_id(uri)
+        transcript = await self._get_transcript(v_id)
         full_text = " ".join(each_segment["text"].strip() for each_segment in transcript)
         return Document(uri, full_text)
 
-    async def get_context(
-            self, uri: str, full_content: str | None = None) -> str:
+    async def get_context(self, uri: str, full_content: str | None = None) -> str:
         each_video = pytube.YouTube(uri)
         return (
             f"TITLE: {each_video.title}\n"
@@ -248,3 +254,70 @@ class Youtube(InterfaceData):
             f"\n"
             f"{each_video.description}\n"
         )
+
+
+def monkey_patch() -> None:
+    async def list_transcripts(
+            cls, video_id: str, proxies: dict | None = None, cookies: str | None = None) -> TranscriptList:
+
+        async with HTTPX_SESSION as http_client:
+            if cookies:
+                http_client.cookies = cls._load_cookies(cookies, video_id)
+            if proxies:
+                http_client.proxies = proxies
+
+            return TranscriptListFetcher(http_client).fetch(video_id)
+
+    async def get_transcripts(
+            cls, video_id: str, languages=('en',), proxies: dict | None = None, cookies: str | None = None,
+            preserve_formatting: bool = False) -> list[dict[str, any]]:
+
+        assert isinstance(video_id, str), "`video_id` must be a string"
+        transcripts = await cls.list_transcripts(video_id, proxies, cookies)
+        return transcripts.find_transcript(languages).fetch(preserve_formatting=preserve_formatting)
+
+    async def get_transcript(
+            cls, video_id: str, languages=('en',), proxies: dict | None = None, cookies: str | None = None,
+            preserve_formatting: bool = False) -> list[dict[str, any]]:
+
+        assert isinstance(video_id, str), "`video_id` must be a string"
+        transcripts = await cls.list_transcripts(video_id, proxies, cookies)
+        return transcripts.find_transcript(languages).fetch(preserve_formatting=preserve_formatting)
+
+    YouTubeTranscriptApi.list_transcripts = classmethod(list_transcripts)
+    YouTubeTranscriptApi.get_transcripts = classmethod(get_transcripts)
+    YouTubeTranscriptApi.get_transcript = classmethod(get_transcript)
+
+    async def _execute_request(
+            url: str, method: str = "GET", headers: dict[str, str] | None = None, data: any = None, timeout: int = 10
+    ) -> pytube_request.Request:
+
+        default_headers = {"User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en"}
+
+        headers = {**default_headers, **(headers or dict())}
+
+        request_kwargs = {
+            'method': method,
+            'url': url,
+            'headers': headers,
+            'timeout': timeout
+        }
+
+        if data is not None:
+            if isinstance(data, dict):
+                request_kwargs["json"] = data
+            else:
+                request_kwargs["content"] = data
+
+        if not url.lower().startswith("http"):
+            raise ValueError("Invalid URL")
+
+        async with HTTPX_SESSION as client:
+            response = await client.request(**request_kwargs)
+
+        return response
+
+    # pytube_request._execute_request = _execute_request
+
+
+# monkey_patch()
