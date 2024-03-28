@@ -23,8 +23,8 @@ def get_section_sourcefinder(user_id: str | None) -> None:
     default_data = ConfigModel.get_selected_data_interfaces(user_id)
     with ui.select(
             options=[each_name for each_name in data_interfaces],
-            label="Data interfaces", value=[each_data.name for each_data in default_data], multiple=True,
-            on_change=toggle_chips
+            label="Data interfaces", multiple=True, on_change=toggle_chips,
+            value=[] if default_data is None else [each_data.name for each_data in default_data],
     ) as data_select, Store(data_select, lambda names: ConfigModel.set_selected_data_interfaces(user_id, names)):
         data_select.classes('w-full').on("click", _update_data)
         if (user_id is not None) and not AccessModel.get_select_data():

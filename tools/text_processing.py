@@ -9,7 +9,6 @@ from lxml.etree import _Element as XmlElement
 from lxml import etree
 import re
 
-
 EXCLUDED_TAGS = {
     "script", "style", "meta", "link", "br", "hr", "img",
     "input", "button", "select", "option", "form", "iframe",

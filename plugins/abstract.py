@@ -137,6 +137,11 @@ class InterfaceData(Interface, ABC, metaclass=InterfaceMeta):
             context: str | None = None, language: str | None = None):
         raise NotImplementedError("Method not implemented")
 
+    @abstractmethod
+    async def get_context(
+            self, uri: str, full_content: str | None = None) -> str | None:
+        raise NotImplementedError("Method not implemented")
+
 
 class InterfaceLLM(Interface, ABC, metaclass=InterfaceMeta):
     async def summarize(
