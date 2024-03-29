@@ -48,7 +48,7 @@ class PlaywrightBrowser:
 
         return str(soup)
 
-    async def get_html_content(self, document_uri: str, scroll: bool = False) -> HTMLResponse:
+    async def get_html_content(self, document_uri: str, scroll: bool = False, remove_images: bool = True) -> HTMLResponse:
         await self.init_browser()
 
         event_loop = asyncio.get_event_loop()
@@ -76,6 +76,9 @@ class PlaywrightBrowser:
                     pass
 
             content = await page.content()
+            if not remove_images:
+                return HTMLResponse(uri=document_uri, content=content, error=None)
+
             content_no_images = self.remove_images(content)
             return HTMLResponse(uri=document_uri, content=content_no_images, error=None)
 
