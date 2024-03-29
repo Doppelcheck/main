@@ -10,7 +10,6 @@ import pytube
 import youtube_transcript_api
 from loguru import logger
 from pytube.extract import video_id
-from youtube_transcript_api import YouTubeTranscriptApi
 
 from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
     DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM, Document
