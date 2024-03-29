@@ -206,23 +206,35 @@ class Server:
         llm_interface: InterfaceLLM = class_.from_state(keywords)
         return llm_interface
 
+    @staticmethod
+    async def _fetch_and_yield_source_messages(
+            interface: InterfaceData, keypoint_index: int, query: str, doc_count: int
+    ) -> AsyncGenerator[SourcesMessage, None]:
+
+        async for each_uri in interface.get_uris(query, doc_count):
+            yield SourcesMessage(
+                keypoint_index=keypoint_index, data_source=interface.name,
+                query=query, content=each_uri.uri_string, title=each_uri.title
+            )
+
     async def get_document_uris(
         self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str
     ) -> AsyncGenerator[SourcesMessage, None]:
 
         data_interfaces = Server.get_data_interfaces(user_id)
-
         llm_interface = Server.get_retrieval_llm_interface(user_id)
         language = ConfigModel.get_general_language(user_id)
 
         content = await BROWSER_INSTANCE.get_html_content(original_url)
         article = await parse_url(original_url, input_html=content.content)
         context = f"{article.title.upper()}\n\n{article.summary}"
+
         if len(context.strip()) < 20:
             context = None
-
         elif article.publish_date is not None:
             context += f"\n\npublished on {article.publish_date}"
+
+        doc_count = ConfigModel.get_retrieval_max_documents(user_id)
 
         for each_interface in data_interfaces:
             query = await each_interface.get_search_query(

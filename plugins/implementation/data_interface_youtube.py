@@ -1,22 +1,82 @@
 from __future__ import annotations
 
+import asyncio
+import dataclasses
+import datetime
 import math
 from typing import AsyncGenerator
 
 import pytube
-from pytube import request as pytube_request
 import youtube_transcript_api
 from loguru import logger
 from pytube.extract import video_id
-from youtube_transcript_api import YouTubeTranscriptApi, TranscriptList
-from youtube_transcript_api._transcripts import TranscriptListFetcher
+from youtube_transcript_api import YouTubeTranscriptApi
 
 from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
     DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM, Document
 from thefuzz import fuzz
 
-from tools.global_instances import HTTPX_SESSION
 from tools.text_processing import extract_code_block
+
+async def search_youtube(query: str, max_results: int = 0) -> list[str]:
+    pytube_result = pytube.Search(query)
+    if 0 < max_results:
+        results = pytube_result.results[:max_results]
+    else:
+        results = pytube_result.results
+
+    return [each_video.watch_url for each_video in results]
+
+
+@dataclasses.dataclass(frozen=True)
+class VideoInfo:
+    video_url: str
+    title: str
+    published: datetime.datetime
+    description: str
+    transcript: list[dict[str, str]]
+
+
+def get_video_info(video_url: str, default_lang: str = "en") -> VideoInfo:
+    video = pytube.YouTube(video_url)
+    v_id = video_id(video_url)
+
+    try:
+        transcripts = youtube_transcript_api.YouTubeTranscriptApi.list_transcripts(v_id)
+        if 0 < len(transcripts._manually_created_transcripts):
+            transcript_lang = list(transcripts._manually_created_transcripts.keys())[0]
+
+        elif 0 < len(transcripts._generated_transcripts):
+            transcript_lang = list(transcripts._generated_transcripts.keys())[0]
+
+        else:
+            transcript_lang = default_lang
+
+        transcript = youtube_transcript_api.YouTubeTranscriptApi.get_transcript(v_id, languages=[transcript_lang])
+
+    except youtube_transcript_api._errors.TranscriptsDisabled as e:
+        transcript = list()
+
+    except youtube_transcript_api._errors.NoTranscriptFound as e:
+        transcript = list()
+
+    # noinspection PyTypeChecker
+    published: datetime.datetime = video.publish_date
+
+    return VideoInfo(video_url, video.title, published, video.description or "", transcript)
+
+
+async def video_info_async(video_url: str) -> VideoInfo:
+    loop = asyncio.get_event_loop()
+    video_info = await loop.run_in_executor(None, get_video_info, video_url)
+    return video_info
+
+
+async def get_video_infos(video_urls: list[str]) -> AsyncGenerator[VideoInfo, None]:
+    tasks = [video_info_async(url) for url in video_urls]
+    for each_coroutine in asyncio.as_completed(tasks):
+        each_info = await each_coroutine
+        yield each_info
 
 
 class Youtube(InterfaceData):
@@ -133,28 +193,33 @@ class Youtube(InterfaceData):
         return indexed_words
 
     @staticmethod
-    def _find_text_in_transcript(transcript: list[dict[str, str | float]], keywords: list[str]) -> tuple[float, float]:
+    def _find_text_in_transcript(
+            transcript: list[dict[str, str | float]], keywords: list[str], no_results: int = 1
+    ) -> list[tuple[float, float]]:
+
+        results = list[tuple[float, float]]()
+        min_secs_apart = 10.
+        min_match = 1.1
+
         window_size = len(keywords) * 3
         min_len = 2
         threshold = 80
 
-        _keywords = tuple(x.lower() for x in keywords if len(x) >= min_len)
-
-        best_time_index = -1.
-        best_value = -1.
+        keywords = tuple(x.lower() for x in keywords if len(x) >= min_len)
 
         indexed_words = Youtube._index_words(transcript, min_len=min_len)
 
         for i in range(len(indexed_words) - window_size):
             window = indexed_words[i:i + window_size]
             word_list = [each_word[0].lower() for each_word in window]
+            each_timestamp = indexed_words[i][1]
 
-            frequencies = {each_kw: 0 for each_kw in _keywords}
+            frequencies = {each_kw: 0 for each_kw in keywords}
             full_match = 0.
             for each_word in word_list:
                 best_match = 0.
                 best_kw = None
-                for each_kw in _keywords:
+                for each_kw in keywords:
                     each_match = fuzz.ratio(each_word, each_kw)
                     if each_match > threshold and each_match > best_match:
                         best_match = each_match
@@ -166,65 +231,52 @@ class Youtube(InterfaceData):
                 full_match += .5 ** new_freq
                 frequencies[best_kw] = new_freq + 1
 
-            if full_match >= best_value:
-                best_value = full_match
-                best_time_index = indexed_words[i][1]
+            if full_match >= min_match:
+                results.append((each_timestamp, full_match))
 
-        return best_time_index, best_value
+        filtered_results = list()
+        results.sort(key=lambda x: x[1], reverse=True)
+        for each_result in results:
+            each_timestamp = each_result[0]
+            if 0 < len(filtered_results):
+                distance_to_closest = min(abs(each_timestamp - x[0]) for x in filtered_results)
+                if distance_to_closest < min_secs_apart:
+                    continue
+            filtered_results.append(each_result)
+            if len(filtered_results) >= no_results:
+                return filtered_results
+
+        return filtered_results
 
     @staticmethod
-    def _timestamped_youtube_video_url(youtube_url: str, timestamp: float) -> str:
-        # Convert the timestamp from seconds to an integer
-        timestamp = math.floor(timestamp)
-
-        # Check if the URL already has query parameters
+    def _timestamp_youtube_video_url(youtube_url: str, timestamp: int) -> str:
         if '?' in youtube_url:
-            # If the URL already contains query parameters, append the timestamp with an '&'
             return f"{youtube_url}&t={timestamp:d}s"
 
-        # If the URL does not contain any query parameters, append the timestamp with a '?'
         return f"{youtube_url}?t={timestamp:d}s"
 
-    async def _timestamped_url(self, youtube_url: str, keywords: list[str]) -> tuple[str, float] | None:
-        min_mentions = 1
+    def _timestamped_urls(self, video_info: VideoInfo, keywords: list[str]) -> list[tuple[str, int, float]] | None:
+        transcript = video_info.transcript
+        timestamp_results = Youtube._find_text_in_transcript(transcript, keywords, no_results=1)
 
-        v_id = video_id(youtube_url)
-
-        try:
-            transcript = await self._get_transcript(v_id)
-
-        except youtube_transcript_api._errors.TranscriptsDisabled:
-            logger.warning("transcripts disabled.")
-            return None
-
-        time_index, match = Youtube._find_text_in_transcript(transcript, keywords)
-        print(f"best time index: {time_index:.2f}, best match: {match:.2f}")
-        if float(min_mentions) >= match:
-            logger.warning("keywords not mentioned.")
-            return None
-
-        timestamped_url = Youtube._timestamped_youtube_video_url(youtube_url, time_index)
-        return timestamped_url, match
+        results = [
+            (
+                Youtube._timestamp_youtube_video_url(video_info.video_url, math.floor(time_index)),
+                math.floor(time_index),
+                match
+            )
+            for time_index, match in timestamp_results
+        ]
+        return results
 
     async def get_uris(self, query: str, doc_count: int) -> AsyncGenerator[Uri, None]:
-        search = pytube.Search(query)
-        # search.get_next_results()
-        search_results = search.results
+        results = await search_youtube(query, max_results=doc_count)
         keyword_list = query.split()
 
-        all_results = list()
-        for i, each_result in enumerate(search_results):
-            if i >= doc_count:
-                break
-            each_url = each_result.watch_url
-            each_result = await self._timestamped_url(each_url, keyword_list)
-            if each_result is not None:
-                all_results.append(each_result)
-
-        all_results.sort(key=lambda x: x[1], reverse=True)
-        for ts_url, match in all_results:
-            each_title = pytube.YouTube(ts_url).title
-            yield Uri(uri_string=ts_url, title=each_title)
+        async for each_info in get_video_infos(results):
+            for each_url, each_ts, each_match in self._timestamped_urls(each_info, keyword_list):
+                each_title = f"{math.floor(each_ts):d}s @ {each_info.title}"
+                yield Uri(uri_string=each_url, title=each_title)
 
     async def _get_transcript(self, video_id: str) -> list[dict[str, any]]:
         transcripts = youtube_transcript_api.YouTubeTranscriptApi.list_transcripts(video_id)
@@ -254,70 +306,3 @@ class Youtube(InterfaceData):
             f"\n"
             f"{each_video.description}\n"
         )
-
-
-def monkey_patch() -> None:
-    async def list_transcripts(
-            cls, video_id: str, proxies: dict | None = None, cookies: str | None = None) -> TranscriptList:
-
-        async with HTTPX_SESSION as http_client:
-            if cookies:
-                http_client.cookies = cls._load_cookies(cookies, video_id)
-            if proxies:
-                http_client.proxies = proxies
-
-            return TranscriptListFetcher(http_client).fetch(video_id)
-
-    async def get_transcripts(
-            cls, video_id: str, languages=('en',), proxies: dict | None = None, cookies: str | None = None,
-            preserve_formatting: bool = False) -> list[dict[str, any]]:
-
-        assert isinstance(video_id, str), "`video_id` must be a string"
-        transcripts = await cls.list_transcripts(video_id, proxies, cookies)
-        return transcripts.find_transcript(languages).fetch(preserve_formatting=preserve_formatting)
-
-    async def get_transcript(
-            cls, video_id: str, languages=('en',), proxies: dict | None = None, cookies: str | None = None,
-            preserve_formatting: bool = False) -> list[dict[str, any]]:
-
-        assert isinstance(video_id, str), "`video_id` must be a string"
-        transcripts = await cls.list_transcripts(video_id, proxies, cookies)
-        return transcripts.find_transcript(languages).fetch(preserve_formatting=preserve_formatting)
-
-    YouTubeTranscriptApi.list_transcripts = classmethod(list_transcripts)
-    YouTubeTranscriptApi.get_transcripts = classmethod(get_transcripts)
-    YouTubeTranscriptApi.get_transcript = classmethod(get_transcript)
-
-    async def _execute_request(
-            url: str, method: str = "GET", headers: dict[str, str] | None = None, data: any = None, timeout: int = 10
-    ) -> pytube_request.Request:
-
-        default_headers = {"User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en"}
-
-        headers = {**default_headers, **(headers or dict())}
-
-        request_kwargs = {
-            'method': method,
-            'url': url,
-            'headers': headers,
-            'timeout': timeout
-        }
-
-        if data is not None:
-            if isinstance(data, dict):
-                request_kwargs["json"] = data
-            else:
-                request_kwargs["content"] = data
-
-        if not url.lower().startswith("http"):
-            raise ValueError("Invalid URL")
-
-        async with HTTPX_SESSION as client:
-            response = await client.request(**request_kwargs)
-
-        return response
-
-    # pytube_request._execute_request = _execute_request
-
-
-# monkey_patch()
