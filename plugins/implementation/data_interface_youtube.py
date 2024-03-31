@@ -268,8 +268,8 @@ class Youtube(InterfaceData):
         ]
         return results
 
-    async def get_uris(self, query: str, doc_count: int) -> AsyncGenerator[Uri, None]:
-        results = await search_youtube(query, max_results=doc_count)
+    async def get_uris(self, query: str) -> AsyncGenerator[Uri, None]:
+        results = await search_youtube(query, max_results=5)
         keyword_list = query.split()
 
         async for each_info in get_video_infos(results):

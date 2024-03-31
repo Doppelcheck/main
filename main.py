@@ -21,7 +21,7 @@ from configuration.config_04_comparison import DEFAULT_CUSTOM_COMPARISON_PROMPT
 from configuration.config_install import get_section_install
 from configuration.full import full_configuration
 from model.storages import ConfigModel, PasswordsModel
-from plugins.abstract import InterfaceLLM, InterfaceData, InterfaceDataConfig
+from plugins.abstract import InterfaceLLM, InterfaceData, InterfaceDataConfig, Uri
 from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
 from tools.content_retrieval import parse_url
 from tools.global_instances import BROWSER_INSTANCE
@@ -231,22 +231,26 @@ class Server:
 
         if len(context.strip()) < 20:
             context = None
+
         elif article.publish_date is not None:
             context += f"\n\npublished on {article.publish_date}"
 
-        doc_count = ConfigModel.get_retrieval_max_documents(user_id)
-
-        for each_interface in data_interfaces:
-            query = await each_interface.get_search_query(
+        async def get_uris(data_interface: InterfaceData) -> tuple[InterfaceData, str, list[Uri]]:
+            _query = await data_interface.get_search_query(
                 llm_interface, keypoint_text, context=context, language=language
             )
+            return data_interface, _query, [_each_uri async for _each_uri in data_interface.get_uris(_query)]
 
-            doc_count = ConfigModel.get_retrieval_max_documents(user_id)
-            async for each_uri in each_interface.get_uris(query, doc_count):
+        tasks = [get_uris(each_interface) for each_interface in data_interfaces]
+
+        for future in asyncio.as_completed(tasks):
+            each_interface, query, uris = await future
+            for each_uri in uris:
                 yield SourcesMessage(
                     keypoint_index=keypoint_index, data_source=each_interface.name,
                     query=query, content=each_uri.uri_string, title=each_uri.title
                 )
+
 
     async def get_matches(
             self,

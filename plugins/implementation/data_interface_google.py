@@ -169,7 +169,7 @@ class Google(InterfaceData):
         query = extract_code_block(response)
         return query
 
-    async def get_uris(self, query: str, doc_count: int) -> AsyncGenerator[Uri, None]:
+    async def get_uris(self, query: str) -> AsyncGenerator[Uri, None]:
 
         url = "https://www.googleapis.com/customsearch/v1"
         # https://developers.google.com/custom-search/v1/reference/rest/v1/cse/list#response
@@ -178,7 +178,6 @@ class Google(InterfaceData):
 
         params = {k: v for k, v in self.parameters.object_to_state().items() if v is not None}
         params["q"] = query
-        params["num"] = doc_count
 
         # async with httpx.AsyncClient() as httpx_session:
         #    response = await httpx_session.get(url, params=params)
