@@ -124,7 +124,7 @@ class Interface(DictSerializable, ABC):
 
 class InterfaceData(Interface, ABC, metaclass=InterfaceMeta):
     @abstractmethod
-    async def get_uris(self, query: str, doc_count: int) -> AsyncGenerator[Uri, None]:
+    async def get_uris(self, query: str) -> AsyncGenerator[Uri, None]:
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod
