@@ -192,7 +192,8 @@ class Server:
             text_lines, customized_instruction, num_keypoints=claim_count, language=language
         )
 
-        response = llm_interface.stream_reply_to_prompt(prompt)
+        # noinspection PyTypeChecker
+        response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
         async for each_segment in Server._stream_claims_to_browser(response, text_lines):
             yield each_segment
 
@@ -208,10 +209,12 @@ class Server:
 
     @staticmethod
     async def _fetch_and_yield_source_messages(
-            interface: InterfaceData, keypoint_index: int, query: str, doc_count: int
+            interface: InterfaceData, keypoint_index: int, query: str
     ) -> AsyncGenerator[SourcesMessage, None]:
 
-        async for each_uri in interface.get_uris(query, doc_count):
+        # noinspection PyTypeChecker
+        all_uris: AsyncGenerator[Uri, None] = interface.get_uris(query)
+        async for each_uri in all_uris:
             yield SourcesMessage(
                 keypoint_index=keypoint_index, data_source=interface.name,
                 query=query, content=each_uri.uri_string, title=each_uri.title
@@ -239,7 +242,10 @@ class Server:
             _query = await data_interface.get_search_query(
                 llm_interface, keypoint_text, context=context, language=language
             )
-            return data_interface, _query, [_each_uri async for _each_uri in data_interface.get_uris(_query)]
+
+            # noinspection PyTypeChecker
+            interface_uris: AsyncGenerator[Uri, None] = data_interface.get_uris(_query)
+            return data_interface, _query, [_each_uri async for _each_uri in interface_uris]
 
         tasks = [get_uris(each_interface) for each_interface in data_interfaces]
 
@@ -251,10 +257,8 @@ class Server:
                     query=query, content=each_uri.uri_string, title=each_uri.title
                 )
 
-
     async def get_matches(
-            self,
-            user_id: str, keypoint_index: int, keypoint_text: str,
+            self, user_id: str, keypoint_index: int, keypoint_text: str,
             source_index: int, source_uri: str, data_interface_name: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
@@ -275,8 +279,8 @@ class Server:
             keypoint_text, document_text, customized_instruction, language=language
         )
 
-        response = llm_interface.stream_reply_to_prompt(prompt)
-
+        # noinspection PyTypeChecker
+        response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
         async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_index, source_index):
             yield each_segment
 
