@@ -157,7 +157,8 @@ class OpenAi(InterfaceLLM):
 
     async def stream_reply_to_prompt(
             self, prompt: str,
-            info_callback: Callable[[dict[str, any]], None] | None = None) -> AsyncGenerator[str, None]:
+            info_callback: Callable[[dict[str, any]], None] | None = None
+    ) -> AsyncGenerator[str, None]:
 
         logger.info(prompt)
 

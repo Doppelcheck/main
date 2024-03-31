@@ -7,7 +7,6 @@ from typing import Callable, AsyncGenerator, TypeVar, Awaitable
 
 from tools.text_processing import chunk_text
 
-
 DictSerializableImplementation = TypeVar("DictSerializableImplementation", bound="DictSerializable")
 
 
@@ -178,7 +177,8 @@ class InterfaceLLM(Interface, ABC, metaclass=InterfaceMeta):
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod
-    async def stream_reply_to_prompt(self, prompt: str, info_callback: Callable[[dict[str, any]], None] | None = None
+    async def stream_reply_to_prompt(
+            self, prompt: str, info_callback: Callable[[dict[str, any]], None] | None = None
     ) -> AsyncGenerator[str, None]:
 
         raise NotImplementedError("Method not implemented")
