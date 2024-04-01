@@ -360,6 +360,11 @@ class Server:
                 with ui.video("static/videos/retrieval.webm", autoplay=False, loop=False, muted=True) as video:
                     video.classes(add="w-full max-w-2xl m-auto")
 
+                ui.element("div").classes(add="h-16")
+                ui.label("Video retrieval and comparison").classes(add="text-xl font-bold text-center m-8 ")
+                with ui.video("static/videos/youtube.webm", autoplay=False, loop=False, muted=False) as video:
+                    video.classes(add="w-full max-w-2xl m-auto")
+
                 ui.element("div").classes(add="h-8")
 
                 ui.link(
