@@ -127,7 +127,7 @@ class InterfaceData(Interface, ABC, metaclass=InterfaceMeta):
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod
-    async def get_document_content(self, uri: str) -> Document:
+    async def get_source_content(self, uri: str) -> Document:
         raise NotImplementedError("Method not implemented")
 
     @abstractmethod

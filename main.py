@@ -3,6 +3,7 @@ import dataclasses
 import json
 import secrets
 import string
+import uuid
 from typing import Generator, Sequence, AsyncGenerator, Iterable
 from urllib.parse import urlparse, unquote
 
@@ -33,7 +34,7 @@ from tools.text_processing import (
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 UNRESTRICTED = {"/", "/config", "/login"}
 
 
@@ -56,12 +57,12 @@ app.add_middleware(
 )
 
 
-class RetrieveDocumentException(Exception):
+class RetrieveSourceException(Exception):
     pass
 
 
-class User(BaseModel):
-    user_id: str | None
+class Instance(BaseModel):
+    instance_id: str | None
     version: str | None
 
 
@@ -74,12 +75,13 @@ class Server:
         return parsed_url.netloc
 
     @staticmethod
-    async def _stream_claims_to_browser(
+    async def _stream_keypoints_to_browser(
+            instance_id: str,
             response: AsyncGenerator[str, None],
             text_lines: Sequence[str]
     ) -> Generator[Message, None, None]:
 
-        claim_index = 0
+        keypoint_id = ConfigModel.increment_keypoint_index(instance_id)
         in_num_range = True
         num_range_str = ""
 
@@ -99,24 +101,24 @@ class Server:
 
                     start_line, end_line = line_range
                     highlight_text = "".join(text_lines[start_line - 1:end_line - 1])
-                    yield QuoteMessage(keypoint_index=claim_index, content=highlight_text)
+                    yield QuoteMessage(keypoint_id=keypoint_id, content=highlight_text)
                     in_num_range = False
 
                 continue
 
             last_segment = each_segment.segment == "\n"
             if not last_segment:
-                yield KeypointMessage(keypoint_index=claim_index, content=each_segment.segment)
+                yield KeypointMessage(keypoint_id=keypoint_id, content=each_segment.segment)
 
             else:
-                yield KeypointMessage(keypoint_index=claim_index, stop=True)
+                yield KeypointMessage(keypoint_id=keypoint_id, stop=True)
                 num_range_str = ""
                 in_num_range = True
-                claim_index += 1
+                keypoint_id = ConfigModel.increment_keypoint_index(instance_id)
 
     @staticmethod
     async def _stream_crosscheck_to_browser(
-            response: AsyncGenerator[str, None], keypoint_index: int, source_index: int
+            response: AsyncGenerator[str, None], keypoint_id: int, source_id: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
         in_rating = True
@@ -128,28 +130,28 @@ class Server:
                     continue
 
                 if in_rating:
-                    yield RatingMessage(keypoint_index=keypoint_index, source_index=source_index, content=each_char)
+                    yield RatingMessage(keypoint_id=keypoint_id, source_id=source_id, content=each_char)
                 else:
                     yield ExplanationMessage(
-                        keypoint_index=keypoint_index, source_index=source_index, content=each_char)
+                        keypoint_id=keypoint_id, source_id=source_id, content=each_char)
 
     @staticmethod
-    def get_match_llm_interface(user_id: str) -> InterfaceLLM:
-        llm_interface_config = ConfigModel.get_comparison_llm(user_id)
+    def get_match_llm_interface(instance_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_comparison_llm(instance_id)
         if llm_interface_config is None:
-            logger.error(f"ConfigModel.get_comparison_llm({user_id})")
-            raise RetrieveDocumentException(f"ConfigModel.get_comparison_llm({user_id})")
+            logger.error(f"ConfigModel.get_comparison_llm({instance_id})")
+            raise RetrieveSourceException(f"ConfigModel.get_comparison_llm({instance_id})")
         keywords = llm_interface_config.object_to_state()
         class_ = llm_interface_config.get_interface_class()
         llm_interface: InterfaceLLM = class_.from_state(keywords)
         return llm_interface
 
     @staticmethod
-    def get_data_interfaces(user_id: str) -> list[InterfaceData]:
-        data_interface_configs = ConfigModel.get_selected_data_interfaces(user_id)
+    def get_data_interfaces(instance_id: str) -> list[InterfaceData]:
+        data_interface_configs = ConfigModel.get_selected_data_interfaces(instance_id)
         if data_interface_configs is None:
-            logger.error(f"ConfigModel.get_data({user_id})")
-            raise RetrieveDocumentException(f"ConfigModel.get_data({user_id})")
+            logger.error(f"ConfigModel.get_data({instance_id})")
+            raise RetrieveSourceException(f"ConfigModel.get_data({instance_id})")
 
         selected_interfaces = list()
         for each_data_interface_config in data_interface_configs:
@@ -166,11 +168,11 @@ class Server:
         return data_interface
 
     @staticmethod
-    def get_retrieval_llm_interface(user_id: str) -> InterfaceLLM:
-        llm_interface_config = ConfigModel.get_retrieval_llm(user_id)
+    def get_retrieval_llm_interface(instance_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_retrieval_llm(instance_id)
         if llm_interface_config is None:
-            logger.error(f"ConfigModel.get_retrieval_llm({user_id})")
-            raise RetrieveDocumentException(f"ConfigModel.get_retrieval_llm({user_id})")
+            logger.error(f"ConfigModel.get_retrieval_llm({instance_id})")
+            raise RetrieveSourceException(f"ConfigModel.get_retrieval_llm({instance_id})")
         keywords = llm_interface_config.object_to_state()
         class_ = llm_interface_config.get_interface_class()
         llm_interface: InterfaceLLM = class_.from_state(keywords)
@@ -179,54 +181,41 @@ class Server:
     def __init__(self) -> None:
         nltk.download('punkt')
 
-    async def get_claims_from_str(
-            self, string_sequence: Iterable[str], claim_count: int,
-            user_id: str) -> Generator[Message, None, None]:
-        llm_interface = await self.get_extraction_llm_interface(user_id)
+    async def get_keypoints_from_str(
+            self, string_sequence: Iterable[str], keypoint_count: int,
+            instance_id: str) -> Generator[Message, None, None]:
+        llm_interface = await self.get_extraction_llm_interface(instance_id)
 
-        language = ConfigModel.get_general_language(user_id)
+        language = ConfigModel.get_general_language(instance_id)
 
         text_lines = list(get_text_lines(string_sequence, line_length=20))
-        customized_instruction = ConfigModel.get_extraction_prompt(user_id) or DEFAULT_CUSTOM_EXTRACTION_PROMPT
+        customized_instruction = ConfigModel.get_extraction_prompt(instance_id) or DEFAULT_CUSTOM_EXTRACTION_PROMPT
         prompt = instruction_keypoint_extraction(
-            text_lines, customized_instruction, num_keypoints=claim_count, language=language
+            text_lines, customized_instruction, num_keypoints=keypoint_count, language=language
         )
 
         # noinspection PyTypeChecker
         response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
-        async for each_segment in Server._stream_claims_to_browser(response, text_lines):
+        async for each_segment in Server._stream_keypoints_to_browser(instance_id, response, text_lines):
             yield each_segment
 
-    async def get_extraction_llm_interface(self, user_id: str) -> InterfaceLLM:
-        llm_interface_config = ConfigModel.get_extraction_llm(user_id)
+    async def get_extraction_llm_interface(self, instance_id: str) -> InterfaceLLM:
+        llm_interface_config = ConfigModel.get_extraction_llm(instance_id)
         if llm_interface_config is None:
-            logger.error(f"ConfigModel.get_extraction_llm({user_id})")
-            raise RetrieveDocumentException(f"ConfigModel.get_extraction_llm({user_id})")
+            logger.error(f"ConfigModel.get_extraction_llm({instance_id})")
+            raise RetrieveSourceException(f"ConfigModel.get_extraction_llm({instance_id})")
         keywords = llm_interface_config.object_to_state()
         class_ = llm_interface_config.get_interface_class()
         llm_interface: InterfaceLLM = class_.from_state(keywords)
         return llm_interface
 
-    @staticmethod
-    async def _fetch_and_yield_source_messages(
-            interface: InterfaceData, keypoint_index: int, query: str
+    async def get_source_uris(
+        self, keypoint_id: int, keypoint_text: str, instance_id: str, original_url: str
     ) -> AsyncGenerator[SourcesMessage, None]:
 
-        # noinspection PyTypeChecker
-        all_uris: AsyncGenerator[Uri, None] = interface.get_uris(query)
-        async for each_uri in all_uris:
-            yield SourcesMessage(
-                keypoint_index=keypoint_index, data_source=interface.name,
-                query=query, content=each_uri.uri_string, title=each_uri.title
-            )
-
-    async def get_document_uris(
-        self, keypoint_index: int, keypoint_text: str, user_id: str, original_url: str
-    ) -> AsyncGenerator[SourcesMessage, None]:
-
-        data_interfaces = Server.get_data_interfaces(user_id)
-        llm_interface = Server.get_retrieval_llm_interface(user_id)
-        language = ConfigModel.get_general_language(user_id)
+        data_interfaces = Server.get_data_interfaces(instance_id)
+        llm_interface = Server.get_retrieval_llm_interface(instance_id)
+        language = ConfigModel.get_general_language(instance_id)
 
         content = await BROWSER_INSTANCE.get_html_content(original_url)
         article = await parse_url(original_url, input_html=content.content)
@@ -252,36 +241,37 @@ class Server:
         for future in asyncio.as_completed(tasks):
             each_interface, query, uris = await future
             for each_uri in uris:
+                each_id = uuid.uuid4().hex
                 yield SourcesMessage(
-                    keypoint_index=keypoint_index, data_source=each_interface.name,
+                    keypoint_id=keypoint_id, source_id=each_id, data_source=each_interface.name,
                     query=query, content=each_uri.uri_string, title=each_uri.title
                 )
 
     async def get_matches(
-            self, user_id: str, keypoint_index: int, keypoint_text: str,
-            source_index: int, source_uri: str, data_interface_name: str
+            self, instance_id: str, keypoint_id: int, keypoint_text: str,
+            source_id: str, source_uri: str, data_interface_name: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
-        llm_interface = Server.get_match_llm_interface(user_id)
-        data_interface_config = ConfigModel.get_data_interface(user_id, data_interface_name)
+        llm_interface = Server.get_match_llm_interface(instance_id)
+        data_interface_config = ConfigModel.get_data_interface(instance_id, data_interface_name)
         data_interface = Server._data_interface_from_config(data_interface_config)
 
-        language = ConfigModel.get_general_language(user_id)
+        language = ConfigModel.get_general_language(instance_id)
 
-        source = await data_interface.get_document_content(source_uri)
-        document_html = source.content
+        source = await data_interface.get_source_content(source_uri)
+        source_content = source.content
 
-        node_generator = text_node_generator(document_html)
-        document_text = "".join(node_generator)
+        node_generator = text_node_generator(source_content)
+        source_text = "".join(node_generator)
 
-        customized_instruction = ConfigModel.get_comparison_prompt(user_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
+        customized_instruction = ConfigModel.get_comparison_prompt(instance_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
         prompt = instruction_crosschecking(
-            keypoint_text, document_text, customized_instruction, language=language
+            keypoint_text, source_text, customized_instruction, language=language
         )
 
         # noinspection PyTypeChecker
         response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
-        async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_index, source_index):
+        async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_id, source_id):
             yield each_segment
 
     def setup_api_endpoints(self) -> None:
@@ -299,40 +289,40 @@ class Server:
             return HTMLResponse(html_content)
 
         @app.post("/get_config/")
-        async def get_config(user_data: User = Body(...)) -> dict:
+        async def get_config(instance_data: Instance = Body(...)) -> dict:
             """
             const configUrl = `https://${address}/get_config/`;
-            const userData = { user_id: userId, version: versionClient };
+            const userData = { instance_id: instanceId, version: versionClient };
             """
-            logger.info(f"getting settings for {user_data.user_id}")
+            logger.info(f"getting settings for {instance_data.instance_id}")
 
             # todo: check if config is set up
 
-            if user_data.version != VERSION:
-                logger.error(f"client version {user_data.version} does not match server version {VERSION}")
+            if instance_data.version != VERSION:
+                logger.error(f"client version {instance_data.version} does not match server version {VERSION}")
                 return {
                     "error": "client version does not match server version",
                     "versionServer": VERSION,
                 }
 
-            if user_data.user_id is None:
-                logger.error(f"no user_id in {user_data}")
+            if instance_data.instance_id is None:
+                logger.error(f"no instance_id in {instance_data}")
                 return {"error": "no user id provided"}
 
-            data_interfaces = ConfigModel.get_selected_data_interfaces(user_data.user_id)
+            data_interfaces = ConfigModel.get_selected_data_interfaces(instance_data.instance_id)
 
             if (
-                    (ConfigModel.get_extraction_llm(user_data.user_id) is None) or
-                    (ConfigModel.get_retrieval_llm(user_data.user_id) is None) or
+                    (ConfigModel.get_extraction_llm(instance_data.instance_id) is None) or
+                    (ConfigModel.get_retrieval_llm(instance_data.instance_id) is None) or
                     (len(data_interfaces) < 1) or
-                    (ConfigModel.get_comparison_llm(user_data.user_id) is None)
+                    (ConfigModel.get_comparison_llm(instance_data.instance_id) is None)
             ):
-                logger.error(f"no interface for {user_data.user_id}")
+                logger.error(f"no interface for {instance_data.instance_id}")
                 return {"error": "missing interfaces"}
 
             return {
                 "versionServer": VERSION,
-                "nameInstance": ConfigModel.get_general_name(user_data.user_id),
+                "nameInstance": ConfigModel.get_general_name(instance_data.instance_id),
                 "dataSources": [each.name for each in data_interfaces],
             }
 
@@ -361,12 +351,12 @@ class Server:
                 get_section_install(secret, address, VERSION, title=False)
 
                 ui.element("div").classes(add="h-16")
-                ui.label("Claim extraction").classes(add="text-xl font-bold text-center m-8 ")
+                ui.label("Keypoint extraction").classes(add="text-xl font-bold text-center m-8 ")
                 with ui.video("static/videos/extract.webm", autoplay=False, loop=False, muted=True) as video:
                     video.classes(add="w-full max-w-2xl m-auto")
 
                 ui.element("div").classes(add="h-16")
-                ui.label("Document retrieval and claim checking").classes(add="text-xl font-bold text-center m-8 ")
+                ui.label("Source retrieval and keypoint comparison").classes(add="text-xl font-bold text-center m-8 ")
                 with ui.video("static/videos/retrieval.webm", autoplay=False, loop=False, muted=True) as video:
                     video.classes(add="w-full max-w-2xl m-auto")
 
@@ -431,24 +421,24 @@ class Server:
 
             await full_configuration(None, address, VERSION)
 
-        @ui.page("/config/{userid}")
-        async def config(userid: str, client: Client) -> None:
-            if userid is None or len(userid) < 1:
+        @ui.page("/config/{instanceid}")
+        async def config(instanceid: str, client: Client) -> None:
+            if instanceid is None or len(instanceid) < 1:
                 ui.open("/")
                 return
 
             address = await Server._get_address(client)
-            await full_configuration(userid, address, VERSION)
+            await full_configuration(instanceid, address, VERSION)
+
+    @staticmethod
+    def _to_json(message: dataclasses.dataclass, instance_id: str) -> dict:
+        dc_dict = dataclasses.asdict(message)
+        dc_dict["instance_id"] = instance_id
+        return dc_dict
 
     def setup_websocket(self) -> None:
-
-        def to_json(message: dataclasses.dataclass, user_id: str) -> dict:
-            dc_dict = dataclasses.asdict(message)
-            dc_dict["user_id"] = user_id
-            return dc_dict
-
         @app.websocket("/talk")
-        async def websocket_endpoint(websocket: WebSocket):
+        async def websocket_endpoint(websocket: WebSocket) -> None:
             # todo:
             #  check out alternative implementation:
             #  https://github.com/zauberzeug/nicegui/blob/main/examples/websockets/main.py
@@ -459,65 +449,65 @@ class Server:
             try:
                 message = await websocket.receive_json()
                 message_type = message['message_type']
-                user_id = message['user_id']
+                instance_id = message['instance_id']
                 original_url = message['original_url']
                 content = message['content']
 
                 match message_type:
                     case "ping":
                         answer = Pong()
-                        json_dict = to_json(answer, user_id)
+                        json_dict = Server._to_json(answer, instance_id)
                         await websocket.send_json(json_dict)
 
                     case "keypoint" | "keypoint_selection":
                         # [x] Keypoint Assistant
                         if message_type == "keypoint":
                             base_text = text_node_generator(content)
-                            claim_count = ConfigModel.get_extraction_claims(user_id)
+                            keypoint_count = ConfigModel.get_number_of_keypoints(instance_id)
 
                         else:
                             base_text = content
-                            claim_count = 1
+                            keypoint_count = 1
 
-                        async for segment in self.get_claims_from_str(base_text, claim_count, user_id):
-                            each_dict = to_json(segment, user_id)
+                        async for segment in self.get_keypoints_from_str(base_text, keypoint_count, instance_id):
+                            each_dict = Server._to_json(segment, instance_id)
                             await websocket.send_json(each_dict)
+                            continue
 
-                        stop_message = KeypointMessage(stop_all=True, keypoint_index=-1)
-                        stop_dict = to_json(stop_message, user_id)
-                        await websocket.send_json(stop_dict)
+                        # stop_message = KeypointMessage(stop_all=True, keypoint_id=-1)
+                        # stop_dict = to_json(stop_message, instance_id)
+                        # await websocket.send_json(stop_dict)
 
                     case "sourcefinder":
                         # [x] Sourcefinder Assistant
-                        keypoint_index = content['keypoint_index']
+                        keypoint_id = content['keypoint_id']
                         keypoint_text = content['keypoint_text']
 
-                        uri_generator = self.get_document_uris(keypoint_index, keypoint_text, user_id, original_url)
+                        uri_generator = self.get_source_uris(keypoint_id, keypoint_text, instance_id, original_url)
                         async for segment in uri_generator:
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)
 
                         stop_message = SourcesMessage(
-                            stop=True, keypoint_index=keypoint_index, data_source="", query=""
+                            stop=True, source_id="", keypoint_id=keypoint_id, data_source="", query=""
                         )
                         stop_dict = dataclasses.asdict(stop_message)
                         await websocket.send_json(stop_dict)
 
                     case "crosschecker":
                         # [x] Crosschecker Assistant
-                        keypoint_index = content['keypoint_index']
+                        keypoint_id = content['keypoint_id']
                         keypoint_text = content['keypoint_text']
-                        source_index = content['source_index']
+                        source_id = content['source_id']
                         source_uri = content['source_uri']
                         data_source = content['data_source']
                         async for segment in self.get_matches(
-                            user_id, keypoint_index, keypoint_text, source_index, source_uri, data_source
+                            instance_id, keypoint_id, keypoint_text, source_id, source_uri, data_source
                         ):
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)
 
-                        stop_message = ExplanationMessage(
-                            stop=True, keypoint_index=keypoint_index, source_index=source_index)
+                        stop_message = ExplanationMessage(stop=True, keypoint_id=keypoint_id, source_id=source_id)
                         stop_dict = dataclasses.asdict(stop_message)
                         await websocket.send_json(stop_dict)
 

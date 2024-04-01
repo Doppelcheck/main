@@ -1,5 +1,5 @@
 const serverHost = "[localhost:8000]";
-const userID = "[unique user identification]";
+const instanceID = "[unique instance identification]";
 const versionClient = "[version number]";
 
 const mainContentStyle = `[main content style]`;
@@ -79,6 +79,10 @@ const InitializeDoppelcheck = {
         return InitializeDoppelcheck.shadowElement.getElementById(id);
     },
 
+    getElementsByClassName(className) {
+        return InitializeDoppelcheck.shadowElement.querySelectorAll(`.${className}`);
+    },
+
     async createSidebar(container) {
         const sidebar = document.createElement("div");
         InitializeDoppelcheck.shadowElement = sidebar.attachShadow({ mode: 'open' });
@@ -107,8 +111,8 @@ const InitializeDoppelcheck = {
         body.appendChild(container);
     },
 
-    notifyUser(message, dismissable = true) {
-        if (!dismissable) {
+    notifyUser(message, dismiss = true) {
+        if (!dismiss) {
             const dismissButton = InitializeDoppelcheck.getElementById("doppelcheck-dismiss-button");
             dismissButton.disabled = true;
         }
@@ -162,7 +166,7 @@ const InitializeDoppelcheck = {
 
         let config;
         try {
-            config = await getConfig(userID);
+            config = await getConfig(instanceID);
 
         } catch (error) {
             // request failed, offer redirection
@@ -170,7 +174,7 @@ const InitializeDoppelcheck = {
             return;
         }
 
-        const configUrl = `https://${serverHost}/config/${userID}`;
+        const configUrl = `https://${serverHost}/config/${instanceID}`;
         if (config["error"]) {
             // server setup problem
             ProxyUrlServices.setupError(config["error"], configUrl);
@@ -189,7 +193,7 @@ const InitializeDoppelcheck = {
 
         const instanceId = document.createElement("div");
         instanceId.id = "doppelcheck-instance-id";
-        instanceId.innerText = userID;
+        instanceId.innerText = instanceID;
         sidebar.appendChild(instanceId);
 
         const dataSourcesList = document.createElement("ol");
@@ -214,19 +218,6 @@ const InitializeDoppelcheck = {
         subheading.innerText = "Keypoints";
         sidebar.appendChild(subheading);
 
-        const addKeypoint = document.createElement("button");
-        addKeypoint.id = "doppelcheck-button-add";
-        addKeypoint.innerText = "📝 Add keypoint";
-        addKeypoint.disabled = true;
-        addKeypoint.addEventListener("click", async function () {
-            addKeypoint.disabled = true;
-            addKeypoint.innerText = "⏳ Adding keypoint from selection...";
-            const selection = document.getSelection();
-            const selectedText = selection.toString();
-            exchange("keypoint_selection", selectedText);
-        });
-        sidebar.appendChild(addKeypoint);
-
         document.addEventListener("selectionchange", function () {
             const selection = document.getSelection();
             if (selection === null || 100 >= selection.toString().trim().length) {
@@ -236,20 +227,34 @@ const InitializeDoppelcheck = {
             }
         });
 
-        const claimContainer = document.createElement("div");
-        claimContainer.id = "doppelcheck-claims-container";
-        sidebar.appendChild(claimContainer);
-
         const extractKeypoints = document.createElement("button");
         extractKeypoints.id = "doppelcheck-button-start";
-        extractKeypoints.innerText = "🤨 Extract keypoints";
+        extractKeypoints.innerText = "Review full website";
         extractKeypoints.addEventListener("click", async function () {
             extractKeypoints.disabled = true;
-            extractKeypoints.innerText = "⏳ Extracting keypoints from website...";
             const fullHTML = document.documentElement.outerHTML;
             exchange("keypoint", fullHTML);
         });
         sidebar.appendChild(extractKeypoints);
+
+        const addKeypoint = document.createElement("button");
+        addKeypoint.id = "doppelcheck-button-add";
+        addKeypoint.innerText = "Review text selection";
+        addKeypoint.disabled = true;
+        addKeypoint.addEventListener("click", async function () {
+            addKeypoint.disabled = true;
+            extractKeypoints.disabled = true;
+            // addKeypoint.innerText = "⏳ Adding keypoint from selection...";
+            const selection = document.getSelection();
+            const selectedText = selection.toString();
+            exchange("keypoint_selection", selectedText);
+        });
+        sidebar.appendChild(addKeypoint);
+
+
+        const keypointContainer = document.createElement("div");
+        keypointContainer.id = "doppelcheck-keypoints-container";
+        sidebar.appendChild(keypointContainer);
 
         // add disabled text area as log?
 
@@ -264,33 +269,56 @@ const InitializeDoppelcheck = {
 }
 
 const ExtractKeypoints = {
-    finishedKeypoints: 0,
+    receivingKeypointIds: new Set(),
 
-    addKeypoint(keypointIndex, claimsContainer) {
-        const eachClaimContainer = document.createElement("details");
-        eachClaimContainer.classList.add("doppelcheck-each-claim-container");
-        eachClaimContainer.id = `doppelcheck-each-claim-container${keypointIndex}`;
-        eachClaimContainer.setAttribute("onclick", "return false;");
-        claimsContainer.appendChild(eachClaimContainer);
+    removeKeypoint(keypointId) {
+        console.log("removing keypoint", keypointId);
 
-        const claim = document.createElement("summary");
-        claim.id = `doppelcheck-claim${keypointIndex}`;
-        claim.classList.add("doppelcheck-claim");
-        claim.classList.add(`doppelcheck-claim-${keypointIndex}`);
-        eachClaimContainer.appendChild(claim);
+        const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-each-keypoint-container-${keypointId}`);
+        if (keypoint) {
+            keypoint.remove();
+        }
+        this.removeHighlight(keypointId);
 
-        const getDocumentsButton = document.createElement("button");
-        getDocumentsButton.innerText = "🕵 Find sources";
-        getDocumentsButton.id = `doppelcheck-retrieve-button${keypointIndex}`;
-        getDocumentsButton.addEventListener("click", function () {
-            getDocumentsButton.disabled = true;
-            claim.textContent = claim.textContent + " 🕵";
-            getDocumentsButton.innerText = "⏳ Finding sources...";
-            RetrieveSources.getDocuments(keypointIndex);
+        const allKeypointsContainer = InitializeDoppelcheck.getElementById("doppelcheck-keypoints-container");
+        if (allKeypointsContainer.childElementCount === 0) {
+            const extractKeypoints = InitializeDoppelcheck.getElementById("doppelcheck-button-start");
+            extractKeypoints.disabled = false;
+        }
+    },
+
+    addKeypoint(keypointId, keypointsContainer) {
+        const eachkeypointContainer = document.createElement("details");
+        eachkeypointContainer.classList.add("doppelcheck-each-keypoint-container");
+        eachkeypointContainer.id = `doppelcheck-each-keypoint-container-${keypointId}`;
+        eachkeypointContainer.setAttribute("onclick", "return false;");
+        keypointsContainer.appendChild(eachkeypointContainer);
+
+        const keypoint = document.createElement("summary");
+        keypoint.id = `doppelcheck-keypoint-${keypointId}`;
+        keypoint.classList.add("doppelcheck-keypoint");
+        keypoint.classList.add(`doppelcheck-keypoint-${keypointId}`);
+        eachkeypointContainer.appendChild(keypoint);
+
+        const getSourcesButton = document.createElement("button");
+        getSourcesButton.innerText = "🕵 Find sources";
+        getSourcesButton.id = `doppelcheck-retrieve-button-${keypointId}`;
+        getSourcesButton.addEventListener("click", function () {
+            getSourcesButton.disabled = true;
+            keypoint.textContent = keypoint.textContent + " 🕵";
+            getSourcesButton.innerText = "⏳ Finding sources...";
+            RetrieveSources.getSources(keypointId);
         });
-        eachClaimContainer.appendChild(getDocumentsButton);
+        eachkeypointContainer.appendChild(getSourcesButton);
 
-        return claim;
+        const removeKeypointButton = document.createElement("button");
+        removeKeypointButton.innerText = "❌ Remove";
+        removeKeypointButton.addEventListener("click", function () {
+            ExtractKeypoints.removeKeypoint(keypointId);
+        });
+        eachkeypointContainer.appendChild(removeKeypointButton);
+
+        return keypoint;
     },
 
     segmentWords(text, segmentLength) {
@@ -306,37 +334,49 @@ const ExtractKeypoints = {
 
     processQuoteMessage(response) {
         const highlight = response["content"]
-        const keypointIndex = response["keypoint_index"];
+        const keypointId = response["keypoint_id"] % 10;
 
         const markInstance = new Mark(document.querySelector("#doppelcheck-main-content"));
 
         for (const regexPattern of ExtractKeypoints.segmentWords(highlight, 5)) {
             markInstance.markRegExp(regexPattern, {
                 "acrossElements": true,
-                "className": `doppelcheck-claim-${keypointIndex}`
+                "className": `doppelcheck-keypoint-${keypointId}`
             });
         }
     },
 
+    elevateChildrenOfElements(tagName, className) {
+        // Select all elements with the specified tag and class
+        const elements = document.querySelectorAll(`${tagName}.${className}`);
+
+        // Iterate over the NodeList
+        elements.forEach(element => {
+        // While the element has child nodes, insert them before the element itself
+        while (element.firstChild) {
+          element.parentNode.insertBefore(element.firstChild, element);
+        }
+        // After moving all children, remove the element
+        element.parentNode.removeChild(element);
+        });
+    },
+
+    removeHighlight(keypointId) {
+        this.elevateChildrenOfElements("mark", `doppelcheck-keypoint-${keypointId}`);
+    },
+
     processKeypointMessage(response) {
+        console.log("keypoint", response);
+
         const stopMessage = response["stop"];
         const stopAllMessages = response["stop_all"];
 
-        if (stopAllMessages) {
-            const button = InitializeDoppelcheck.getElementById("doppelcheck-button-start");
-            button.remove();
-            return;
-        }
-
-        const keypointIndex = ExtractKeypoints.finishedKeypoints;
-
-        if (stopMessage || stopAllMessages) {
-            ExtractKeypoints.finishedKeypoints++;
-        }
+        const keypointId = response["keypoint_id"] % 10;
 
         if (stopMessage) {
+            this.receivingKeypointIds.delete(keypointId);
             const eachKeypointContainer = InitializeDoppelcheck.getElementById(
-                `doppelcheck-each-claim-container${keypointIndex}`
+                `doppelcheck-each-keypoint-container-${keypointId}`
             );
             eachKeypointContainer.removeAttribute("onclick");
             return;
@@ -344,41 +384,41 @@ const ExtractKeypoints = {
 
         const messageContent = response["content"];
 
-        const allKeypointsContainer = InitializeDoppelcheck.getElementById("doppelcheck-claims-container");
+        const allKeypointsContainer = InitializeDoppelcheck.getElementById("doppelcheck-keypoints-container");
 
-        let keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-claim${keypointIndex}`);
+        let keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
         if (!keypoint) {
-            keypoint = ExtractKeypoints.addKeypoint(keypointIndex, allKeypointsContainer);
+            keypoint = ExtractKeypoints.addKeypoint(keypointId, allKeypointsContainer);
         }
         keypoint.textContent += messageContent;
     }
 }
 
 const RetrieveSources = {
-    addSource(claimId, documentId, documentsContainer) {
-        const documentContainer = document.createElement("div");
-        documentContainer.classList.add("doppelcheck-document-container");
-        documentContainer.id = `doppelcheck-document${claimId}-${documentId}`;
-        documentsContainer.appendChild(documentContainer);
-        return documentContainer;
+    addSource(keypointId, sourceId, sourcesContainer) {
+        const sourceContainer = document.createElement("div");
+        sourceContainer.classList.add("doppelcheck-source-container");
+        sourceContainer.id = `doppelcheck-source-${keypointId}-${sourceId}`;
+        sourcesContainer.appendChild(sourceContainer);
+        return sourceContainer;
     },
 
-    getDocuments(keypointIndex) {
-        console.log(`checking keypoint ${keypointIndex}`);
-        const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-claim${keypointIndex}`);
+    getSources(keypointId) {
+        console.log(`checking keypoint ${keypointId}`);
+        const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
         keypoint.onclick = null;
         const keypointText = keypoint.textContent;
-        const data = {"keypoint_index": keypointIndex, "keypoint_text": keypointText}
+        const data = {"keypoint_id": keypointId, "keypoint_text": keypointText}
         exchange("sourcefinder", data);
     },
 
-    addSourcesContainer(keypointIndex) {
+    addSourcesContainer(keypointId) {
         const sourcesContainer = document.createElement("div");
-        sourcesContainer.id = `doppelcheck-documents-container${keypointIndex}`;
-        sourcesContainer.classList.add("doppelcheck-documents-container");
+        sourcesContainer.id = `doppelcheck-sources-container-${keypointId}`;
+        sourcesContainer.classList.add("doppelcheck-sources-container");
 
         const eachKeypointContainer = InitializeDoppelcheck.getElementById(
-            `doppelcheck-each-claim-container${keypointIndex}`
+            `doppelcheck-each-keypoint-container-${keypointId}`
         );
         eachKeypointContainer.prepend(sourcesContainer);
         return sourcesContainer;
@@ -387,60 +427,56 @@ const RetrieveSources = {
     processSourcefinderMessage(response) {
         console.log("retrieval");
 
-        const keypointIndex = response["keypoint_index"];
+        const keypointId = response["keypoint_id"] % 10;
+        const sourceId = response["source_id"];
         const lastMessage = response["stop"];
         const dataSource = response["data_source"];
         const query = response["query"];
 
-        // replace button with documents container
+        // replace button with sources container
         let allSourcesContainer = InitializeDoppelcheck.getElementById(
-            `doppelcheck-documents-container${keypointIndex}`
+            `doppelcheck-sources-container-${keypointId}`
         )
         if (!allSourcesContainer) {
-            allSourcesContainer = RetrieveSources.addSourcesContainer(keypointIndex);
+            allSourcesContainer = RetrieveSources.addSourcesContainer(keypointId);
         }
 
-        const sourceIndex = allSourcesContainer.childElementCount;
-        const eachSourceContainer = RetrieveSources.addSource(keypointIndex, sourceIndex, allSourcesContainer);
+        const eachSourceContainer = RetrieveSources.addSource(keypointId, sourceId, allSourcesContainer);
 
         if (lastMessage) {
-            if (sourceIndex === 0) {
-                eachSourceContainer.innerText = "No documents found";
-            }
-
-            const retrieveButton = InitializeDoppelcheck.getElementById(`doppelcheck-retrieve-button${keypointIndex}`);
+            const retrieveButton = InitializeDoppelcheck.getElementById(`doppelcheck-retrieve-button-${keypointId}`);
             retrieveButton.remove();
 
-            const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-claim${keypointIndex}`);
+            const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
             keypoint.textContent = keypoint.textContent.replace("🕵", "📑");
             return;
         }
 
         const buttonContainer = document.createElement("div");
-        buttonContainer.id = `doppelcheck-button-container${keypointIndex}-${sourceIndex}`;
+        buttonContainer.id = `doppelcheck-button-container-${keypointId}-${sourceId}`;
 
-        const documentUri = response["content"];
-        const documentTitle = response["title"] || documentUri;
+        const sourceUri = response["content"];
+        const sourceTitle = response["title"] || sourceUri;
 
         const link = document.createElement("a");
-        link.id = `doppelcheck-document-link${keypointIndex}-${sourceIndex}`;
-        link.href = documentUri;
+        link.id = `doppelcheck-source-link-${keypointId}-${sourceId}`;
+        link.href = sourceUri;
         link.target = "_blank";
-        link.innerHTML = `${dataSource}:<br />${documentTitle}`;
+        link.innerHTML = `${dataSource}:<br />${sourceTitle}`;
         link.title = query;
         link.setAttribute("data-source", dataSource);
 
         eachSourceContainer.appendChild(link);
 
         const crosscheckButton = document.createElement("button");
-        crosscheckButton.id = `doppelcheck-compare-button${keypointIndex}-${sourceIndex}`;
+        crosscheckButton.id = `doppelcheck-compare-button-${keypointId}-${sourceId}`;
         crosscheckButton.classList.add("doppelcheck-compare-button");
         buttonContainer.appendChild(crosscheckButton);
         crosscheckButton.textContent = "Crosscheck";
         crosscheckButton.onclick = function () {
             crosscheckButton.disabled = true;
             crosscheckButton.textContent = "🧐 Crosschecking...";
-            CrosscheckSources.initiateCrosscheck(keypointIndex, sourceIndex);
+            CrosscheckSources.initiateCrosscheck(keypointId, sourceId);
         }
 
         eachSourceContainer.appendChild(buttonContainer);
@@ -449,12 +485,12 @@ const RetrieveSources = {
 }
 
 const CrosscheckSources = {
-    initiateCrosscheck(keypointIndex, sourceIndex) {
-        const keypointContainer = InitializeDoppelcheck.getElementById(`doppelcheck-claim${keypointIndex}`);
+    initiateCrosscheck(keypointId, sourceId) {
+        const keypointContainer = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
 
-        const sourceLink = InitializeDoppelcheck.getElementById(`doppelcheck-document-link${keypointIndex}-${sourceIndex}`);
+        const sourceLink = InitializeDoppelcheck.getElementById(`doppelcheck-source-link-${keypointId}-${sourceId}`);
         if (!sourceLink) {
-            alert(`Document URI not found for keypoint ${keypointIndex} and source ${sourceIndex}`);
+            alert(`Source URI not found for keypoint ${keypointId} and source ${sourceId}`);
             return;
         }
         const sourceUri = sourceLink.href;
@@ -463,9 +499,9 @@ const CrosscheckSources = {
         const keypoint = keypointContainer.textContent.replace("📑", "").trim();
         exchange("crosschecker",
             {
-                "keypoint_index": keypointIndex,
+                "keypoint_id": keypointId,
                 "keypoint_text": keypoint,
-                "source_index": sourceIndex,
+                "source_id": sourceId,
                 "source_uri": sourceUri,
                 "data_source": dataSource
             }
@@ -476,31 +512,31 @@ const CrosscheckSources = {
         console.log("comparison");
 
         const content = response["content"];
-        const keypointIndex = response["keypoint_index"];
-        const sourceIndex = response["source_index"]
+        const keypointId = response["keypoint_id"] % 10;
+        const sourceId = response["source_id"]
 
 
-        let sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${keypointIndex}-${sourceIndex}`);
+        let sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-source-summary-${keypointId}-${sourceId}`);
         if (!sourceSummaryElement) {
-            const buttonContainer = InitializeDoppelcheck.getElementById(`doppelcheck-button-container${keypointIndex}-${sourceIndex}`);
+            const buttonContainer = InitializeDoppelcheck.getElementById(`doppelcheck-button-container-${keypointId}-${sourceId}`);
             buttonContainer.remove();
 
-            const sourceContainer = InitializeDoppelcheck.getElementById(`doppelcheck-document${keypointIndex}-${sourceIndex}`);
+            const sourceContainer = InitializeDoppelcheck.getElementById(`doppelcheck-source-${keypointId}-${sourceId}`);
 
             const sourceDetailsElement = document.createElement("details");
-            sourceDetailsElement.id = `doppelcheck-document-details${keypointIndex}-${sourceIndex}`;
-            sourceDetailsElement.classList.add("doppelcheck-document-details");
+            sourceDetailsElement.id = `doppelcheck-source-details-${keypointId}-${sourceId}`;
+            sourceDetailsElement.classList.add("doppelcheck-source-details");
             sourceContainer.appendChild(sourceDetailsElement);
 
             sourceSummaryElement = document.createElement("summary");
-            sourceSummaryElement.id = `doppelcheck-document-summary${keypointIndex}-${sourceIndex}`;
-            sourceSummaryElement.classList.add("doppelcheck-document-summary");
+            sourceSummaryElement.id = `doppelcheck-source-summary-${keypointId}-${sourceId}`;
+            sourceSummaryElement.classList.add("doppelcheck-source-summary");
             sourceSummaryElement.textContent = "⏳ ";
             sourceDetailsElement.appendChild(sourceSummaryElement);
 
             const crosscheckExplanation = document.createElement("div");
-            crosscheckExplanation.id = `doppelcheck-document-explanation${keypointIndex}-${sourceIndex}`;
-            crosscheckExplanation.classList.add("doppelcheck-document-explanation", "doppelcheck-explanation-container");
+            crosscheckExplanation.id = `doppelcheck-source-explanation-${keypointId}-${sourceId}`;
+            crosscheckExplanation.classList.add("doppelcheck-source-explanation", "doppelcheck-explanation-container");
             sourceDetailsElement.appendChild(crosscheckExplanation);
 
         }
@@ -513,16 +549,16 @@ const CrosscheckSources = {
 
         const content = response["content"];
         const lastMessage = response["stop"];
-        const keypointIndex = response["keypoint_index"];
-        const sourceIndex = response["source_index"]
+        const keypointId = response["keypoint_id"] % 10;
+        const sourceId = response["source_id"]
 
         if (lastMessage) {
-            const sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-document-summary${keypointIndex}-${sourceIndex}`);
+            const sourceSummaryElement = InitializeDoppelcheck.getElementById(`doppelcheck-source-summary-${keypointId}-${sourceId}`);
             sourceSummaryElement.textContent = sourceSummaryElement.textContent.replace("⏳ ", "");
             return;
         }
 
-        const matchExplanation = InitializeDoppelcheck.getElementById(`doppelcheck-document-explanation${keypointIndex}-${sourceIndex}`);
+        const matchExplanation = InitializeDoppelcheck.getElementById(`doppelcheck-source-explanation-${keypointId}-${sourceId}`);
         matchExplanation.textContent += content;
     }
 }
@@ -533,7 +569,7 @@ function exchange(messageType, content) {
 
         const message = {
             "message_type": messageType,
-            "user_id": userID,
+            "instance_id": instanceID,
             "original_url": window.location.href,
             "content": content
         };
@@ -549,7 +585,7 @@ function exchange(messageType, content) {
             switch (response["message_type"]) {
                 case "pong_message":
                     if (messageType === "ping") {
-                        console.log(`Communication with ${response["user_id"]} established`);
+                        console.log(`Communication with ${response["instance_id"]} established`);
                     } else {
                         console.log(`unexpected pong response to: ${messageType}`);
                     }
@@ -612,17 +648,17 @@ function exchange(messageType, content) {
 }
 
 
-async function getConfig(userId) {
+async function getConfig(instanceId) {
     const configUrl = `https://${serverHost}/get_config/`;
-    const userData = { user_id: userId, version: versionClient };
-    console.log("user data ", userData)
+    const instanceData = { instance_id: instanceId, version: versionClient };
+    console.log("instance data ", instanceData)
 
     const response = await fetch(configUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify(userData)
+        body: JSON.stringify(instanceData)
     });
 
     if (!response.ok) {

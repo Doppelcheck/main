@@ -79,7 +79,7 @@ def get_text_lines(segment_generator: Iterable[str], line_length: int) -> Genera
 
 
 def lined_text(lines: Iterable[str]) -> str:
-    numbered_lines = (f"{line_number+1:03d} {each_line}" for line_number, each_line in enumerate(lines))
+    numbered_lines = (f"{line_number+1:04d} {each_line}" for line_number, each_line in enumerate(lines))
     return "\n".join(numbered_lines)
 
 
