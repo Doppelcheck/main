@@ -30,6 +30,8 @@ stateDiagram-v2
 
 [Retrieval](https://github.com/Doppelcheck/main/assets/9195325/bb2cf100-b407-4b1d-9843-97be39c2133c)
 
+[Youtube retrieval](https://github.com/Doppelcheck/main/assets/9195325/a6b47b01-c3e4-4da4-8d10-d1262b804773)
+
 
 ## Features
 
