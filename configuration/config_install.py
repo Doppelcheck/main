@@ -22,7 +22,7 @@ def get_section_install(
         sidebar_content_style = file.read()
 
     bookmarklet_js = bookmarklet_js.replace("[localhost:8000]", address)
-    bookmarklet_js = bookmarklet_js.replace("[unique user identification]", user_id)
+    bookmarklet_js = bookmarklet_js.replace("[unique instance identification]", user_id)
     bookmarklet_js = bookmarklet_js.replace("[version number]", version)
     bookmarklet_js = bookmarklet_js.replace("[main content style]", main_content_style_css)
     bookmarklet_js = bookmarklet_js.replace("[sidebar style]", sidebar_style)

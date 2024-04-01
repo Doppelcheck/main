@@ -18,27 +18,27 @@ def instruction_keypoint_extraction(lines: Iterable[str], customized_instruction
     numbered_text = lined_text(lines)
 
     return (
-        f"Read the following text carefully to extract the {num_keypoints_str} most important keypoints.\n"
+        f"Read the following text carefully to extract the {num_keypoints_str} most important "
+        f"keypoint{'s' if num_keypoints >= 2 else ''}.\n"
         f"\n"
         f"```text\n"
         f"{numbered_text}\n"
         f"```\n"
         f"\n"
-        f"{customized_instruction}"
+        f"{customized_instruction.strip()}\n"
         f"\n"
         f"Precisely refer to an exclusive range of line numbers with each extracted keypoint. Provide a concise, "
-        f"clear, and rephrasing of each keypoint to convey its essence.\n"
-        f"\n"
-        f"Respond according to the following pattern:\n"
+        f"clear, and rephrasing of each keypoint to convey its essence. Respond according to the following pattern:\n"
         f"```\n"
         f"<line start>-<line end>: <keypoint a>\n"
-        f"015-027: <keypoint b>\n"
-        f"056-081: <keypoint c>\n"
+        f"0015-0027: <keypoint b>\n"
+        f"0056-0081: <keypoint c>\n"
         f"[...]\n"
         f"```\n"
         f"\n"
-        f"Answer in one triple single quote fenced code block containing all {num_keypoints_str} keypoints. Ignore any "
-        f"information that is not part of the main content.{language_instruction}"
+        f"Answer in one triple single quote fenced code block containing exactly and only {num_keypoints_str} "
+        f"keypoint{'s' if num_keypoints >= 2 else ''}. Ignore any information that is not part of the main content."
+        f"{language_instruction}"
     )
 
 

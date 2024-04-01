@@ -291,7 +291,7 @@ class Youtube(InterfaceData):
         transcript = youtube_transcript_api.YouTubeTranscriptApi.get_transcript(video_id, languages=[transcript_lang])
         return transcript
 
-    async def get_document_content(self, uri: str) -> Document:
+    async def get_source_content(self, uri: str) -> Document:
         v_id = video_id(uri)
         transcript = await self._get_transcript(v_id)
         full_text = " ".join(each_segment["text"].strip() for each_segment in transcript)

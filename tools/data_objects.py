@@ -48,14 +48,14 @@ class ErrorMessage(Message):
 
 @dataclass(kw_only=True)
 class QuoteMessage(Message):
-    keypoint_index: int
+    keypoint_id: int
     message_type: str = "quote_message"
     stop: bool = field(default=False)
 
 
 @dataclass(kw_only=True)
 class KeypointMessage(Message):
-    keypoint_index: int
+    keypoint_id: int
     message_type: str = "keypoint_message"
     stop: bool = field(default=False)
     stop_all: bool = field(default=False)
@@ -63,7 +63,8 @@ class KeypointMessage(Message):
 
 @dataclass(kw_only=True)
 class SourcesMessage(Message):
-    keypoint_index: int
+    keypoint_id: int
+    source_id: str
     data_source: str
     query: str
     message_type: str = "sources_message"
@@ -73,15 +74,15 @@ class SourcesMessage(Message):
 
 @dataclass(kw_only=True)
 class RatingMessage(Message):
-    keypoint_index: int
-    source_index: int
+    keypoint_id: int
+    source_id: str
     message_type: str = "rating_message"
     stop: bool = field(default=False)
 
 
 @dataclass(kw_only=True)
 class ExplanationMessage(Message):
-    keypoint_index: int
-    source_index: int
+    keypoint_id: int
+    source_id: str
     message_type: str = "explanation_message"
     stop: bool = field(default=False)

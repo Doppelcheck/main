@@ -42,7 +42,7 @@ def get_section_keypoint(user_id: str | None) -> None:
 
         with ui.number(
             label="Claim count", placeholder="number of claims", min=1, max=10,
-            value=ConfigModel.get_extraction_claims(user_id)
+            value=ConfigModel.get_number_of_keypoints(user_id)
         ) as number, Store(number, lambda count: ConfigModel.set_extraction_claims(user_id, count)):
             number.classes('w-full')
             if user_id is not None and not AccessModel.get_extraction_claims():

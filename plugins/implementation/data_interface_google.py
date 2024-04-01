@@ -197,7 +197,7 @@ class Google(InterfaceData):
         for each_item in items:
             yield Uri(uri_string=each_item['link'], title=each_item['title'])
 
-    async def get_document_content(self, uri: str) -> Document:
+    async def get_source_content(self, uri: str) -> Document:
         html_response = await BROWSER_INSTANCE.get_html_content(uri)
         document = Document(uri=html_response.uri, content=html_response.content, error=html_response.error)
         return document
