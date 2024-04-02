@@ -15,6 +15,15 @@ from plugins.abstract import InterfaceLLM, Parameters, InterfaceLLMConfig, DictS
     DictSerializable, ConfigurationCallbacks
 
 
+"""
+terminal1:
+OLLAMA_HOST=0.0.0.0:8800 OLLAMA_MODELS=~/.ollama/.models ollama serve
+
+terminal2:
+OLLAMA_HOST=0.0.0.0:8800 ollama pull llama2
+"""
+
+
 class Ollama(InterfaceLLM):
     @staticmethod
     def name() -> str:
