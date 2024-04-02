@@ -1,3 +1,4 @@
+# necessary
 nicegui~=1.4.5
 pydantic~=2.5.2
 loguru~=0.7.2
@@ -9,19 +10,22 @@ openai~=1.7.1
 num2words~=0.5.13
 lingua-language-detector~=2.0.2
 beautifulsoup4~=4.12.2
-httpx~=0.25.2
-pip-system-certs~=4.0
-python-certifi-win32~=1.6.1
+httpx~=0.27.0
 playwright~=1.41.2
 fastapi~=0.109.2
-bs4~=0.0.2
 uvicorn~=0.27.1
-lxml~=4.9.4
 starlette~=0.36.3
+thefuzz~=0.22.1
+pytube~=15.0.0
+youtube-transcript-api~=0.6.2
+ollama~=0.1.8
+
+# remove?
+pip-system-certs~=4.0
+python-certifi-win32~=1.6.1
+bs4~=0.0.2
+lxml~=4.9.4
 gdelt~=0.1.14
 readabilipy~=0.2.0
 readability~=0.3.1
-thefuzz~=0.22.1
 yt-dlp~=2024.3.10
-pytube~=15.0.0
-youtube-transcript-api~=0.6.2

@@ -22,13 +22,13 @@ class OpenAi(InterfaceLLM):
         def from_state(cls, state: dict[str, any]) -> OpenAi.ConfigParameters:
             return OpenAi.ConfigParameters(**state)
 
-        def __init__(self, model: str = "gpt-4-1106-preview", frequency_penalty: float = 0,
-                     logit_bias: dict[int, float] | None = None, max_tokens: int | None = None,
-                     presence_penalty: float = 0, temperature: float = 0, top_p: float | None = None,
-                     user: str | None = None,
-                     **kwargs: any  # discard the rest
-                     ) -> None:
-
+        def __init__(
+                self, model: str = "gpt-4-1106-preview", frequency_penalty: float = 0,
+                logit_bias: dict[int, float] | None = None, max_tokens: int | None = None,
+                presence_penalty: float = 0, temperature: float = 0, top_p: float | None = None,
+                user: str | None = None,
+                **kwargs: any  # discard the rest
+        ) -> None:
             # https://platform.openai.com/docs/api-reference/chat/create
             self.model = model
             self.frequency_penalty = frequency_penalty
@@ -50,8 +50,9 @@ class OpenAi(InterfaceLLM):
         @classmethod
         def from_state(cls, state: dict[str, any]) -> DictSerializableImplementation:
             parameters = DictSerializable.from_object_dict(state["parameters"])
-            return OpenAi.ConfigInterface(name=state["name"], parameters=parameters,
-                                          from_admin=state["from_admin"], api_key=state["api_key"])
+            return OpenAi.ConfigInterface(
+                name=state["name"], parameters=parameters, from_admin=state["from_admin"], api_key=state["api_key"]
+            )
 
         def object_to_state(self) -> dict[str, any]:
             return {
@@ -71,21 +72,21 @@ class OpenAi(InterfaceLLM):
             self.api_key = api_key
 
     @staticmethod
-    def configuration(user_id: str, user_accessible: bool) -> ConfigurationCallbacks:
+    def configuration(instance_id: str, user_accessible: bool) -> ConfigurationCallbacks:
         def _reset_parameters() -> None:
             api_key_input.value = ""
             default_parameters = OpenAi.ConfigParameters()
             editor.run_editor_method("set", {"json": default_parameters.object_to_state()})
 
         async def _get_config() -> OpenAi.ConfigInterface:
-            logger.info(f"adding LLM interface: {user_id}")
+            logger.info(f"adding LLM interface: {instance_id}")
 
             editor_content = await editor.run_editor_method("get")
             json_content = editor_content['json']
 
             parameters = OpenAi.ConfigParameters(**json_content)
             new_interface = OpenAi.ConfigInterface(
-                name="", parameters=parameters, from_admin=user_id is None, api_key=api_key_input.value
+                name="", parameters=parameters, from_admin=instance_id is None, api_key=api_key_input.value
             )
             _reset_parameters()
             return new_interface

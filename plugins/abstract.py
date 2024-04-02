@@ -105,7 +105,7 @@ class Interface(DictSerializable, ABC):
 
     @staticmethod
     @abstractmethod
-    def configuration(user_id: str | None, user_accessible: bool) -> ConfigurationCallbacks:
+    def configuration(instance_id: str | None, user_accessible: bool) -> ConfigurationCallbacks:
         raise NotImplementedError("Method not implemented")
 
     def __init__(self, name: str, parameters: Parameters, from_admin: bool) -> None:
