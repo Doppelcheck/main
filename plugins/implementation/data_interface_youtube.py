@@ -144,11 +144,11 @@ class Youtube(InterfaceData):
             self.parameters = parameters
 
     @staticmethod
-    def configuration(user_id: str | None, user_accessible: bool) -> ConfigurationCallbacks:
+    def configuration(instance_id: str | None, user_accessible: bool) -> ConfigurationCallbacks:
         async def _get_config() -> Youtube.ConfigInterface:
-            logger.info(f"adding data interface: {user_id}")
+            logger.info(f"adding data interface: {instance_id}")
             parameters = Youtube.ConfigParameters()
-            new_interface = Youtube.ConfigInterface(name="", parameters=parameters, from_admin=user_id is None)
+            new_interface = Youtube.ConfigInterface(name="", parameters=parameters, from_admin=instance_id is None)
             return new_interface
 
         _default = Youtube.ConfigParameters()

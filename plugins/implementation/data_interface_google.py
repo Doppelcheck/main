@@ -114,17 +114,17 @@ class Google(InterfaceData):
             self.parameters = parameters
 
     @staticmethod
-    def configuration(user_id: str | None, user_accessible: bool) -> ConfigurationCallbacks:
+    def configuration(instance_id: str | None, user_accessible: bool) -> ConfigurationCallbacks:
         def _reset_parameters() -> None:
             default_parameters = Google.ConfigParameters("", "")
             editor.run_editor_method("set", {"json": default_parameters.object_to_state()})
 
         async def _get_config() -> Google.ConfigInterface:
-            logger.info(f"adding data interface: {user_id}")
+            logger.info(f"adding data interface: {instance_id}")
             editor_content = await editor.run_editor_method("get")
             json_content = editor_content['json']
             parameters = Google.ConfigParameters(**json_content)
-            new_interface = Google.ConfigInterface(name="", parameters=parameters, from_admin=user_id is None)
+            new_interface = Google.ConfigInterface(name="", parameters=parameters, from_admin=instance_id is None)
             _reset_parameters()
             return new_interface
 
