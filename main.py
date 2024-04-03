@@ -31,11 +31,15 @@ from tools.data_objects import (
 from tools.text_processing import (
     text_node_generator, pipe_codeblock_content, get_range, get_text_lines)
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
 VERSION = "0.3.0"
-UNRESTRICTED = {"/", "/config", "/login"}
+UNRESTRICTED = {"/", "/config", "/login", "/doc"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -45,6 +49,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 app.storage.user['referrer_path'] = request.url.path  # remember where the user wanted to go
                 return RedirectResponse('/login')
         return await call_next(request)
+
+
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 app.add_middleware(AuthMiddleware)
@@ -274,9 +283,16 @@ class Server:
         async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_id, source_id):
             yield each_segment
 
+    @staticmethod
+    def _to_json(message: dataclasses.dataclass, instance_id: str) -> dict:
+        dc_dict = dataclasses.asdict(message)
+        dc_dict["instance_id"] = instance_id
+        return dc_dict
+
     def setup_api_endpoints(self) -> None:
         @app.get("/get_content/")
-        async def get_content(url: str) -> HTMLResponse:
+        @limiter.limit("5/minute")
+        async def get_content(request: Request, url: str, response: Response) -> HTMLResponse:
             """
             const urlEncoded = encodeURIComponent(originalUrl);
             return `https://${address}/get_content/?url=${urlEncoded}`;
@@ -289,7 +305,8 @@ class Server:
             return HTMLResponse(html_content)
 
         @app.post("/get_config/")
-        async def get_config(instance_data: Instance = Body(...)) -> dict:
+        @limiter.limit("5/minute")
+        async def get_config(request: Request, response: Response, instance_data: Instance = Body(...)) -> dict:
             """
             const configUrl = `https://${address}/get_config/`;
             const userData = { instance_id: instanceId, version: versionClient };
@@ -307,7 +324,7 @@ class Server:
 
             if instance_data.instance_id is None:
                 logger.error(f"no instance_id in {instance_data}")
-                return {"error": "no user id provided"}
+                return {"error": "no instance id provided"}
 
             data_interfaces = ConfigModel.get_selected_data_interfaces(instance_data.instance_id)
 
@@ -328,7 +345,8 @@ class Server:
 
     def setup_website(self) -> None:
         @ui.page("/")
-        async def start_page(client: Client) -> None:
+        @limiter.limit("5/minute")
+        async def start_page(request: Request, client: Client, response: Response) -> None:
             address = await Server._get_address(client)
             secret = secrets.token_urlsafe(32)
 
@@ -372,12 +390,14 @@ class Server:
                     target="https://www.media-lab.de/de/media-tech-lab/DoppelCheck",
                     new_tab=True).classes(add="text-center block ")
 
-        @app.get("/doc/")
-        def documentation() -> RedirectResponse:
+        @app.get("/doc")
+        @limiter.limit("5/minute")
+        def documentation(request: Request, response: Response) -> RedirectResponse:
             return RedirectResponse("https://github.com/Doppelcheck/main/wiki")
 
         @ui.page('/login')
-        def login() -> RedirectResponse | None:
+        @limiter.limit("5/minute")
+        def login(request: Request, response: Response) -> RedirectResponse | None:
             async def try_login() -> None:
                 if not PasswordsModel.admin_registered():
                     PasswordsModel.add_password(username.value, password.value)
@@ -411,7 +431,8 @@ class Server:
             return None
 
         @ui.page("/admin")
-        async def configuration_layout(client: Client) -> None:
+        @limiter.limit("5/minute")
+        async def configuration_layout(request: Request, client: Client, response: Response) -> None:
             address = await Server._get_address(client)
 
             def reset_context() -> None:
@@ -426,35 +447,33 @@ class Server:
 
             await full_configuration(None, address, VERSION)
 
-        @ui.page("/config/{instanceid}")
-        async def config(instanceid: str, client: Client) -> None:
-            if instanceid is None or len(instanceid) < 1:
+        @ui.page("/config/{instance_id}")
+        @limiter.limit("5/minute")
+        async def config(request: Request, instance_id: str, client: Client, response: Response) -> None:
+            if instance_id is None or len(instance_id) < 1:
                 ui.open("/")
                 return
 
             address = await Server._get_address(client)
-            await full_configuration(instanceid, address, VERSION)
-
-    @staticmethod
-    def _to_json(message: dataclasses.dataclass, instance_id: str) -> dict:
-        dc_dict = dataclasses.asdict(message)
-        dc_dict["instance_id"] = instance_id
-        return dc_dict
+            await full_configuration(instance_id, address, VERSION)
 
     def setup_websocket(self) -> None:
         @app.websocket("/talk")
         async def websocket_endpoint(websocket: WebSocket) -> None:
             # todo:
+            #  add rate limiting
             #  check out alternative implementation:
             #  https://github.com/zauberzeug/nicegui/blob/main/examples/websockets/main.py
             #  streaming response is for files.
             #  https://stackoverflow.com/questions/75740652/fastapi-streamingresponse-not-streaming-with-generator-function
             #  server sent events?
+            # websocket.client.host
             await websocket.accept()
+
             try:
                 message = await websocket.receive_json()
-                message_type = message['message_type']
                 instance_id = message['instance_id']
+                message_type = message['message_type']
                 original_url = message['original_url']
                 content = message['content']
 
@@ -527,6 +546,12 @@ class Server:
 
             except WebSocketDisconnect as e:
                 logger.error(f"websocket disconnected: {e}")
+
+            except RateLimitExceeded as e:
+                logger.error(f"rate limit exceeded: {e}")
+                error_message = ErrorMessage(content="rate limit exceeded")
+                error_dict = dataclasses.asdict(error_message)
+                await websocket.send_json(error_dict)
 
             except Exception as e:
                 error_message = ErrorMessage(content=str(e))

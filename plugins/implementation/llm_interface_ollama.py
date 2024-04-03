@@ -20,7 +20,7 @@ terminal1:
 OLLAMA_HOST=0.0.0.0:8800 OLLAMA_MODELS=~/.ollama/.models ollama serve
 
 terminal2:
-OLLAMA_HOST=0.0.0.0:8800 ollama pull llama2
+OLLAMA_HOST=0.0.0.0:8800 ollama pull mistral
 """
 
 
@@ -35,7 +35,7 @@ class Ollama(InterfaceLLM):
             return Ollama.ConfigParameters(**state)
 
         def __init__(
-                self, model: str = "llama2", keep_alive: str = "5m",
+                self, model: str = "mistral", keep_alive: str = "5m",
                 **kwargs: any  # discard the rest
         ) -> None:
             # https://github.com/ollama/ollama/blob/main/docs/api.md#generate-a-chat-completion
@@ -125,13 +125,15 @@ class Ollama(InterfaceLLM):
 
         with ui.markdown(
                 "Go <a href=\"https://github.com/ollama/ollama/blob/main/docs/api.md\" "
-                "target=\"_blank\">here</a> for a detailed documentation."
+                "target=\"_blank\">here</a> for detailed documentation and <a href=\""
+                "https://ollama.com/library\" target=\"_blank\">here</a> for the models."
+
         ) as description:
             description.classes('w-full')
 
         with ui.markdown(
-                "The following Ollama API parameters have been disabled for compatibility: `stream`, `messages`, "
-                "`logprobs`, `top_logprobs`, `n`, `response_format`, `seed`, `stop`, and `tools`."
+                "The following Ollama API parameters have been disabled for compatibility: `format`, `options`, "
+                "`template`, `stream`, and `messages`."
         ) as _:
             pass
 

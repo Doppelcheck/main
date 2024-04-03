@@ -52,10 +52,10 @@ def get_section_general(user_id: str | None, version: str, address: str) -> None
         ui.label("Information").classes('text-h5')
 
         with ui.grid(columns=2).classes('justify-self-start'):
-            ui.label('User ID:')
+            ui.label('Instance ID:')
             ui.label(user_id).classes("text-italic")
 
-            ui.label('Doppelcheck server version:')
+            ui.label('Server version:')
             ui.label(version).classes("text-italic")
 
             ui.label('Tokens used:')
