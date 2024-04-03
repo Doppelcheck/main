@@ -5,6 +5,9 @@ from ollama import AsyncClient
 
 
 async def chat():
+
+    # OLLAMA_HOST=0.0.0.0:8800 OLLAMA_MODELS=~/.ollama/.models ollama serve
+
     client = AsyncClient(host="http://localhost:8800")
 
     prompt = {
