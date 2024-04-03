@@ -19,6 +19,7 @@ thefuzz~=0.22.1
 pytube~=15.0.0
 youtube-transcript-api~=0.6.2
 ollama~=0.1.8
+slowapi~=0.1.9
 
 # remove?
 pip-system-certs~=4.0
