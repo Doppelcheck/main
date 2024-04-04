@@ -1,0 +1,26 @@
+Carefully read the following information. Your task is to assess how well the keypoint matches the information in the source.
+
+```keypoint
+Nato feiert 75-jähriges Bestehen mit Rede des Generalsekretärs über Geschichte und Zukunft des Bündnisses in Brüssel.
+```
+
+```source
+ab heute beraten die Außenminister der natostaaten in Brüssel über die weitere Unterstützung für die Ukraine Generalsekretär stolenberg schlug den Aufbau einer Ukraine Mission vor ihre Aufgabe Waffenlieferungen an die Ukraine und Ausbildung ukrainischer Soldaten zu koordinieren heißt es aus Diplomatenkreisen na bisher übernehmen das ja die USA Stoltenberg wolle die natostaaten außerdem dazu bewegen der Ukraine für die kommenden 5 Jahre militärische Unterstützung im Wert von insgesamt 100 Milliarden Euro zuzusagen in Brüssel für uns Marco Reinke Marco interessant ist ja vor allem dass man der USA jetzt eine doch sehr wichtige Aufgabe abnehmen möchte die NATO soll sich auf den Wunsch von Stoltenberg künftig selbst darum kümmern die Ukraine mit Munition zu versorgen was steckt dahinter ja diese Idee kommt ja nicht von ungefähr sondern man reagiert damit auf die doch zuletzt immer wieder blockierten Hilfslieferung von Seiten der USA vor allem ja auch dort immer noch die feststeckenden Gelder ähm die noch immer nicht freigegeben sind und so will man sich unabhängiger machen von Seiten der USA aber gleichzeitig wäre dieser Schritt natürlich auch politisch durchaus besonders und auch ein großer Schritt denn damit würden sich ja am Ende die natostaaten ähm doch viel mehr um die Ukraine kümmern oder viel organisierter um die Ukraine äh kümmern als man das äh bisher tut man hat der Ukraine ja zwar eine Beitrittsperspektive gegeben mehr oder minder doch das ist etwas was in sehr ferner Zukunft liegt aber interessant ist das natürlich trotzdem dass die NATO sich hier zu diesem Schritt nun offenbar entschließt und man hier jetzt viel stärker mit der Ukraine zusammenarbeiten will ich kann mir sehr gut vorstellen dass das in Moskau für entsprechende Reaktionen sorgen wird Marco sprechen wir noch mal über Generalsekretär Stoltenberg der ist ja nun allseits beliebt allerdings will er seinen Amt ja bald niederlegen ist denn schon ein geeigneter Nachfolger in Sicht ja es hat so einige Namen zuletzt gegeben die in den Ring geworfen wurden unter anderem selbst ins Spiel gebracht unter anderem beispielsweise der lettische Verteidigungsminister der sich immer wieder selber ins Spiel gebracht hat aber momentan scheint es so dass Mark rütte aus den nieder landen da doch durchaus größere Chancen hat diesen Posten zu bekommen das ist zumindest der Name der so am heißesten hier in Brüssel gehandelt wird aber diese Frage die ist am Ende noch nicht abschließend beantwortet das ganze dürfte dann ein Punkt sein den man auf dem natogipfel im Juli in Washington dann beantworten oder bzw dann beschließen will mit einem Nachfolger wie gesagt einige Namen zuletzt gehandelt am heißesten bisher marrütte Mar danke schön für diese ersten Einordnungen du wirst natürlich diese Gespräche weiter für uns verfolgen danke nach Brüssel wenn ihr mehr News aus unserem Team wollt dann müsst ihr einmal hier klicken wenn ihr auf der Suche seid nach spannenden Dokus starken Reportagen dann geht's hier entlang und wenn ihr Welt abonnieren wollt neu entdecken wollt dann einmal hier klicken
+```
+
+The keypoint is a claim and the source reference is a news report. Now rate the claim based on the report by picking one of the following options:
+
+  "🟩 Strong support": report strongly supports claim
+  "🟨 Some support": report generally supports claim, with limitations or minor contradictions
+  "⬜️ No mention": report neither clearly supports nor contradicts claim, or is unclear
+  "🟧​ Some contradiction": report contradicts claim but not completely
+  "🟥 Strong contradiction": report is in strong opposition to claim
+
+IMPORTANT: Do not assess the correctness of either claim or report, determine your rating only based on how well the claim holds up against the news report.
+
+Also, in a new line, provide one concise but comprehensive sentence explaining your rating.
+Respond in the language of the keypoint and answer with a single triple single quote fenced code block according to the following pattern.
+```
+<rating>
+<explanation>
+```

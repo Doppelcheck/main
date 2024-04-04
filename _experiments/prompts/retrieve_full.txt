@@ -1,0 +1,25 @@
+```context
+MILITÄRBÜNDNIS: NATO FEIERT 75. JAHRESTAG IHRER GRÜNDUNG
+
+Bei einem Treffen in Brüssel feiert die Nato an diesem Donnerstag ihr 75-jähriges Bestehen.
+Dabei soll es auch um die Frage gehen, wie die Unterstützung der Ukraine noch effektiver gestaltet werden kann.
+Generalsekretär Stoltenberg hat dazu nach Angaben von Diplomaten mehrere Vorschläge gemacht, darunter eine umstrittene Ausbildungs- und Koordinierungsmission der Nato für die Ukraine.
+Auch Trump bereitet der Nato SorgenSorge innerhalb der Nato gibt es auch mit Blick auf die US-Präsidentschaftswahl im kommenden November.
+Nach dem Ende des Kalten Krieges war die Nato an mehreren Kriegen beteiligt, darunter in Afghanistan und im Kosovo.
+
+published on 2024-04-04 00:00:00
+```
+
+```claim
+Nato feiert 75-jähriges Bestehen mit Rede des Generalsekretärs über Geschichte und Zukunft des Bündnisses in Brüssel. 🕵
+```
+
+Generate five space separated keywords that describe the claim above. Refine your queries according to the provided context.
+
+Respond in default and exactly and only with the search query requested in a fenced code block according to the following pattern.
+
+IMPORTANT: Split up compound words! Don't wrap the keywords in double quotes!
+
+```
+[space separated keywords]
+```

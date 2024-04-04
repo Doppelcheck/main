@@ -1,0 +1,21 @@
+```previous keypoints
+0164-0188: Nato feiert 75-jähriges Bestehen mit Rede des Generalsekretärs über Geschichte und Zukunft des Bündnisses in Brüssel.
+0201-0225: Vorbereitung des nächsten Nato-Gipfels Anfang Juli in Washington, D.C. als Hauptziel des Treffens.
+```
+
+```text section
+0250 angesichts neuer Her
+0251 ausforderungen besch
+0252 wören. Auch als Erfo
+0253 lge wahrgenommene Ei
+0254 nsätze und Entwicklu
+0255 ngen der Vergangenhe
+0256 it sollen gefeiert w
+0257 erden. Eigentliches
+0258 Ziel des Treffens is
+0259 t aber die Vorbereit
+```
+
+Use the line numerated text section to either update the previous keypoints or add important new ones. Use the format "<start_line>-<end_line>: <keypoint>". Consider only important keypoints. Ignore incomplete keypoints.
+
+Respond only with the updated keypoints. If the complete text section is irrelevant, just write "irrelevant".

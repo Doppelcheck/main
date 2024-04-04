@@ -30,7 +30,7 @@ const ProxyUrlServices = {
             `Server error: ${error}. Please install the latest bookmarklet version from ` +
             `<a href="${configUrl}" target="_blank">here,</a> make sure all interfaces are configured, and ` +
             `<a href="${window.location.href}">refresh</a> this page.`);
-        }
+    }
 };
 
 const CSSStyling = {
@@ -85,7 +85,7 @@ const InitializeDoppelcheck = {
 
     async createSidebar(container) {
         const sidebar = document.createElement("div");
-        InitializeDoppelcheck.shadowElement = sidebar.attachShadow({ mode: 'open' });
+        InitializeDoppelcheck.shadowElement = sidebar.attachShadow({mode: 'open'});
 
         //await InitializeDoppelcheck.loadExternalStyles(`https://${address}/static/pico.css`, InitializeDoppelcheck.shadowElement)
 
@@ -218,18 +218,9 @@ const InitializeDoppelcheck = {
         subheading.innerText = "Keypoints";
         sidebar.appendChild(subheading);
 
-        document.addEventListener("selectionchange", function () {
-            const selection = document.getSelection();
-            if (selection === null || 100 >= selection.toString().trim().length) {
-                addKeypoint.disabled = true;
-            } else {
-                addKeypoint.disabled = false;
-            }
-        });
-
         const extractKeypoints = document.createElement("button");
         extractKeypoints.id = "doppelcheck-button-start";
-        extractKeypoints.innerText = "Review full website";
+        extractKeypoints.innerText = "Full website";
         extractKeypoints.addEventListener("click", async function () {
             extractKeypoints.disabled = true;
             const fullHTML = document.documentElement.outerHTML;
@@ -239,7 +230,7 @@ const InitializeDoppelcheck = {
 
         const addKeypoint = document.createElement("button");
         addKeypoint.id = "doppelcheck-button-add";
-        addKeypoint.innerText = "Review text selection";
+        addKeypoint.innerText = "Text selection";
         addKeypoint.disabled = true;
         addKeypoint.addEventListener("click", async function () {
             addKeypoint.disabled = true;
@@ -251,6 +242,38 @@ const InitializeDoppelcheck = {
         });
         sidebar.appendChild(addKeypoint);
 
+        const clipboardKeypoint = document.createElement("button");
+        clipboardKeypoint.id = "doppelcheck-button-clipboard";
+        clipboardKeypoint.innerText = "From clipboard";
+        clipboardKeypoint.disabled = true;
+        clipboardKeypoint.addEventListener("click", async function () {
+            clipboardKeypoint.disabled = true;
+            extractKeypoints.disabled = true;
+            // addKeypoint.innerText = "⏳ Adding keypoint from selection...";
+            const selection = await navigator.clipboard.readText();
+            const selectedText = selection.toString();
+            exchange("keypoint_selection", selectedText);
+        });
+        sidebar.appendChild(clipboardKeypoint);
+
+        document.addEventListener("selectionchange", function () {
+            const selection = document.getSelection();
+            if (selection === null || 100 >= selection.toString().trim().length) {
+                addKeypoint.disabled = true;
+            } else {
+                addKeypoint.disabled = false;
+            }
+        });
+
+        document.addEventListener("copy", async function () {
+            const selection = await navigator.clipboard.readText();
+            const selectedText = selection.toString();
+            if (selection === null || 100 >= selectedText.trim().length) {
+                clipboardKeypoint.disabled = true;
+            } else {
+                clipboardKeypoint.disabled = false;
+            }
+        });
 
         const keypointContainer = document.createElement("div");
         keypointContainer.id = "doppelcheck-keypoints-container";
@@ -352,12 +375,12 @@ const ExtractKeypoints = {
 
         // Iterate over the NodeList
         elements.forEach(element => {
-        // While the element has child nodes, insert them before the element itself
-        while (element.firstChild) {
-          element.parentNode.insertBefore(element.firstChild, element);
-        }
-        // After moving all children, remove the element
-        element.parentNode.removeChild(element);
+            // While the element has child nodes, insert them before the element itself
+            while (element.firstChild) {
+                element.parentNode.insertBefore(element.firstChild, element);
+            }
+            // After moving all children, remove the element
+            element.parentNode.removeChild(element);
         });
     },
 
@@ -508,7 +531,7 @@ const CrosscheckSources = {
         );
     },
 
-    processRatingMessage(response){
+    processRatingMessage(response) {
         console.log("comparison");
 
         const content = response["content"];
@@ -544,7 +567,7 @@ const CrosscheckSources = {
         sourceSummaryElement.textContent += content;
     },
 
-    processExplanationMessage(response){
+    processExplanationMessage(response) {
         console.log("comparison");
 
         const content = response["content"];
@@ -576,11 +599,11 @@ function exchange(messageType, content) {
 
         const messageStr = JSON.stringify(message);
 
-        ws.onopen = function(event) {
+        ws.onopen = function (event) {
             ws.send(messageStr);
         }
 
-        ws.onmessage = function(event) {
+        ws.onmessage = function (event) {
             const response = JSON.parse(event.data);
             switch (response["message_type"]) {
                 case "pong_message":
@@ -634,7 +657,7 @@ function exchange(messageType, content) {
             }
         }
 
-        ws.onerror = function(event) {
+        ws.onerror = function (event) {
             console.log("Error performing WebSocket communication ", event);
             ProxyUrlServices.corsError();
         }
@@ -650,7 +673,7 @@ function exchange(messageType, content) {
 
 async function getConfig(instanceId) {
     const configUrl = `https://${serverHost}/get_config/`;
-    const instanceData = { instance_id: instanceId, version: versionClient };
+    const instanceData = {instance_id: instanceId, version: versionClient};
     console.log("instance data ", instanceData)
 
     const response = await fetch(configUrl, {
