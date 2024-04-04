@@ -10,9 +10,12 @@ async def chat():
 
     client = AsyncClient(host="http://localhost:8800")
 
+    with open("prompts/extract_short.txt", mode="r") as f:
+        prompt_content = f.read()
+
     prompt = {
         'role': 'user',
-        'content': 'Why is the sky blue?'
+        'content': prompt_content
     }
 
     async for part in await client.chat(model='mistral', messages=[prompt], stream=True):

@@ -38,7 +38,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 UNRESTRICTED = {"/", "/config", "/login", "/doc"}
 
 
