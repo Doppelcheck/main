@@ -5,17 +5,18 @@ from model.storage_tools import Store
 
 
 DEFAULT_CUSTOM_COMPARISON_PROMPT = (
-            "The keypoint is a claim and the source reference is a news report. Now rate the claim based on the "
-            "report by picking one of the following options:\n"
+            "Rate the keypoint based on the source by picking one of the following options:\n"
             "\n"
-            "  \"🟩 Strong support\": report strongly supports claim\n"
-            "  \"🟨 Some support\": report generally supports claim, with limitations or minor contradictions\n"
-            "  \"⬜️ No mention\": report neither clearly supports nor contradicts claim, or is unclear\n"
-            "  \"🟧​ Some contradiction\": report contradicts claim but not completely\n"
-            "  \"🟥 Strong contradiction\": report is in strong opposition to claim\n"
+            "  \"🟩 Strong support\": source strongly supports keypoint\n"
+            "  \"🟨 Some support\": source generally supports keypoint, with limitations or minor contradictions\n"
+            "  \"⬜️ No mention\": source does not contain information about the keypoint, neither supports nor "
+            "contradicts it, or is unclear\n"
+            "  \"🟧​ Some contradiction\": source contradicts keypoint but not completely\n"
+            "  \"🟥 Strong contradiction\": source is in strong opposition to keypoint\n"
             "\n"
-            "IMPORTANT: Do not assess the correctness of either claim or report, determine your rating only based on "
-            "how well the claim holds up against the news report.\n"
+            "IMPORTANT: Do not make assumptions or inferences. Do not assess the correctness of either keypoint or "
+            "source, determine your rating only based on how well the keypoint holds up against the source "
+            "information. No information about the keypoint means \"⬜️ No mention\"!\n"
         )
 
 

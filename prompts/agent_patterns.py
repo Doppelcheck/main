@@ -5,8 +5,9 @@ import num2words
 from tools.text_processing import lined_text
 
 
-def instruction_keypoint_extraction(lines: Iterable[str], customized_instruction: str,
-                                    num_keypoints: int = 3, language: str | None = None) -> str:
+def instruction_keypoint_extraction(
+        lines: Iterable[str], customized_instruction: str, num_keypoints: int = 3, language: str | None = None
+) -> str:
 
     num_keypoints_str = f"{num_keypoints:d}" if num_keypoints >= 13 else num2words.num2words(num_keypoints)
 
@@ -64,7 +65,7 @@ def instruction_crosschecking(claim: str, report: str, customized_instruction: s
         f"\n"
         f"{customized_instruction}"
         f"\n"
-        f"Also, in a new line, provide one concise but comprehensive sentence explaining your rating. "
+        f"In a new line, provide one concise but comprehensive sentence explaining your rating. "
         f"\n"
         f"Respond in {language_instruction} and answer with a single triple single quote fenced code block according "
         f"to the following pattern.\n"
