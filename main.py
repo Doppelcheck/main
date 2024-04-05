@@ -1,3 +1,4 @@
+import os
 import asyncio
 import dataclasses
 import json
@@ -268,6 +269,9 @@ class Server:
         language = ConfigModel.get_general_language(instance_id)
 
         source = await data_interface.get_source_content(source_uri)
+        if source.error is not None:
+            raise RetrieveSourceException(source.error)
+
         source_content = source.content
 
         node_generator = text_node_generator(source_content)
@@ -563,7 +567,13 @@ class Server:
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+def install_pip_requirements() -> None:
+    os.system("pip install -r requirements.txt")
+
+
 def main() -> None:
+    install_pip_requirements()
+
     with open("config.json") as file:
         config = json.load(file)
 
