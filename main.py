@@ -277,7 +277,9 @@ class Server:
 
         source = await data_interface.get_source_content(source_uri)
         if source.error is not None:
-            raise RetrieveSourceException(source.error)
+            logger.error(f"source error: {source.error}")
+            return
+            # raise RetrieveSourceException(source.error)
 
         source_content = source.content
 
