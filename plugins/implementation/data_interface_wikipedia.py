@@ -148,6 +148,14 @@ class Wikipedia(InterfaceData):
                 yield Uri(uri_string=self.wikipedia_url_from_title(each_item), title=each_item)
             except wikipedia.exceptions.PageError as e:
                 logger.warning(f"Page not found: {each_item}")
+            except wikipedia.exceptions.DisambiguationError as e:
+                logger.warning(f"Disambiguation: {each_item}")
+            except wikipedia.exceptions.HTTPTimeoutError as e:
+                logger.warning(f"HTTP timeout: {each_item}")
+            except wikipedia.exceptions.RedirectError as e:
+                logger.warning(f"Redirect: {each_item}")
+            except wikipedia.exceptions.WikipediaException as e:
+                logger.warning(f"General Wikipedia exception: {each_item}")
 
     async def get_source_content(self, uri: str) -> Document:
         title = self.wikipedia_title_from_url(uri)
