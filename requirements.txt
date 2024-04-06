@@ -21,6 +21,7 @@ youtube-transcript-api~=0.6.2
 ollama~=0.1.8
 slowapi~=0.1.9
 wikipedia~=1.4.0
+tiktoken~=0.6.0
 
 # remove?
 pip-system-certs~=4.0

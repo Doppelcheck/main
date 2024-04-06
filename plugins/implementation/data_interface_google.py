@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import AsyncGenerator
 
+import httpx
 from loguru import logger
 from nicegui import ui
 
@@ -163,7 +164,9 @@ class Google(InterfaceData):
     async def get_search_query(
             self, llm_interface: InterfaceLLM, keypoint_text: str,
             context: str | None = None, language: str | None = None):
-        prompt = Google._get_query(keypoint_text, context=context, language=language)
+
+        summarized_context = await llm_interface.summarize(context)
+        prompt = Google._get_query(keypoint_text, context=summarized_context, language=language)
 
         response = await llm_interface.reply_to_prompt(prompt)
         query = extract_code_block(response)
@@ -182,20 +185,25 @@ class Google(InterfaceData):
         # async with httpx.AsyncClient() as httpx_session:
         #    response = await httpx_session.get(url, params=params)
 
-        response = await HTTPX_SESSION.get(url, params=params)
-
-        if response.status_code != 200:
-            items = list()
-
-        else:
-            result = response.json()
-
-            items = result.get("items")
-            if items is None:
+        try:
+            response = await HTTPX_SESSION.get(url, params=params)
+    
+            if response.status_code != 200:
                 items = list()
-
-        for each_item in items:
-            yield Uri(uri_string=each_item['link'], title=each_item['title'])
+    
+            else:
+                result = response.json()
+    
+                items = result.get("items")
+                if items is None:
+                    items = list()
+    
+            for each_item in items:
+                yield Uri(uri_string=each_item['link'], title=each_item['title'])
+        
+        except httpx.ConnectTimeout as e:
+            logger.error(f"Connection timeout: {e}")
+            return
 
     async def get_source_content(self, uri: str) -> Document:
         html_response = await BROWSER_INSTANCE.get_html_content(uri)

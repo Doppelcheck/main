@@ -203,14 +203,14 @@ def shorten_url(url: str) -> str:
     return re.sub(r'^(https?://)?(www\.)?', '', url)
 
 
-def chunk_text(text: str, max_len: int = 1_000, overlap: int = 100) -> Generator[str, None, None]:
+def chunk_text(text: str, len_chunks: int = 1_000, overlap: int = 100) -> Generator[str, None, None]:
     len_text = len(text)
     start = 0
-    end = max_len
+    end = len_chunks
     while True:
         if end >= len_text:
             yield text[start:]
             break
         yield text[start:end]
-        start += max_len - overlap
-        end += max_len - overlap
+        start += len_chunks - overlap
+        end += len_chunks - overlap

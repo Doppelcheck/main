@@ -172,7 +172,9 @@ class Youtube(InterfaceData):
     async def get_search_query(
             self, llm_interface: InterfaceLLM, keypoint_text: str,
             context: str | None = None, language: str | None = None):
-        prompt = Youtube._get_query(keypoint_text, context=context, language=language)
+
+        summarized_context = await llm_interface.summarize(context)
+        prompt = Youtube._get_query(keypoint_text, context=summarized_context, language=language)
 
         response = await llm_interface.reply_to_prompt(prompt)
         query = extract_code_block(response)
@@ -277,18 +279,20 @@ class Youtube(InterfaceData):
                 each_title = f"{math.floor(each_ts):d}s @ {each_info.title}"
                 yield Uri(uri_string=each_url, title=each_title)
 
-    async def _get_transcript(self, video_id: str) -> list[dict[str, any]]:
-        transcripts = youtube_transcript_api.YouTubeTranscriptApi.list_transcripts(video_id)
-        if 0 < len(transcripts._manually_created_transcripts):
-            transcript_lang = list(transcripts._manually_created_transcripts.keys())[0]
-
-        elif 0 < len(transcripts._generated_transcripts):
-            transcript_lang = list(transcripts._generated_transcripts.keys())[0]
+    async def _get_transcript(self, _video_id: str) -> list[dict[str, any]]:
+        transcripts = youtube_transcript_api.YouTubeTranscriptApi.list_transcripts(_video_id)
+        manually_created = list(transcripts._manually_created_transcripts)
+        if 0 < len(manually_created):
+            transcript_lang = manually_created[0]
 
         else:
-            transcript_lang = "en"
+            generated = list(transcripts._generated_transcripts.keys())
+            if 0 < len(generated):
+                transcript_lang = generated[0]
+            else:
+                transcript_lang = "en"
 
-        transcript = youtube_transcript_api.YouTubeTranscriptApi.get_transcript(video_id, languages=[transcript_lang])
+        transcript = youtube_transcript_api.YouTubeTranscriptApi.get_transcript(_video_id, languages=[transcript_lang])
         return transcript
 
     async def get_source_content(self, uri: str) -> Document:
