@@ -198,7 +198,11 @@ class Server:
 
         language = ConfigModel.get_general_language(instance_id)
 
-        text_lines = list(get_text_lines(string_sequence, line_length=20))
+        full_string = "".join(string_sequence)
+        logger.info(f"summarizing original text ({len(full_string)} characters)")
+        summarized = await llm_interface.summarize(full_string)
+
+        text_lines = list(get_text_lines(summarized, line_length=20))
         customized_instruction = ConfigModel.get_extraction_prompt(instance_id) or DEFAULT_CUSTOM_EXTRACTION_PROMPT
         prompt = instruction_keypoint_extraction(
             text_lines, customized_instruction, num_keypoints=keypoint_count, language=language
@@ -229,7 +233,10 @@ class Server:
 
         content = await BROWSER_INSTANCE.get_html_content(original_url)
         article = await parse_url(original_url, input_html=content.content)
-        context = f"{article.title.upper()}\n\n{article.summary}"
+
+        logger.info(f"summarizing context ({len(article.summary)} characters)")
+        summarized = await llm_interface.summarize(article.summary)
+        context = f"{article.title.upper()}\n\n{summarized}"
 
         if len(context.strip()) < 20:
             context = None
@@ -277,10 +284,11 @@ class Server:
         node_generator = text_node_generator(source_content)
         source_text = "".join(node_generator)
 
+        logger.info(f"summarizing source ({len(source_text)} characters)")
+        summarized = await llm_interface.summarize(source_text)
+
         customized_instruction = ConfigModel.get_comparison_prompt(instance_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
-        prompt = instruction_crosschecking(
-            keypoint_text, source_text, customized_instruction, language=language
-        )
+        prompt = instruction_crosschecking(keypoint_text, summarized, customized_instruction, language=language)
 
         # noinspection PyTypeChecker
         response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)

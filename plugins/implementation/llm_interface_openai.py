@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from nicegui import ui
 
 import time
@@ -10,9 +12,54 @@ from loguru import logger
 
 from plugins.abstract import InterfaceLLM, Parameters, InterfaceLLMConfig, DictSerializableImplementation, \
     DictSerializable, ConfigurationCallbacks
+from tools.text_processing import chunk_text
+
+
+class ContextExceededError(Exception):
+    pass
 
 
 class OpenAi(InterfaceLLM):
+    async def summarize(
+            self, text: str, parameters: Parameters | None = None, len_summary: int = 100_000, manual_limit: int = -1
+    ) -> str:
+        len_text = len(text)
+        if len_summary >= len_text:
+            return text
+
+        try:
+            prompt = (
+                f"```text\n"
+                f"{text}\n"
+                f"```\n"
+                f"\n"
+                f"Summarize the text above with less than {len_summary} characters. Remove all redundancies and "
+                f"repetitions. IMPORTANT: Keep its original language, tone, style, and perspective!"
+            )
+            if -1 < manual_limit < len(prompt):
+                raise ContextExceededError("Manual limit exceeded.")
+
+            response = await self.reply_to_prompt(prompt, parameters)
+
+        except ContextExceededError as e:
+            logger.warning("context exceeded", e)
+            chunks = chunk_text(text, len_chunks=len_text // 2, overlap=len_summary // 10)
+            tasks = [
+                self.summarize(each_chunk, parameters=parameters, len_summary=len_summary)
+                for each_chunk in chunks
+            ]
+
+            summaries = await asyncio.gather(*tasks)
+            concatenated_summaries = "\n".join(summaries)
+            if len_summary >= len(concatenated_summaries):
+                return concatenated_summaries
+
+            response = await self.summarize(concatenated_summaries, parameters=parameters, len_summary=len_summary)
+            if len(response) >= len_summary:
+                logger.warning(f"Summarized text is too long: {len(response)} characters.")
+
+        return response[:len_summary]
+
     @staticmethod
     def name() -> str:
         return "OpenAI"
@@ -130,12 +177,10 @@ class OpenAi(InterfaceLLM):
         self._client = openai.AsyncOpenAI(api_key=api_key)
 
     async def reply_to_prompt(self, prompt: str, info_callback: Callable[[dict[str, any]], None] | None = None) -> str:
-
         logger.info(prompt)
-
         arguments = {k: v for k, v in self.parameters.object_to_state().items() if v is not None}
-
         reply = ""
+
         while True:
             try:
                 messages = [{"role": "user", "content": prompt}]
@@ -147,6 +192,10 @@ class OpenAi(InterfaceLLM):
                 message = choice.message
                 reply = message.content
                 break
+
+            except openai.BadRequestError as e:
+                if e.code == 'context_length_exceeded':
+                    raise ContextExceededError() from e
 
             except Exception as e:
                 logger.error(e)
@@ -175,6 +224,10 @@ class OpenAi(InterfaceLLM):
 
                 stream_chunk = each_chunk.choices[0].delta.content
                 yield stream_chunk
+
+        except openai.BadRequestError as e:
+            if e.code == 'context_length_exceeded':
+                raise ContextExceededError() from e
 
         except Exception as e:
             logger.error(e)

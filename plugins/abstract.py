@@ -1,11 +1,11 @@
 from __future__ import annotations
+
 import dataclasses
 import importlib
 import inspect
 from abc import abstractmethod, ABC, ABCMeta
 from typing import Callable, AsyncGenerator, TypeVar, Awaitable
 
-from tools.text_processing import chunk_text
 
 DictSerializableImplementation = TypeVar("DictSerializableImplementation", bound="DictSerializable")
 
@@ -143,31 +143,9 @@ class InterfaceData(Interface, ABC, metaclass=InterfaceMeta):
 
 
 class InterfaceLLM(Interface, ABC, metaclass=InterfaceMeta):
-    async def summarize(
-            self, text: str, parameters: Parameters | None = None,
-            max_len_input: int = 10_000, max_len_summary: int = 500) -> str:
-
-        len_text = len(text)
-        if len_text < max_len_summary:
-            return text
-
-        summaries = list()
-        for each_chunk in chunk_text(text, max_len=max_len_input):
-            summary = await self.summarize(
-                each_chunk, parameters=parameters,
-                max_len_input=max_len_input, max_len_summary=max_len_summary)
-            summaries.append(summary)
-        text = "\n".join(summaries)
-
-        prompt = (
-            f"```text\n"
-            f"{text}\n"
-            f"```\n"
-            f"\n"
-            f"Summarize the text above in about {max_len_summary} characters keeping its original language."
-        )
-        response = await self.reply_to_prompt(prompt, parameters)
-        return response
+    @abstractmethod
+    async def summarize(self, text: str, parameters: Parameters | None = None, len_summary: int = 10_000) -> str:
+        raise NotImplementedError("Method not implemented")
 
     @abstractmethod
     async def reply_to_prompt(

@@ -25,6 +25,9 @@ OLLAMA_HOST=0.0.0.0:8800 ollama pull mistral
 
 
 class Ollama(InterfaceLLM):
+    async def summarize(self, text: str, parameters: Parameters | None = None, len_summary: int = 10_000) -> str:
+        raise NotImplementedError("Method not implemented")
+
     @staticmethod
     def name() -> str:
         return "Ollama"

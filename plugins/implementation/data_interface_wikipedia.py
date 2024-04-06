@@ -27,7 +27,7 @@ class Wikipedia(InterfaceData):
             f" Refine your query according to the provided context."
         ) if context else ""
 
-        language_instruction = f"Respond in {language}" if language else "Respond in the language of the claim"
+        language_instruction = f"Respond in {language}" if language or language != "default" else "Respond in the language of the claim"
 
         return (
             f"{context_data}"
@@ -35,8 +35,7 @@ class Wikipedia(InterfaceData):
             f"{claim}\n"
             f"```\n"
             f"\n"
-            f"Generate a Wikipedia search query for results to verify of the claim above. Consider using the special "
-            f"Wikipedia search query syntax to improve result quality."
+            f"Generate a Wikipedia search query for results to verify of the claim above."
             f"{context_instruction}\n"
             f"\n"
             f"{language_instruction}, add the according Wikipedia language code (one of "
@@ -122,7 +121,8 @@ class Wikipedia(InterfaceData):
     async def get_search_query(
             self, llm_interface: InterfaceLLM, keypoint_text: str,
             context: str | None = None, language: str | None = None):
-        prompt = Wikipedia._get_query(keypoint_text, context=context, language=language)
+        summarized_context = await llm_interface.summarize(context)
+        prompt = Wikipedia._get_query(keypoint_text, context=summarized_context, language=language)
 
         response = await llm_interface.reply_to_prompt(prompt)
         query = extract_code_block(response)
@@ -144,7 +144,10 @@ class Wikipedia(InterfaceData):
         wikipedia.set_lang(language_code.strip())
         results = wikipedia.search(search_query.strip(), results=5)
         for each_item in results:
-            yield Uri(uri_string=self.wikipedia_url_from_title(each_item), title=each_item)
+            try:
+                yield Uri(uri_string=self.wikipedia_url_from_title(each_item), title=each_item)
+            except wikipedia.exceptions.PageError as e:
+                logger.warning(f"Page not found: {each_item}")
 
     async def get_source_content(self, uri: str) -> Document:
         title = self.wikipedia_title_from_url(uri)
