@@ -17,6 +17,12 @@
     align-items: center;
 }
 
+.doppelcheck-textarea {
+    width: calc(100% - 50px);
+    resize: none;
+    overflow-y: hidden;
+}
+
 #doppelcheck-notification-overlay.hidden {
     display: none;
 }
