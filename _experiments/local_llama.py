@@ -291,14 +291,16 @@ async def main() -> None:
 
     text_lines = list(get_text_lines(document, line_length=30))
 
-    # client = AsyncClient(host="http://localhost:8800")
-    client = instructor.from_openai(
+    client = AsyncClient(host="http://localhost:8800")
+    _client = instructor.from_openai(
         OpenAI(
             base_url="http://localhost:8800",
             api_key="ollama"
         ),
         mode=instructor.Mode.JSON
     )
+
+    client = instructor.patch(client, mode=instructor.Mode.JSON)
 
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
