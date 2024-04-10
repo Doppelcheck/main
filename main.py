@@ -39,7 +39,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 UNRESTRICTED = {"/", "/config", "/login", "/doc"}
 
 
@@ -251,7 +251,7 @@ class Server:
 
             # noinspection PyTypeChecker
             interface_uris: AsyncGenerator[Uri, None] = data_interface.get_uris(_query)
-            return data_interface, _query, [_each_uri async for _each_uri in interface_uris]
+            return data_interface, _query, [_each_uri async for _each_uri in interface_uris if _each_uri != original_url]
 
         tasks = [get_uris(each_interface) for each_interface in data_interfaces]
 

@@ -310,6 +310,23 @@ const ExtractKeypoints = {
         }
     },
 
+    autoResizeTextarea(textareaId) {
+        const textArea = document.createElement("textarea");
+        textArea.classList.add("doppelcheck-textarea");
+        const resize = function () {
+            textArea.style.height = "auto";
+            textArea.style.height = textArea.scrollHeight + "px";
+        };
+        textArea.addEventListener("change", resize);
+        textArea.addEventListener("input", resize);
+        textArea.addEventListener("focus", resize);
+        textArea.addEventListener("blur", resize);
+
+        textArea.id = textareaId;
+        textArea.disabled = true;
+        return textArea;
+    },
+
     addKeypoint(keypointId, keypointsContainer) {
         const eachkeypointContainer = document.createElement("details");
         eachkeypointContainer.classList.add("doppelcheck-each-keypoint-container");
@@ -317,19 +334,22 @@ const ExtractKeypoints = {
         eachkeypointContainer.setAttribute("onclick", "return false;");
         keypointsContainer.appendChild(eachkeypointContainer);
 
-        const keypoint = document.createElement("summary");
-        keypoint.id = `doppelcheck-keypoint-${keypointId}`;
-        keypoint.classList.add("doppelcheck-keypoint");
-        keypoint.classList.add(`doppelcheck-keypoint-${keypointId}`);
-        eachkeypointContainer.appendChild(keypoint);
+        const keypointSummary = document.createElement("summary");
+        keypointSummary.id = `doppelcheck-keypoint-${keypointId}`;
+        keypointSummary.classList.add("doppelcheck-keypoint");
+        keypointSummary.classList.add(`doppelcheck-keypoint-${keypointId}`);
+        eachkeypointContainer.appendChild(keypointSummary);
+
+        const textArea = this.autoResizeTextarea(`doppelcheck-textarea-${keypointId}`);
+        keypointSummary.appendChild(textArea);
 
         const getSourcesButton = document.createElement("button");
         getSourcesButton.innerText = "🕵 Find sources";
         getSourcesButton.id = `doppelcheck-retrieve-button-${keypointId}`;
         getSourcesButton.addEventListener("click", function () {
             getSourcesButton.disabled = true;
-            keypoint.textContent = keypoint.textContent + " 🕵";
             getSourcesButton.innerText = "⏳ Finding sources...";
+            textArea.disabled = true;
             RetrieveSources.getSources(keypointId);
         });
         eachkeypointContainer.appendChild(getSourcesButton);
@@ -341,7 +361,7 @@ const ExtractKeypoints = {
         });
         eachkeypointContainer.appendChild(removeKeypointButton);
 
-        return keypoint;
+        return textArea;
     },
 
     segmentWords(text, segmentLength) {
@@ -396,24 +416,27 @@ const ExtractKeypoints = {
 
         const keypointId = response["keypoint_id"] % 10;
 
+        const allKeypointsContainer = InitializeDoppelcheck.getElementById("doppelcheck-keypoints-container");
+        let keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-textarea-${keypointId}`);
+        if (!keypoint) {
+            keypoint = ExtractKeypoints.addKeypoint(keypointId, allKeypointsContainer);
+        }
+
         if (stopMessage) {
             this.receivingKeypointIds.delete(keypointId);
             const eachKeypointContainer = InitializeDoppelcheck.getElementById(
                 `doppelcheck-each-keypoint-container-${keypointId}`
             );
             eachKeypointContainer.removeAttribute("onclick");
+            keypoint.disabled = false;
             return;
         }
 
         const messageContent = response["content"];
-
-        const allKeypointsContainer = InitializeDoppelcheck.getElementById("doppelcheck-keypoints-container");
-
-        let keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
-        if (!keypoint) {
-            keypoint = ExtractKeypoints.addKeypoint(keypointId, allKeypointsContainer);
-        }
-        keypoint.textContent += messageContent;
+        keypoint.value += messageContent;
+        // resize textarea
+        keypoint.style.height = "auto";
+        keypoint.style.height = keypoint.scrollHeight + "px";
     }
 }
 
@@ -428,9 +451,9 @@ const RetrieveSources = {
 
     getSources(keypointId) {
         console.log(`checking keypoint ${keypointId}`);
-        const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
+        const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-textarea-${keypointId}`);
         keypoint.onclick = null;
-        const keypointText = keypoint.textContent;
+        const keypointText = keypoint.value;
         const data = {"keypoint_id": keypointId, "keypoint_text": keypointText}
         exchange("sourcefinder", data);
     },
@@ -469,9 +492,6 @@ const RetrieveSources = {
         if (lastMessage) {
             const retrieveButton = InitializeDoppelcheck.getElementById(`doppelcheck-retrieve-button-${keypointId}`);
             retrieveButton.remove();
-
-            const keypoint = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
-            keypoint.textContent = keypoint.textContent.replace("🕵", "📑");
             return;
         }
 
@@ -509,7 +529,7 @@ const RetrieveSources = {
 
 const CrosscheckSources = {
     initiateCrosscheck(keypointId, sourceId) {
-        const keypointContainer = InitializeDoppelcheck.getElementById(`doppelcheck-keypoint-${keypointId}`);
+        const keypointContainer = InitializeDoppelcheck.getElementById(`doppelcheck-textarea-${keypointId}`);
 
         const sourceLink = InitializeDoppelcheck.getElementById(`doppelcheck-source-link-${keypointId}-${sourceId}`);
         if (!sourceLink) {
@@ -519,7 +539,7 @@ const CrosscheckSources = {
         const sourceUri = sourceLink.href;
         const dataSource = sourceLink.getAttribute('data-source');
 
-        const keypoint = keypointContainer.textContent.replace("📑", "").trim();
+        const keypoint = keypointContainer.value.trim();
         exchange("crosschecker",
             {
                 "keypoint_id": keypointId,
