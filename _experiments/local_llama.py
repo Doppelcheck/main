@@ -1,9 +1,11 @@
+from __future__ import annotations
 import asyncio
+
 import instructor
 from dataclasses import dataclass
-from typing import Mapping, Sequence, Union
+from typing import Mapping, Sequence
 
-from instructor import AsyncInstructor, Instructor
+import pydantic_core
 from ollama import AsyncClient
 from openai import OpenAI
 from pydantic import BaseModel, Field
@@ -22,17 +24,22 @@ class KeyPoint:
 
 
 class Action(BaseModel):
-    pass
+    """Base class for all actions."""
+
+    def do(self, interface: SummarizationInterface) -> None:
+        raise NotImplementedError("This method must be implemented in the derived class.")
 
 
 class Next(Action):
     """Continue to the next segment of the document."""
-    pass
+    def do(self, interface: SummarizationInterface) -> None:
+        interface.next()
 
 
 class Previous(Action):
     """Go back to the previous segment of the document."""
-    pass
+    def do(self, interface: SummarizationInterface) -> None:
+        interface.previous()
 
 
 class AddKeyPoint(Action):
@@ -41,10 +48,16 @@ class AddKeyPoint(Action):
     line_end: int = Field(..., description="The ending line of the key point.")
     content: str = Field(..., description="The key point of the current document segment.")
 
+    def do(self, interface: SummarizationInterface) -> None:
+        interface.add_keypoint(self.line_start, self.line_end, self.content)
+
 
 class RemoveKeyPoint(Action):
     """Remove one of the extracted key points."""
     index: int = Field(..., description="The index of the key point to remove.")
+
+    def do(self, interface: SummarizationInterface) -> None:
+        interface.remove_keypoint(self.index)
 
 
 class EditKeyPoint(Action):
@@ -54,17 +67,22 @@ class EditKeyPoint(Action):
     line_end: int = Field(..., description="The ending line of the key point.")
     content: str = Field(..., description="The updated key point of the current document segment.")
 
+    def do(self, interface: SummarizationInterface) -> None:
+        interface.edit_keypoint(self.index, self.line_start, self.line_end, self.content)
+
 
 class Finish(Action):
-    """Finish the summarization process."""
-    pass
+    """Finish the key point extraction. Call only when the required number of key points have been extracted."""
+    def do(self, interface: SummarizationInterface) -> None:
+        interface.finish()
 
 
 class SelectedAction(BaseModel):
-    """The best action to follow the instruction."""
-    # action: Next | Previous | AddKeyPoint | RemoveKeyPoint | EditKeyPoint | Finish = Field(
-    action: Union[Next, AddKeyPoint, RemoveKeyPoint, EditKeyPoint, Finish] = Field(
-        ..., description="The best action to take to follow the instruction."
+    """The best action choice for extracting the document's keypoints."""
+    action: Next | AddKeyPoint | RemoveKeyPoint | EditKeyPoint | Finish = Field(
+        ..., description=(
+            "The single best action to call in order to extend and improve the document's most important key points."
+        )
     )
 
 
@@ -142,19 +160,19 @@ class SummarizationInterface:
         available_commands = self._available_commands()
 
         screen = (
-            f"[Instruction]\n"
-            f"{instruction_text}"
-            f"\n"
-            f"\n"
+            # f"[Instruction]\n"
+            # f"{instruction_text}"
+            # f"\n"
+            # f"\n"
             f"[Current Document Segment]\n"
             f"{document_content_text}\n"
             f"\n"
             f"[Extracted Key Points]\n"
             f"{keypoints_text}"
-            f"\n"
-            f"\n"
-            f"[Available Commands]\n"
-            f"{available_commands}"
+            # f"\n"
+            # f"\n"
+            # f"[Available Commands]\n"
+            # f"{available_commands}"
         )
 
         return screen
@@ -182,6 +200,9 @@ class SummarizationInterface:
         return "\n".join(f"- {each_option}" for each_option in options)
 
     def next(self) -> None:
+        if self.end_of_document:
+            raise KeypointsError("You have reached the end of the document.")
+
         self.current_line = min(
             self.current_line + self.line_window - self.overlap,
             self.len_doc - self.line_window + 1)
@@ -190,6 +211,9 @@ class SummarizationInterface:
         self.end_of_document = self.current_line >= self.len_doc - self.line_window + 1
 
     def previous(self) -> None:
+        if self.start_of_document:
+            raise KeypointsError("You have reached the start of the document.")
+
         self.current_line = max(self.current_line - self.line_window + self.overlap, 0)
 
         self.start_of_document = self.current_line == 0
@@ -203,19 +227,19 @@ class SummarizationInterface:
         
     def remove_keypoint(self, index: int) -> None:
         if index < 1 or index > len(self.keypoints):
-            raise KeypointsError("Invalid key point index.")
+            raise KeypointsError(f"Key point index {index} is invalid.")
 
         self.keypoints.pop(index - 1)
         
     def edit_keypoint(self, index: int, start: int, end: int, content: str) -> None:
         if index < 1 or index > len(self.keypoints):
-            raise KeypointsError("Invalid key point index.")
+            raise KeypointsError(f"Key point index {index} is invalid.")
 
         self.keypoints[index - 1] = KeyPoint(line_range=(start, end), content=content)
         
     def finish(self) -> None:
         if len(self.keypoints) < self.no_keypoints:
-            raise KeypointsError("You have not extracted enough key points.")
+            raise KeypointsError(f"You must extract {self.no_keypoints - len(self.keypoints)} more key points.")
 
         print("Summarization finished.")
         print("Key points:")
@@ -248,16 +272,22 @@ async def chat_stream():
         print(content, end='', flush=True)
 
 
-async def chat_instructor(client: Instructor, model: str, screen_content: str) -> str:
+async def chat_instructor(client: instructor.Instructor, model: str, screen_content: str) -> Action:
     prompt = {
         'role': 'user',
         'content': screen_content
     }
 
-    response = client.chat.completions.create(
-        model=model, messages=[prompt], response_model=SelectedAction, max_retries=5
-    )
-    return response.model_dump_json(indent=2)
+    while True:
+        try:
+            response = client.chat.completions.create(
+                model=model, messages=[prompt], response_model=SelectedAction, max_retries=10
+            )
+
+        except pydantic_core._pydantic_core.ValidationError as e:
+            continue
+
+        return response.action
 
 
 async def chat(client: AsyncClient, model: str, screen_content: str) -> str:
@@ -267,7 +297,8 @@ async def chat(client: AsyncClient, model: str, screen_content: str) -> str:
     }
 
     response = await client.chat(model=model, messages=[prompt])
-    return response['message']['content']
+    response_txt = response['message']['content']
+    return response_txt
 
 
 async def main() -> None:
@@ -307,32 +338,29 @@ async def main() -> None:
 
     text_lines = list(get_text_lines(document, line_length=30))
 
-    _client = AsyncClient(host="http://localhost:8800")
     client = instructor.from_openai(
         OpenAI(
             base_url="http://localhost:8800/v1",
             api_key="ollama"
         ),
-        mode=instructor.Mode.JSON
+        #mode=instructor.Mode.MD_JSON,
+        mode = instructor.Mode.JSON
     )
 
-    #client = instructor.patch(client, mode=instructor.Mode.JSON)
-
-    model = 'llama2'
-    # model = 'mistral'
+    # model = 'llama2'
+    model = 'mistral'
 
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
         screen = interface.render()
         print(screen)
-        command = await chat(_client, model, screen)
-        command = command.strip()
+        command = await chat_instructor(client, model, screen)
         print()
-        input_command = input(command)
+        print(f"[Command]\n{str(command.__repr__())}\n\n")
         print()
-        interface.execute_command(input_command)
+        command.do(interface)
 
-    
+
 if __name__ == "__main__":
     # main()
     asyncio.run(main())
