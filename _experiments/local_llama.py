@@ -1,7 +1,7 @@
 import asyncio
 import instructor
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Mapping, Sequence, Union
 
 from instructor import AsyncInstructor, Instructor
 from ollama import AsyncClient
@@ -37,22 +37,22 @@ class Previous(Action):
 
 class AddKeyPoint(Action):
     """Extract the current document segment's keypoint."""
-    line_start: int = Field(description="The starting line of the key point.")
-    line_end: int = Field(description="The ending line of the key point.")
-    content: str = Field(description="The key point of the current document segment.")
+    line_start: int = Field(..., description="The starting line of the key point.")
+    line_end: int = Field(..., description="The ending line of the key point.")
+    content: str = Field(..., description="The key point of the current document segment.")
 
 
 class RemoveKeyPoint(Action):
     """Remove one of the extracted key points."""
-    index: int = Field(description="The index of the key point to remove.")
+    index: int = Field(..., description="The index of the key point to remove.")
 
 
 class EditKeyPoint(Action):
     """Edit one of the extracted key points."""
-    index: int = Field(description="The index of the key point to edit.")
-    line_start: int = Field(description="The starting line of the key point.")
-    line_end: int = Field(description="The ending line of the key point.")
-    content: str = Field(description="The updated key point of the current document segment.")
+    index: int = Field(..., description="The index of the key point to edit.")
+    line_start: int = Field(..., description="The starting line of the key point.")
+    line_end: int = Field(..., description="The ending line of the key point.")
+    content: str = Field(..., description="The updated key point of the current document segment.")
 
 
 class Finish(Action):
@@ -62,8 +62,9 @@ class Finish(Action):
 
 class SelectedAction(BaseModel):
     """The best action to follow the instruction."""
-    action: Next | Previous | AddKeyPoint | RemoveKeyPoint | EditKeyPoint | Finish = Field(
-        description="The best action to execute to follow the instruction."
+    # action: Next | Previous | AddKeyPoint | RemoveKeyPoint | EditKeyPoint | Finish = Field(
+    action: Union[Next, AddKeyPoint, RemoveKeyPoint, EditKeyPoint, Finish] = Field(
+        ..., description="The best action to execute to follow the instruction."
     )
 
 
@@ -130,8 +131,8 @@ class SummarizationInterface:
 
     def render(self):
         instruction_text = (
-            f"Navigate the document to extract the {self.no_keypoints} most important key points. Type in only one of "
-            f"the available commands described at the bottom of the screen."
+            f"Navigate the document to extract the {self.no_keypoints} most important key points. To do this, Choose "
+            f"one of the available commands from the bottom of the screen."
         )
         document_content_text = self._document_window()
         keypoints_text = self._keypoints()
@@ -158,8 +159,8 @@ class SummarizationInterface:
         if not self.end_of_document:
             options.append("`next()`: get next segment of the document")
 
-        if not self.start_of_document:
-            options.append("`previous()`: get previous segment of the document")
+        # if not self.start_of_document:
+        #     options.append("`previous()`: get previous segment of the document")
 
         if len(self.keypoints) < self.no_keypoints:
             options.append("`add_keypoint([line_start], [line_end], [key point from segment])`: add new keypoint")
@@ -242,15 +243,15 @@ async def chat_stream():
         print(content, end='', flush=True)
 
 
-async def chat(client: Instructor, screen_content: str) -> str:
-    # client = AsyncClient(host="http://localhost:8800")
-
+async def chat(client: Instructor, model: str, screen_content: str) -> str:
     prompt = {
         'role': 'user',
         'content': screen_content
     }
 
-    response = client.chat.completions.create(model='mistral', messages=[prompt], response_model=SelectedAction)
+    response = client.chat.completions.create(
+        model=model, messages=[prompt], response_model=SelectedAction, max_retries=5
+    )
     return response.model_dump_json(indent=2)
 
 
@@ -302,11 +303,14 @@ async def main() -> None:
 
     #client = instructor.patch(client, mode=instructor.Mode.JSON)
 
+    model = 'llama2'
+    # model = 'mistral'
+
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
         screen = interface.render()
         print(screen)
-        command = await chat(client, screen)
+        command = await chat(client, model, screen)
         command = command.strip()
         input(command)
         interface.execute_command(command)
