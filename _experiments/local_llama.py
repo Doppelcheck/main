@@ -64,7 +64,7 @@ class SelectedAction(BaseModel):
     """The best action to follow the instruction."""
     # action: Next | Previous | AddKeyPoint | RemoveKeyPoint | EditKeyPoint | Finish = Field(
     action: Union[Next, AddKeyPoint, RemoveKeyPoint, EditKeyPoint, Finish] = Field(
-        ..., description="The best action to execute to follow the instruction."
+        ..., description="The best action to take to follow the instruction."
     )
 
 
@@ -103,7 +103,7 @@ class SummarizationInterface:
     def execute_command(self, command: str) -> None:
         command_parts = command.split(sep="(", maxsplit=1)
         command_name = command_parts[0]
-        command_arguments = command_parts[1].strip(")").split(", ")
+        command_arguments = command_parts[1].strip(")").split(",")
 
         if command_name == "next":
             self.next()
@@ -131,8 +131,11 @@ class SummarizationInterface:
 
     def render(self):
         instruction_text = (
-            f"Navigate the document to extract the {self.no_keypoints} most important key points. To do this, Choose "
-            f"one of the available commands from the bottom of the screen."
+            f"What is the best single action to take in order to extend and improve the complete document's "
+            f"{self.no_keypoints} most important key points below? "
+            f"Choose only and exactly one of the available commands from the bottom of the screen."
+            # f"Navigate the document to extract the {self.no_keypoints} most important key points."
+            # f" To do this, choose one of the available commands from the bottom of the screen."
         )
         document_content_text = self._document_window()
         keypoints_text = self._keypoints()
@@ -140,16 +143,18 @@ class SummarizationInterface:
 
         screen = (
             f"[Instruction]\n"
-            f"{instruction_text}\n"
+            f"{instruction_text}"
+            f"\n"
             f"\n"
             f"[Current Document Segment]\n"
             f"{document_content_text}\n"
             f"\n"
             f"[Extracted Key Points]\n"
-            f"{keypoints_text}\n"
+            f"{keypoints_text}"
+            f"\n"
             f"\n"
             f"[Available Commands]\n"
-            f"{available_commands}\n"
+            f"{available_commands}"
         )
 
         return screen
@@ -163,12 +168,12 @@ class SummarizationInterface:
         #     options.append("`previous()`: get previous segment of the document")
 
         if len(self.keypoints) < self.no_keypoints:
-            options.append("`add_keypoint([line_start], [line_end], [key point from segment])`: add new keypoint")
+            options.append("`add_keypoint([line start], [line end], [key point from segment])`: add new keypoint")
 
         if len(self.keypoints) >= 1:
             options.extend([
                 "`remove_keypoint([keypoint_index])`: remove keypoint",
-                "`edit_keypoint([keypoint_index], [line_start], [line_end], [key point from segment])`: edit keypoint"
+                "`edit_keypoint([keypoint index], [line start], [line end], [key point from segment])`: edit keypoint"
             ])
 
         if len(self.keypoints) == self.no_keypoints:
@@ -243,7 +248,7 @@ async def chat_stream():
         print(content, end='', flush=True)
 
 
-async def chat(client: Instructor, model: str, screen_content: str) -> str:
+async def chat_instructor(client: Instructor, model: str, screen_content: str) -> str:
     prompt = {
         'role': 'user',
         'content': screen_content
@@ -253,6 +258,16 @@ async def chat(client: Instructor, model: str, screen_content: str) -> str:
         model=model, messages=[prompt], response_model=SelectedAction, max_retries=5
     )
     return response.model_dump_json(indent=2)
+
+
+async def chat(client: AsyncClient, model: str, screen_content: str) -> str:
+    prompt = {
+        'role': 'user',
+        'content': screen_content
+    }
+
+    response = await client.chat(model=model, messages=[prompt])
+    return response['message']['content']
 
 
 async def main() -> None:
@@ -310,10 +325,12 @@ async def main() -> None:
     while True:
         screen = interface.render()
         print(screen)
-        command = await chat(client, model, screen)
+        command = await chat(_client, model, screen)
         command = command.strip()
-        input(command)
-        interface.execute_command(command)
+        print()
+        input_command = input(command)
+        print()
+        interface.execute_command(input_command)
 
     
 if __name__ == "__main__":
