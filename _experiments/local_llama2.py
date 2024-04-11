@@ -4,14 +4,47 @@ from pydantic import BaseModel, Field
 import instructor
 
 
+class Symbol(BaseModel):
+    pass
+
+
+class GoogleSymbol(Symbol):
+    company: str = "Google"
+    ticker: str = "GOOGL"
+
+
+class AppleSymbol(Symbol):
+    company: str = "Apple Inc."
+    ticker: str = "AAPL"
+
+
+class TeslaSymbol(Symbol):
+    company: str = "Tesla Inc."
+    ticker: str = "TSLA"
+
+
+class MicrosoftSymbol(Symbol):
+    company: str = "Microsoft Corporation"
+    ticker: str = "MSFT"
+
+
+class AmazonSymbol(Symbol):
+    company: str = "Amazon.com Inc."
+    ticker: str = "AMZN"
+
+
+class FacebookSymbol(Symbol):
+    company: str = "Meta Platforms Inc."
+    ticker: str = "META"
+
+
 class StockInfo(BaseModel):
-    company: str = Field(..., description="The company name")
-    ticker: str = Field(..., description="The stock ticker")
+    symbol: GoogleSymbol | AppleSymbol | TeslaSymbol | MicrosoftSymbol | AmazonSymbol | FacebookSymbol = Field(..., description="The company symbol")
 
 
 def main() -> None:
-    company = "Apple Inc."
-    #company = "Google"
+    #company = "Apple Inc."
+    company = "Google"
 
     client = instructor.from_openai(
         OpenAI(
