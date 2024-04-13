@@ -1,6 +1,7 @@
 from __future__ import annotations
 import asyncio
 
+import ollama
 import instructor
 from dataclasses import dataclass
 from typing import Sequence, Callable
@@ -31,12 +32,14 @@ class Action(BaseModel):
 
 class NextSegment(Action):
     """Read the next segment of the document."""
+
     def do(self, interface: SummarizationInterface) -> None:
         interface.next_segment()
 
 
 class PreviousSegment(Action):
     """Read the previous segment of the document."""
+
     def do(self, interface: SummarizationInterface) -> None:
         interface.previous()
 
@@ -45,20 +48,23 @@ class ExtractKeypoint(Action):
     """Extract a relevant keypoint."""
     line_start: int = Field(..., description="The starting line number of the source document segment.")
     line_end: int = Field(..., description="The ending line number of the source document segment.")
-    keypoint_number: int = Field(..., description="The number of the extracted keypoint.")
+    importance_rank: int = Field(..., description="The importance rank of the extracted keypoint.")
     content: str = Field(..., description="Summary of the document's keypoint.")
 
     def do(self, interface: SummarizationInterface) -> None:
-        interface.edit_keypoint(self.keypoint_number, self.line_start, self.line_end, self.content)
+        interface.edit_keypoint(self.importance_rank, self.line_start, self.line_end, self.content)
 
 
 class Finish(Action):
     """Finish the keypoint extraction."""
+
     def do(self, interface: SummarizationInterface) -> None:
         interface.finish()
 
 
-action_criterion = "The best action to take for extracting the complete document's most important keypoints."
+action_criterion = (
+    "The best action to take at the moment for extracting the complete document's most important keypoints."
+)
 
 
 class StartFinished(BaseModel):
@@ -184,54 +190,87 @@ class SummarizationInterface:
         )
         if self.end_of_document:
             window += ("END OF DOCUMENT",)
+        else:
+            window += (f"{self.current_line + self.line_window + 1:04d}: [...]",)
         return "\n".join(window)
 
     def render(self):
         instruction_text = (
-            f"What is the best single action to take in order to improve the complete document's most important key "
-            f"points below?"
-            # f" Choose only and exactly one of the available commands from the bottom of the screen."
-            # f"Navigate the document to extract the {self.no_keypoints} most important key points."
-            # f" To do this, choose one of the available commands from the bottom of the screen."
+            f"What is the best single command to run in order to improve the complete document's most important key "
+            f"points below? Choose only and exactly one of the available commands from the bottom of the screen. "
+            f"Respond in code only."
         )
         document_content_text = self._document_window()
         keypoints_text = self._keypoints()
-        available_commands = self._available_commands()
+        available_actions = self._available_actions()
 
         screen = (
-            # f"[Instruction]\n"
-            # f"{instruction_text}"
-            # f"\n"
-            # f"\n"
+            f"[Instruction]\n"
+            f"{instruction_text}"
+            f"\n"
+            f"\n"
             f"[Current Source Document Segment]\n"
             f"{document_content_text}\n"
             f"\n"
-            f"[Extracted Keypoints]\n"
+            f"[Most Important Keypoints]\n"
             f"{keypoints_text}"
-            # f"\n"
-            # f"\n"
-            # f"[Available Commands]\n"
-            # f"{available_commands}"
+            f"\n"
+            f"\n"
+            f"[Available Actions]\n"
+            f"{available_actions}"
         )
 
         return screen
 
-    def _available_commands(self) -> str:
-        options = [
-            "`extract_keypoint([keypoint_number], [start_line], [end_line], [content])`: "
-            "extract keypoint from the current segment"
-        ]
+    def _available_actions(self) -> str:
+        options = list()
+
+        if not self.start_of_document:
+            options.append("`previous_segment()`: get previous segment of the document")
 
         if not self.end_of_document:
             options.append("`next_segment()`: get next segment of the document")
 
-        if not self.start_of_document:
-            options.append("`previous_segment()`: get previous segment of the document")
+        options.append(
+            "`extract_keypoint([importance_rank], [start_line], [end_line], [summary])`: "
+            "extract a summary from the current segment, square brackets indicate placeholders"
+        )
 
         if None not in self.keypoints:
             options.append("`finish()`: finish summarization")
 
         return "\n".join(f"- {each_option}" for each_option in options)
+
+    def run_command(self, command_string: str) -> None:
+        kp_index = command_string.find("extract_keypoint(")
+        ns_index = command_string.find("next_segment(")
+        ps_index = command_string.find("previous_segment(")
+        finish_index = command_string.find("finish(")
+
+        # If command not found, set its index to a large number
+        kp_index = kp_index if kp_index != -1 else float('inf')
+        ns_index = ns_index if ns_index != -1 else float('inf')
+        ps_index = ps_index if ps_index != -1 else float('inf')
+        finish_index = finish_index if finish_index != -1 else float('inf')
+
+        # Find the command with the smallest index (i.e., the one that appears first)
+        min_index = min(kp_index, ns_index, ps_index, finish_index)
+
+        # Run the first command found
+        if min_index == kp_index:
+            end_bracket_index = command_string.find(")", kp_index)
+            bracket_content = command_string[kp_index + len("extract_keypoint("):end_bracket_index]
+            importance_rank, start_line, end_line, summary = bracket_content.split(",")
+            self.edit_keypoint(int(importance_rank), int(start_line), int(end_line), summary)
+
+        elif min_index == ns_index:
+            self.next_segment()
+
+        elif min_index == ps_index:
+            self.previous()
+
+        elif min_index == finish_index:
+            self.finish()
 
     def next_segment(self) -> None:
         if self.end_of_document:
@@ -258,7 +297,7 @@ class SummarizationInterface:
             raise KeypointsError(f"Keypoint number {keypoint_number} is invalid.")
 
         self.keypoints[keypoint_number - 1] = KeyPoint(line_range=(start, end), content=content)
-        
+
     def finish(self) -> None:
         if None in self.keypoints:
             raise KeypointsError("You must extract more keypoints.")
@@ -273,7 +312,6 @@ class SummarizationInterface:
 async def chat_instructor(
         client: instructor.Instructor, model: str, screen_content: str,
         get_response_model: Callable[..., type[BaseModel]]) -> Action:
-
     prompt = {
         'role': 'user',
         'content': screen_content
@@ -283,7 +321,8 @@ async def chat_instructor(
         response_model = get_response_model()
         try:
             response, completion = client.chat.completions.create_with_completion(
-                model=model, messages=[prompt], response_model=response_model, max_retries=10
+                model=model, messages=[prompt],
+                response_model=response_model, max_retries=10
             )
             print(f"raw output: {completion.choices[0].message.content.strip().__repr__()}")
             return response.action
@@ -291,6 +330,15 @@ async def chat_instructor(
         except pydantic_core._pydantic_core.ValidationError as e:
             continue
 
+
+async def chat_ollama(client: ollama.AsyncClient, model: str, screen_content: str) -> str:
+    prompt = {
+        'role': 'user',
+        'content': screen_content
+    }
+
+    response = await client.chat(model=model, messages=[prompt])
+    return response['message']['content']
 
 
 async def main() -> None:
@@ -338,18 +386,28 @@ async def main() -> None:
         mode=instructor.Mode.JSON
     )
 
-    # model = 'llama2'
-    model = 'mistral'
+    client_ollama = ollama.AsyncClient(host="http://localhost:8800")
+
+    model = 'llama2'
+    # model = 'mistral'
 
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
         screen = interface.render()
         print(screen)
-        command = await chat_instructor(client, model, screen, interface.get_response_model)
+        # command = await chat_instructor(client, model, screen, interface.get_response_model)
+        # command = await chat_ollama(client_ollama, model, f"{screen}\n\n```python\n")
+        command = await chat_ollama(client_ollama, model, screen)
         print()
         print(f"[Command]\n{str(command.__repr__())}\n\n")
         print()
-        command.do(interface)
+        # command.do(interface)
+        try:
+            interface.run_command(command)
+
+        except (KeypointsError, ValueError) as e:
+            print(f"[Error]\n{str(e)}\n\n")
+            continue
 
 
 if __name__ == "__main__":
