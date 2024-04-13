@@ -44,15 +44,15 @@ class PreviousSegment(Command):
         interface.previous()
 
 
-class ExtractKeypoint(Command):
-    """Extract a relevant keypoint."""
+class SetKeypoint(Command):
+    """Set a relevant keypoint."""
     line_start: int = Field(..., description="The starting line number of the source document segment.")
     line_end: int = Field(..., description="The ending line number of the source document segment.")
     importance_rank: int = Field(..., description="The importance rank of the extracted keypoint.")
     content: str = Field(..., description="Summary of the document's keypoint.")
 
     def do(self, interface: SummarizationInterface) -> None:
-        interface.edit_keypoint(self.importance_rank, self.line_start, self.line_end, self.content)
+        interface.set_keypoint(self.importance_rank, self.line_start, self.line_end, self.content)
 
 
 class Finish(Command):
@@ -72,7 +72,7 @@ class StartFinished(BaseModel):
     The best action for extracting the document's most important keypoints at the start of the document with
     suggestions for each keypoint already available.
     """
-    action: NextSegment | ExtractKeypoint | Finish = Field(..., description=action_criterion)
+    action: NextSegment | SetKeypoint | Finish = Field(..., description=action_criterion)
 
 
 class MiddleFinished(BaseModel):
@@ -80,7 +80,7 @@ class MiddleFinished(BaseModel):
     The best action for extracting the document's most important keypoints in the middle of the document with
     suggestions for each keypoint already available.
     """
-    action: PreviousSegment | NextSegment | ExtractKeypoint | Finish = Field(..., description=action_criterion)
+    action: PreviousSegment | NextSegment | SetKeypoint | Finish = Field(..., description=action_criterion)
 
 
 class EndFinished(BaseModel):
@@ -88,7 +88,7 @@ class EndFinished(BaseModel):
     The best action for extracting the document's most important keypoints at the end of the document with
     suggestions for each keypoint already available.
     """
-    action: PreviousSegment | ExtractKeypoint | Finish = Field(..., description=action_criterion)
+    action: PreviousSegment | SetKeypoint | Finish = Field(..., description=action_criterion)
 
 
 class TooSmallFinished(BaseModel):
@@ -96,7 +96,7 @@ class TooSmallFinished(BaseModel):
     The best action for extracting the document's most important keypoints when the full document is visible
     with suggestions for each keypoint already available.
     """
-    action: ExtractKeypoint | Finish = Field(..., description=action_criterion)
+    action: SetKeypoint | Finish = Field(..., description=action_criterion)
 
 
 class StartNotFinished(BaseModel):
@@ -104,7 +104,7 @@ class StartNotFinished(BaseModel):
     The best action for extracting the document's most important keypoints at the start of the document with
     keypoints still missing.
     """
-    action: NextSegment | ExtractKeypoint = Field(..., description=action_criterion)
+    action: NextSegment | SetKeypoint = Field(..., description=action_criterion)
 
 
 class MiddleNotFinished(BaseModel):
@@ -112,7 +112,7 @@ class MiddleNotFinished(BaseModel):
     The best action for extracting the document's most important keypoints in the middle of the document with
     keypoints still missing.
     """
-    action: PreviousSegment | NextSegment | ExtractKeypoint = Field(..., description=action_criterion)
+    action: PreviousSegment | NextSegment | SetKeypoint = Field(..., description=action_criterion)
 
 
 class EndNotFinished(BaseModel):
@@ -120,7 +120,7 @@ class EndNotFinished(BaseModel):
     The best action for extracting the document's most important keypoints at the end of the document with
     keypoints still missing.
     """
-    action: PreviousSegment | ExtractKeypoint = Field(..., description=action_criterion)
+    action: PreviousSegment | SetKeypoint = Field(..., description=action_criterion)
 
 
 class TooSmallNotFinished(BaseModel):
@@ -128,7 +128,7 @@ class TooSmallNotFinished(BaseModel):
     The best action for extracting the document's most important keypoints when the full document is visible
     with keypoints still missing.
     """
-    action: ExtractKeypoint = Field(..., description=action_criterion)
+    action: SetKeypoint = Field(..., description=action_criterion)
 
 
 class SummarizationInterface:
@@ -212,7 +212,7 @@ class SummarizationInterface:
             f"## Current Source Document Segment\n"
             f"{document_content_text}\n"
             f"\n"
-            f"## Most Important Keypoints\n"
+            f"## Importance Ranked Keypoints\n"
             f"{keypoints_text}"
             f"\n"
             f"\n"
@@ -242,7 +242,7 @@ class SummarizationInterface:
         return "\n".join(f"- {each_option}" for each_option in options)
 
     def run_command(self, command_string: str) -> None:
-        kp_index = command_string.find("extract_keypoint(")
+        kp_index = command_string.find("set_keypoint(")
         ns_index = command_string.find("next_segment(")
         ps_index = command_string.find("previous_segment(")
         finish_index = command_string.find("finish(")
@@ -259,9 +259,9 @@ class SummarizationInterface:
         # Run the first command found
         if min_index == kp_index:
             end_bracket_index = command_string.find(")", kp_index)
-            bracket_content = command_string[kp_index + len("extract_keypoint("):end_bracket_index]
+            bracket_content = command_string[kp_index + len("set_keypoint("):end_bracket_index]
             importance_rank, start_line, end_line, summary = bracket_content.split(",")
-            self.edit_keypoint(int(importance_rank), int(start_line), int(end_line), summary)
+            self.set_keypoint(int(importance_rank), int(start_line), int(end_line), summary)
 
         elif min_index == ns_index:
             self.next_segment()
@@ -292,7 +292,7 @@ class SummarizationInterface:
         self.start_of_document = self.current_line == 0
         self.end_of_document = False
 
-    def edit_keypoint(self, keypoint_number: int, start: int, end: int, content: str) -> None:
+    def set_keypoint(self, keypoint_number: int, start: int, end: int, content: str) -> None:
         if keypoint_number < 1 or keypoint_number > len(self.keypoints):
             raise KeypointsError(f"Keypoint number {keypoint_number} is invalid.")
 
