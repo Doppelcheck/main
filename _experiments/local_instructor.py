@@ -23,28 +23,28 @@ class KeyPoint:
     content: str
 
 
-class Action(BaseModel):
-    """All actions for extracting the document's relevant keypoints."""
+class Command(BaseModel):
+    """All commands for extracting the document's relevant keypoints."""
 
     def do(self, interface: SummarizationInterface) -> None:
         raise NotImplementedError("This method must be implemented in the derived class.")
 
 
-class NextSegment(Action):
+class NextSegment(Command):
     """Read the next segment of the document."""
 
     def do(self, interface: SummarizationInterface) -> None:
         interface.next_segment()
 
 
-class PreviousSegment(Action):
+class PreviousSegment(Command):
     """Read the previous segment of the document."""
 
     def do(self, interface: SummarizationInterface) -> None:
         interface.previous()
 
 
-class ExtractKeypoint(Action):
+class ExtractKeypoint(Command):
     """Extract a relevant keypoint."""
     line_start: int = Field(..., description="The starting line number of the source document segment.")
     line_end: int = Field(..., description="The ending line number of the source document segment.")
@@ -55,7 +55,7 @@ class ExtractKeypoint(Action):
         interface.edit_keypoint(self.importance_rank, self.line_start, self.line_end, self.content)
 
 
-class Finish(Action):
+class Finish(Command):
     """Finish the keypoint extraction."""
 
     def do(self, interface: SummarizationInterface) -> None:
@@ -202,27 +202,27 @@ class SummarizationInterface:
         )
         document_content_text = self._document_window()
         keypoints_text = self._keypoints()
-        available_actions = self._available_actions()
+        available_commands = self._available_commands()
 
         screen = (
-            f"[Instruction]\n"
+            f"## Instruction\n"
             f"{instruction_text}"
             f"\n"
             f"\n"
-            f"[Current Source Document Segment]\n"
+            f"## Current Source Document Segment\n"
             f"{document_content_text}\n"
             f"\n"
-            f"[Most Important Keypoints]\n"
+            f"## Most Important Keypoints\n"
             f"{keypoints_text}"
             f"\n"
             f"\n"
-            f"[Available Actions]\n"
-            f"{available_actions}"
+            f"## Available Commands\n"
+            f"{available_commands}"
         )
 
         return screen
 
-    def _available_actions(self) -> str:
+    def _available_commands(self) -> str:
         options = list()
 
         if not self.start_of_document:
@@ -233,7 +233,7 @@ class SummarizationInterface:
 
         options.append(
             "`extract_keypoint([importance_rank], [start_line], [end_line], [summary])`: "
-            "extract a summary from the current segment, square brackets indicate placeholders"
+            "extract a summary from the current segment, replace square bracket placeholders with actual values"
         )
 
         if None not in self.keypoints:
@@ -311,7 +311,7 @@ class SummarizationInterface:
 
 async def chat_instructor(
         client: instructor.Instructor, model: str, screen_content: str,
-        get_response_model: Callable[..., type[BaseModel]]) -> Action:
+        get_response_model: Callable[..., type[BaseModel]]) -> Command:
     prompt = {
         'role': 'user',
         'content': screen_content
@@ -334,6 +334,7 @@ async def chat_instructor(
 async def chat_ollama(client: ollama.AsyncClient, model: str, screen_content: str) -> str:
     prompt = {
         'role': 'user',
+        # 'content': f"{screen_content}\n\n[Best Command]\n`",
         'content': screen_content
     }
 
@@ -388,8 +389,9 @@ async def main() -> None:
 
     client_ollama = ollama.AsyncClient(host="http://localhost:8800")
 
-    model = 'llama2'
+    # model = 'llama2:text'
     # model = 'mistral'
+    model = "dolphin-mixtral"
 
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
