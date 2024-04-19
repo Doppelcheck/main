@@ -141,6 +141,7 @@ class SummarizationInterface:
         self.line_window = line_window
         self.start_of_document = True
         self.end_of_document = self.len_doc <= self.line_window
+        self._last_command = "[no last command]"
 
     def get_response_model(self) -> type[BaseModel]:
         return TooSmallNotFinished
@@ -196,19 +197,15 @@ class SummarizationInterface:
 
     def render(self):
         instruction_text = (
-            f"What is the best single command to run in order to improve the complete document's most important key "
-            f"points below? Choose only and exactly one of the available commands from the bottom of the screen. "
-            f"Respond in code only."
+            f"What is the best command to run in order to improve the full document's most important key "
+            f"points? Choose exactly one of the available commands. Extract all keypoints but do not set the same "
+            f"keypoint twice. Respond in code only."
         )
         document_content_text = self._document_window()
         keypoints_text = self._keypoints()
         available_commands = self._available_commands()
 
         screen = (
-            f"## Instruction\n"
-            f"{instruction_text}"
-            f"\n"
-            f"\n"
             f"## Current Source Document Segment\n"
             f"{document_content_text}\n"
             f"\n"
@@ -218,6 +215,10 @@ class SummarizationInterface:
             f"\n"
             f"## Available Commands\n"
             f"{available_commands}"
+            f"\n"
+            f"\n"
+            f"## Instruction\n"
+            f"{instruction_text}"
         )
 
         return screen
@@ -232,8 +233,9 @@ class SummarizationInterface:
             options.append("`next_segment()`: get next segment of the document")
 
         options.append(
-            "`extract_keypoint([importance_rank], [start_line], [end_line], [summary])`: "
-            "extract a summary from the current segment, replace square bracket placeholders with actual values"
+            "`set_keypoint([importance_rank], [start_line], [end_line], [summary])`: "
+            "extract a summary from the current segment, replace square brackets with actual values, prioritize "
+            "importance ranks without keypoints"
         )
 
         if None not in self.keypoints:
@@ -261,15 +263,19 @@ class SummarizationInterface:
             end_bracket_index = command_string.find(")", kp_index)
             bracket_content = command_string[kp_index + len("set_keypoint("):end_bracket_index]
             importance_rank, start_line, end_line, summary = bracket_content.split(",")
+            self._last_command = f"set_keypoint({importance_rank}, {start_line}, {end_line}, \"{summary}\")"
             self.set_keypoint(int(importance_rank), int(start_line), int(end_line), summary)
 
         elif min_index == ns_index:
+            self._last_command = "next_segment()"
             self.next_segment()
 
         elif min_index == ps_index:
+            self._last_command = "previous_segment()"
             self.previous()
 
         elif min_index == finish_index:
+            self._last_command = "finish()"
             self.finish()
 
     def next_segment(self) -> None:
@@ -296,7 +302,17 @@ class SummarizationInterface:
         if keypoint_number < 1 or keypoint_number > len(self.keypoints):
             raise KeypointsError(f"Keypoint number {keypoint_number} is invalid.")
 
-        self.keypoints[keypoint_number - 1] = KeyPoint(line_range=(start, end), content=content)
+        keypoint = KeyPoint(line_range=(start, end), content=content)
+        if self.keypoints[keypoint_number - 1] is None:
+            self.keypoints[keypoint_number - 1] = keypoint
+
+        else:
+            for i in range(len(self.keypoints)):
+                if self.keypoints[i] is None:
+                    self.keypoints[i] = keypoint
+                    break
+            else:
+                self.keypoints[keypoint_number - 1] = keypoint
 
     def finish(self) -> None:
         if None in self.keypoints:
@@ -391,7 +407,8 @@ async def main() -> None:
 
     # model = 'llama2:text'
     # model = 'mistral'
-    model = "dolphin-mixtral"
+    # model = "dolphin-mixtral"
+    model = "llama3"
 
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
