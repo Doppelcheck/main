@@ -1,5 +1,6 @@
 from __future__ import annotations
 import asyncio
+from textwrap import indent
 
 import ollama
 import instructor
@@ -144,8 +145,6 @@ class SummarizationInterface:
         self._last_command = "[no last command]"
 
     def get_response_model(self) -> type[BaseModel]:
-        return TooSmallNotFinished
-
         if None in self.keypoints:
             if self.start_of_document and self.end_of_document:
                 return TooSmallNotFinished
@@ -192,7 +191,7 @@ class SummarizationInterface:
         if self.end_of_document:
             window += ("END OF DOCUMENT",)
         else:
-            window += (f"{self.current_line + self.line_window + 1:04d}: [...]",)
+            window += (f"{self.current_line + self.line_window + 1:04d}: ...",)
         return "\n".join(window)
 
     def render(self):
@@ -201,24 +200,37 @@ class SummarizationInterface:
             f"points? Choose exactly one of the available commands. Extract all keypoints but do not set the same "
             f"keypoint twice. Respond in code only."
         )
+        next_steps = (
+            "- Review the current segment to identify potential keypoints.\n"
+            "- Use the `set_keypoint` command to summarize important details, prioritizing empty keypoint ranks.\n"
+            "- Navigate through document segments using `previous_segment()` or `next_segment()` if additional "
+            "context is needed.\n"
+            "- Once all keypoints are extracted, use the `finish()` command to complete the summarization process.\n"
+            "\n"
+            "**Note**: If you find an important detail, remember you can rank keypoints by their relevance to the "
+            "overall document.\n"
+        )
+
         document_content_text = self._document_window()
         keypoints_text = self._keypoints()
         available_commands = self._available_commands()
 
         screen = (
-            f"## Current Source Document Segment\n"
+            f"## Source Document Lines\n"
             f"{document_content_text}\n"
             f"\n"
-            f"## Importance Ranked Keypoints\n"
-            f"{keypoints_text}"
+            f"## Task Overview\n"
+            f"- **Objective**: Identify and rank keypoints from the document segment.\n"
+            f"- **Keypoints Status**:\n"
+            f"{indent(keypoints_text, '  ')}"
             f"\n"
             f"\n"
-            f"## Available Commands\n"
-            f"{available_commands}"
-            f"\n"
-            f"\n"
-            f"## Instruction\n"
-            f"{instruction_text}"
+            # f"## Available Commands\n"
+            # f"{available_commands}"
+            # f"\n"
+            # f"\n"
+            f"## Suggested Next Steps\n"
+            f"{next_steps}"
         )
 
         return screen
@@ -227,19 +239,20 @@ class SummarizationInterface:
         options = list()
 
         if not self.start_of_document:
-            options.append("`previous_segment()`: get previous segment of the document")
+            options.append("`previous_segment()`: View the previous segment of the document.")
 
         if not self.end_of_document:
-            options.append("`next_segment()`: get next segment of the document")
+            options.append("`next_segment()`: View the next segment of the document.")
 
         options.append(
-            "`set_keypoint([importance_rank], [start_line], [end_line], [summary])`: "
-            "extract a summary from the current segment, replace square brackets with actual values, prioritize "
-            "importance ranks without keypoints"
+            "`set_keypoint([importance_rank], [start_line], [end_line], [summary])`:\n"
+            "  - **Purpose**: Extract a summary as a keypoint.\n"
+            "  - **Instructions**: Replace placeholders with actual values. Ensure each keypoint is unique.\n"
+            "  - **Example**: `set_keypoint(1, 10, 12, \"Stoltenberg aims to commit NATO states to support Ukraine.\")`"
         )
 
         if None not in self.keypoints:
-            options.append("`finish()`: finish summarization")
+            options.append("`finish()`: Finish the summary and exit.")
 
         return "\n".join(f"- {each_option}" for each_option in options)
 
@@ -395,7 +408,7 @@ async def main() -> None:
 
     text_lines = list(get_text_lines(document, line_length=30))
 
-    client = instructor.from_openai(
+    client_instructor = instructor.from_openai(
         OpenAI(
             base_url="http://localhost:8800/v1",
             api_key="ollama"
@@ -409,24 +422,26 @@ async def main() -> None:
     # model = 'mistral'
     # model = "dolphin-mixtral"
     model = "llama3"
+    # model = "phi3"
 
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
         screen = interface.render()
         print(screen)
-        # command = await chat_instructor(client, model, screen, interface.get_response_model)
-        # command = await chat_ollama(client_ollama, model, f"{screen}\n\n```python\n")
-        command = await chat_ollama(client_ollama, model, screen)
+        command = await chat_instructor(client_instructor, model, screen, interface.get_response_model)
+        # command = await chat_ollama(client_ollama, model, screen)
         print()
         print(f"[Command]\n{str(command.__repr__())}\n\n")
         print()
-        # command.do(interface)
+        command.do(interface)
+        """
         try:
             interface.run_command(command)
 
         except (KeypointsError, ValueError) as e:
             print(f"[Error]\n{str(e)}\n\n")
             continue
+        """
 
 
 if __name__ == "__main__":
