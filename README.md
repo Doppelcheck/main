@@ -252,9 +252,13 @@ at [wernsdorfer@gmail.com](mailto:wernsdorfer@gmail.com).
 
 ## Acknowledgements
 
-Special thanks to our contributors and supporters, particularly Media Tech Lab, for their invaluable assistance in this
+Special thanks to our contributors and supporters for their invaluable assistance in this
 project.
 
 <a href="https://www.media-lab.de/en/programs/media-tech-lab">
     <img src="https://raw.githubusercontent.com/media-tech-lab/.github/main/assets/mtl-powered-by.png" width="240" title="Media Tech Lab powered by logo">
+</a>
+
+<a href="https://innovationsfonds.wpk.org/">
+    <img src="https://innovationsfonds.wpk.org/wp-content/uploads/2022/04/2022-04-20-11_14_15-InnovationsFonds_Logo_Alternativen_8.4.22-002.pdf-Adobe-Acrobat-Reader-DC-6.png" width="240" title="WPK Innovationsfonds Logo">
 </a>
