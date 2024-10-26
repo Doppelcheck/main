@@ -402,7 +402,7 @@ class Server:
                 ui.label("Funded by").classes(add="text-xl font-bold text-center m-8 ")
                 ui.link(
                     text="The Media Tech Lab",
-                    target="https://www.media-lab.de/de/media-tech-lab/DoppelCheck",
+                    target="https://www.media-lab.de/",
                     new_tab=True).classes(add="text-center block ")
                 ui.link(
                     text="WPK Innovationsfonds",
