@@ -399,10 +399,16 @@ class Server:
 
                 ui.element("div").classes(add="h-8")
 
+                ui.label("Funded by").classes(add="text-xl font-bold text-center m-8 ")
                 ui.link(
-                    text="Funded by the Media Tech Lab",
+                    text="The Media Tech Lab",
                     target="https://www.media-lab.de/de/media-tech-lab/DoppelCheck",
                     new_tab=True).classes(add="text-center block ")
+                ui.link(
+                    text="WPK Innovationsfonds",
+                    target="https://innovationsfonds.wpk.org/",
+                    new_tab=True).classes(add="text-center block ")
+
 
         @app.get("/doc")
         @limiter.limit("5/minute")
