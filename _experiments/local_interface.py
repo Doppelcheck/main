@@ -421,8 +421,9 @@ async def main() -> None:
     # model = 'llama2:text'
     # model = 'mistral'
     # model = "dolphin-mixtral"
-    model = "llama3"
+    # model = "llama3"
     # model = "phi3"
+    model = "qwen2.5:0.5b"
 
     interface = SummarizationInterface(text_lines, 3, line_window=10)
     while True:
