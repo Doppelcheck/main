@@ -3,7 +3,25 @@ from __future__ import annotations
 import asyncio
 from typing import Mapping
 
+from ollama_instructor.ollama_instructor_client import OllamaInstructorClient
 from ollama import AsyncClient
+from pydantic import BaseModel
+
+
+class Keypoints(BaseModel):
+    """
+    A summary of a line or a group of lines.
+    """
+    quote_line_number_start: int
+    quote_line_number_end: int
+    summary: str
+
+
+class Summary(BaseModel):
+    """
+    Extracted lines and their summaries.
+    """
+    keypoints: list[Keypoints]
 
 
 async def chat_stream() -> None:
@@ -13,8 +31,6 @@ async def chat_stream() -> None:
     # todo:
     #  catch context exceeded exception
     #  implement continual interactive summarization
-
-    client = AsyncClient(host="http://localhost:8800")
 
     with open("prompts/lines_full.txt", mode="r") as f:
         lines = f.read()
@@ -26,23 +42,65 @@ async def chat_stream() -> None:
             f"{lines}"
             "```\n"
             "\n"
-            "Extract the lines and summarize the key points of the text above.\n"
-            "\n"
-            "Use this exact output format:\n"
+            "Summarize the key points of the text above in this exact output format:\n"
             "```output\n"
-            "lines 002-004: The quick brown fox jumps over the lazy dog.\n"
-            "lines 007-010: Horatio, I am thy father's spirit.\n"
-            "lines 012-013: Life is but a walking shadow.\n"
-            "```"
+            "["
+            "   {"
+            "       \"quote_line_number_start\": [line number here],\n"
+            "       \"quote_line_number_end\": [line number here],\n"
+            "       \"summary\": [summary of lines here, in quotes, with punctuation and capitalization as in the original text]\n"
+            "   },\n"
+            "   {"
+            "       \"quote_line_number_start\": [line number here],\n"
+            "       \"quote_line_number_end\": [line number here],\n"
+            "       \"summary\": [summary of lines here, in quotes, with punctuation and capitalization as in the original text]\n"
+            "   },\n"
+            "   {"
+            "       \"quote_line_number_start\": [line number here],\n"
+            "       \"quote_line_number_end\": [line number here],\n"
+            "       \"summary\": [summary of lines here, in quotes, with punctuation and capitalization as in the original text]\n"
+            "   },\n"
+            "   [...]\n"
+            "]\n"
+            "```\n"
+            "\n"
+            "The summary should be a list of dictionaries, each containing the keys `quote_line_number_start`, `quote_line_number_end`, and `summary`.\n"
+        )
+    }
+
+    prompt = {
+        'role': 'user',
+        'content': (
+            "```text\n"
+            f"{lines}"
+            "```\n"
+            "\n"
+            "Summarize the key points of the text above.\n"
         )
     }
 
     # model = 'llama2:text'
-    model = 'mistral'
+    # model = 'mistral'
     # model = "dolphin-mixtral"
     # model = "llama3"
     # model = "phi3"
+    # model = "qwen2.5:0.5b"
+    # model = "llama3.2"
+    # model = "phi3.5"
+    model = "qwen2.5"
 
+    """
+    client = OllamaInstructorClient()
+    response = client.chat_completion_with_stream(
+        model=model, messages=[prompt], pydantic_model=Summary
+    )
+    response_list = list(response)
+    for each_keypoint in response_list:
+        print(each_keypoint["message"]["content"])
+        print()
+        # print(f"lines {each_keypoint.quote_line_number_start:03d}-{each_keypoint.quote_line_number_end:03d}: {each_keypoint.summary}")
+    """
+    client = AsyncClient()  # host="http://localhost:8800")
     async for part in await client.chat(model=model, messages=[prompt], stream=True):
         message: Mapping[str, any] = part['message']
         content = message['content']
