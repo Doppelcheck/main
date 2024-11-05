@@ -1,3 +1,6 @@
+# Core dependencies with fixed versions for compatibility
+numpy==1.26.4
+
 # necessary
 nicegui~=1.4.21
 pydantic~=2.5.2
@@ -35,3 +38,13 @@ gdelt~=0.1.14
 readabilipy~=0.2.0
 readability~=0.3.1
 yt-dlp~=2024.7.7
+
+transformers==4.43.4
+# transformers~=4.45.2
+instructor~=1.0.3
+pydantic_core~=2.14.6
+rich~=13.7.1
+typing_extensions~=4.9.0
+spacy~=3.8.2
+wtpsplit~=2.1.1
+markdownify~=0.13.1
