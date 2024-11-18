@@ -8,22 +8,8 @@ WORKDIR /app
 COPY . /app
 
 # Install the required dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gcc \
-    g++ \
-    libxcursor1 \
-    libxdamage1 \
-    libgtk-3-0 \
-    libpangocairo-1.0-0 \
-    libpango-1.0-0 \
-    libatk1.0-0 \
-    libcairo-gobject2 \
-    libcairo2 \
-    libgdk-pixbuf-2.0-0 \
-    libasound2 \
-    libdbus-glib-1-2 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0  \
+    libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2
 
 # Install dependencies via pip
 RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt && playwright install
