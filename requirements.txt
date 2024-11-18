@@ -41,7 +41,6 @@ yt-dlp~=2024.7.7
 
 transformers==4.43.4
 # transformers~=4.45.2
-instructor~=1.0.3
 pydantic_core~=2.14.6
 rich~=13.7.1
 typing_extensions~=4.9.0
