@@ -139,10 +139,10 @@ class OpenAi(InterfaceLLM):
             return new_interface
 
         with ui.input(
-                label="OpenAI API Key", placeholder="\"sk-\" + 48 alphanumeric characters",
+                label="OpenAI API Key", placeholder="\"sk-\" + alphanumeric characters",
                 validation={
                     "Must start with \"sk-\"": lambda v: v.startswith("sk-"),
-                    "Must be 51 characters long": lambda v: len(v) == 51
+                    "Must be 51 or 164 characters long": lambda v: len(v) == 51 or len(v) == 164
                 }
         ) as api_key_input:
             api_key_input.classes('w-full')
