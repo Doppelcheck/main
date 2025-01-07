@@ -40,6 +40,23 @@ def get_section_keypoint(user_id: str | None) -> None:
             ) as checkbox, Store(checkbox, AccessModel.set_extraction_llm):
                 pass
 
+        with ui.select(
+                options=["LLM only", "NLP supported"], label="Extraction mode",
+                value=ConfigModel.get_extraction_mode(user_id)
+        ) as mode_select, Store(
+            mode_select, lambda mode: ConfigModel.set_extraction_mode(user_id, mode)
+        ):
+            mode_select.classes('w-full')
+            if user_id is not None and not AccessModel.get_extraction_mode():
+                mode_select.disable()
+                # ui.tooltip("User does not have access to change this setting.")
+
+        if user_id is None:
+            with ui.checkbox(
+                    text="User access", value=AccessModel.get_extraction_mode()
+            ) as checkbox, Store(checkbox, AccessModel.set_extraction_mode):
+                pass
+
         with ui.number(
             label="Claim count", placeholder="number of claims", min=1, max=10,
             value=ConfigModel.get_number_of_keypoints(user_id)
