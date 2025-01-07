@@ -257,6 +257,17 @@ class ConfigModel:
     def set_comparison_llm(instance_id: str | None, interface_name: str) -> None:
         ConfigModel._set_value(instance_id, "comparison_llm", interface_name)
 
+    @staticmethod
+    def get_extraction_mode(instance_id: str | None) -> str:
+        value = ConfigModel._get_value(instance_id, "extraction_mode")
+        if value is None:
+            value = ConfigModel._get_value(None, "extraction_mode", default="NLP supported")
+        return value
+
+    @staticmethod
+    def set_extraction_mode(instance_id: str | None, mode: str) -> None:
+        ConfigModel._set_value(instance_id, "extraction_mode", mode)
+
 
 class PasswordsModel:
     @staticmethod
@@ -409,3 +420,11 @@ class AccessModel:
     @staticmethod
     def get_comparison_prompt() -> bool:
         return AccessModel._get_instance_access("change_comparison_prompt")
+
+    @staticmethod
+    def set_extraction_mode(value: bool) -> None:
+        return AccessModel._set_instance_access("extraction_mode", value)
+
+    @staticmethod
+    def get_extraction_mode() -> bool:
+        return AccessModel._get_instance_access("extraction_mode")

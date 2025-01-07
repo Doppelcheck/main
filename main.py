@@ -195,6 +195,8 @@ class Server:
             self, string_sequence: Iterable[str], keypoint_count: int,
             instance_id: str) -> Generator[Message, None, None]:
         llm_interface = await self.get_extraction_llm_interface(instance_id)
+        extraction_mode = ConfigModel.get_extraction_mode(instance_id)
+        # todo: implement decision here
 
         language = ConfigModel.get_general_language(instance_id)
 
