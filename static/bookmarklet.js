@@ -256,6 +256,15 @@ const InitializeDoppelcheck = {
         });
         sidebar.appendChild(clipboardKeypoint);
 
+        const newKeypoints = document.createElement("button");
+        newKeypoints.id = "doppelcheck-button-start-new";
+        newKeypoints.innerText = "Full website";
+        newKeypoints.addEventListener("click", async function () {
+            newKeypoints.disabled = true;
+            exchange("keypoint_new", "");
+        });
+        sidebar.appendChild(newKeypoints);
+
         document.addEventListener("selectionchange", function () {
             const selection = document.getSelection();
             if (selection === null || 100 >= selection.toString().trim().length) {

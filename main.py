@@ -39,7 +39,7 @@ from slowapi.errors import RateLimitExceeded
 from starlette.middleware.base import BaseHTTPMiddleware
 
 
-VERSION = "0.3.2"
+VERSION = "0.4.0"
 UNRESTRICTED = {"/", "/config", "/login", "/doc"}
 
 
@@ -195,7 +195,6 @@ class Server:
             self, string_sequence: Iterable[str], keypoint_count: int,
             instance_id: str) -> Generator[Message, None, None]:
         llm_interface = await self.get_extraction_llm_interface(instance_id)
-        extraction_mode = ConfigModel.get_extraction_mode(instance_id)
 
         language = ConfigModel.get_general_language(instance_id)
 
@@ -505,11 +504,14 @@ class Server:
                         json_dict = Server._to_json(answer, instance_id)
                         await websocket.send_json(json_dict)
 
-                    case "keypoint" | "keypoint_selection":
+                    case "keypoint" | "keypoint_selection" | "keypoint_new":
                         # [x] Keypoint Assistant
                         if message_type == "keypoint":
                             base_text = text_node_generator(content)
                             keypoint_count = ConfigModel.get_number_of_keypoints(instance_id)
+
+                        elif message_type == "keypoint_new":
+                            pass
 
                         else:
                             base_text = content
