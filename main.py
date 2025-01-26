@@ -201,30 +201,19 @@ class Server:
 
         full_string = "".join(string_sequence)
         logger.info(f"summarizing original text ({len(full_string)} characters)")
+        summarized = await llm_interface.summarize(full_string)
 
-        if extraction_mode == "LLM only":
-            summarized = await llm_interface.summarize(full_string)
+        text_lines = list(get_text_lines(summarized, line_length=20))
+        customized_instruction = ConfigModel.get_extraction_prompt(instance_id) or DEFAULT_CUSTOM_EXTRACTION_PROMPT
+        prompt = instruction_keypoint_extraction(
+            text_lines, customized_instruction, num_keypoints=keypoint_count, language=language
+        )
 
-            text_lines = list(get_text_lines(summarized, line_length=20))
-            customized_instruction = ConfigModel.get_extraction_prompt(instance_id) or DEFAULT_CUSTOM_EXTRACTION_PROMPT
-            prompt = instruction_keypoint_extraction(
-                text_lines, customized_instruction, num_keypoints=keypoint_count, language=language
-            )
+        # noinspection PyTypeChecker
+        response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
+        async for each_segment in Server._stream_keypoints_to_browser(instance_id, response, text_lines):
+            yield each_segment
 
-            # noinspection PyTypeChecker
-            response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
-            async for each_segment in Server._stream_keypoints_to_browser(instance_id, response, text_lines):
-                yield each_segment
-
-        elif extraction_mode == "NLP supported":
-            # TODO:
-            #  + get segment line numbers
-            #  + check `instruction_keypoint_extraction` for response formatting
-            #  + concatenate each line range with respective telegram summary
-            raise NotImplementedError("NLP supported extraction not implemented")
-
-        else:
-            raise ValueError(f"unknown extraction mode {extraction_mode}")
 
     async def get_extraction_llm_interface(self, instance_id: str) -> InterfaceLLM:
         llm_interface_config = ConfigModel.get_extraction_llm(instance_id)
@@ -595,13 +584,21 @@ class Server:
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+def upgrade_pip() -> None:
+    os.system("pip install --upgrade pip")
 
 def install_pip_requirements() -> None:
     os.system("pip install -r requirements.txt")
 
+def install_playwright() -> None:
+    # os.system("sudo apt-get install libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2")
+    os.system("playwright install")
+
 
 def main() -> None:
+    upgrade_pip()
     install_pip_requirements()
+    install_playwright()
 
     with open("config.json") as file:
         config = json.load(file)
