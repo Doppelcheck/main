@@ -258,7 +258,7 @@ const InitializeDoppelcheck = {
 
         const newKeypoints = document.createElement("button");
         newKeypoints.id = "doppelcheck-button-start-new";
-        newKeypoints.innerText = "Full website";
+        newKeypoints.innerText = "Full website new";
         newKeypoints.addEventListener("click", async function () {
             newKeypoints.disabled = true;
             exchange("keypoint_new", "");
