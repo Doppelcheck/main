@@ -25,7 +25,7 @@ from configuration.full import full_configuration
 from model.storages import ConfigModel, PasswordsModel
 from plugins.abstract import InterfaceLLM, InterfaceData, InterfaceDataConfig, Uri
 from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
-from tools.content_retrieval import parse_url
+from tools.content_retrieval import parse_url, get_article, get_relevant_chunks
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_objects import (
     Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, RatingMessage, ExplanationMessage)
@@ -504,14 +504,23 @@ class Server:
                         json_dict = Server._to_json(answer, instance_id)
                         await websocket.send_json(json_dict)
 
-                    case "keypoint" | "keypoint_selection" | "keypoint_new":
+                    case "keypoint_new":
+                        relevant_chunks = get_relevant_chunks(original_url)
+                        for each_chunk in relevant_chunks:
+                            print(each_chunk)
+                        """
+                        get relevant segments
+                        for each_relevant_segment:
+                            send segment
+                            stream summary
+                        """
+                        pass
+
+                    case "keypoint" | "keypoint_selection":
                         # [x] Keypoint Assistant
                         if message_type == "keypoint":
                             base_text = text_node_generator(content)
                             keypoint_count = ConfigModel.get_number_of_keypoints(instance_id)
-
-                        elif message_type == "keypoint_new":
-                            pass
 
                         else:
                             base_text = content
