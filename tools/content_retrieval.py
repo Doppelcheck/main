@@ -119,7 +119,7 @@ def extract_entities(text: str) -> dict[str, EntityWordInfo]:
     return entity_word_info
 
 
-def segmentation(markdown_text: str, max_size: int = 1_000, min_size: int = 200) -> tuple[str, ...]:
+def segmentation(markdown_text: str, max_size: int = 500, min_size: int = 100) -> tuple[str, ...]:
     splitter = semantic_text_splitter.MarkdownSplitter(max_size)
     chunks = splitter.chunks(markdown_text)
 

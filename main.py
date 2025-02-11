@@ -29,6 +29,7 @@ from tools.content_retrieval import parse_url, get_article, get_relevant_chunks
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_objects import (
     Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, RatingMessage, ExplanationMessage)
+from tools.local_llm import summarize_ollama
 from tools.text_processing import (
     text_node_generator, pipe_codeblock_content, get_range, get_text_lines)
 
@@ -506,8 +507,29 @@ class Server:
 
                     case "keypoint_new":
                         relevant_chunks = get_relevant_chunks(original_url)
-                        for each_chunk in relevant_chunks:
+                        statements = list()
+                        for chunk_index, each_chunk in enumerate(relevant_chunks):
+                            print(f"\nChunk {chunk_index + 1}:\n", end='')
                             print(each_chunk)
+
+                            each_statements = ""
+
+                            stream = summarize_ollama(each_chunk)
+
+                            print(f"\nSummary of chunk {chunk_index + 1}:\n", end='')
+                            for each_response in stream:
+                                each_statements += each_response
+                                print(each_response, end='', flush=True)
+
+                            telegraphs = (x.strip() for x in each_statements.split("<STOP>"))
+                            statements.append(tuple(telegraphs))
+                        """
+                        summaries need context
+                            + give full text
+                            + ask to summarize segment
+                            + add metadata
+                                + stuff from article.get_metadata() ?
+                        """
                         """
                         get relevant segments
                         for each_relevant_segment:
