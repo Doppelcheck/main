@@ -150,7 +150,8 @@ def markdown_to_text(markdown_text: str) -> str:
 def get_chunks(markdown_text: str) -> list[str]:
     markdown_chunks = get_markdown_segments(markdown_text)
     plain_chunks = [
-        markdown_to_text(each_chunk).replace("\n", " ").strip()
+        each_chunk
+        # markdown_to_text(each_chunk).replace("\n", " ").strip()
         for each_chunk in markdown_chunks
     ]
     return plain_chunks
