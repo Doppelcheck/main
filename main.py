@@ -25,7 +25,7 @@ from configuration.full import full_configuration
 from model.storages import ConfigModel, PasswordsModel
 from plugins.abstract import InterfaceLLM, InterfaceData, InterfaceDataConfig, Uri
 from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
-from tools.content_retrieval import parse_url, get_article, get_relevant_chunks
+from tools.content_retrieval import parse_url, get_article, get_relevant_chunks, markdown_to_plain_text
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_objects import (
     Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, RatingMessage, ExplanationMessage)
@@ -507,23 +507,34 @@ class Server:
 
                     case "keypoint_new":
                         relevant_chunks = get_relevant_chunks(original_url)
-                        statements = list()
                         for chunk_index, each_chunk in enumerate(relevant_chunks):
                             print(f"\nChunk {chunk_index + 1}:\n", end='')
                             print(each_chunk)
 
+                            plain_chunk = markdown_to_plain_text(each_chunk)
                             each_statements = ""
 
                             stream = summarize_ollama(each_chunk)
+                            quote_message = QuoteMessage(keypoint_id=chunk_index, content=plain_chunk)
+                            quote_dict = Server._to_json(quote_message, instance_id)
+                            await websocket.send_json(quote_dict)
 
                             print(f"\nSummary of chunk {chunk_index + 1}:\n", end='')
                             for each_response in stream:
                                 each_statements += each_response
                                 print(each_response, end='', flush=True)
+                                keypoint_message = KeypointMessage(keypoint_id=chunk_index, content=each_response)
+                                keypoint_dict = Server._to_json(keypoint_message, instance_id)
+                                await websocket.send_json(keypoint_dict)
+
+                            last_keypoint = chunk_index >= len(relevant_chunks) - 1
+                            keypoint_message = KeypointMessage(keypoint_id=chunk_index, stop=True, stop_all=last_keypoint)
+                            keypoint_dict = Server._to_json(keypoint_message, instance_id)
+                            await websocket.send_json(keypoint_dict)
+
                             print()
 
-                            telegraphs = (x.strip() for x in each_statements.split("<STOP>"))
-                            statements.append(tuple(telegraphs))
+
                         """
                         summaries need context
                             + give full text

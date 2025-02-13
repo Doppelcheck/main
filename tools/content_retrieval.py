@@ -11,8 +11,6 @@ from tools.global_instances import DETECTOR_BUILT
 from spacy.tokens.span import Span as Entity
 import spacy
 
-import markdownify
-
 from semantic_text_splitter import semantic_text_splitter
 
 from bs4 import BeautifulSoup
@@ -120,8 +118,8 @@ def extract_entities(text: str) -> dict[str, EntityWordInfo]:
     return entity_word_info
 
 
-# def segmentation(markdown_text: str, max_size: int = 500, min_size: int = 100) -> tuple[str, ...]:
-def segmentation(markdown_text: str, max_size: int = 1_000, min_size: int = 200) -> tuple[str, ...]:
+def segmentation(markdown_text: str, max_size: int = 500, min_size: int = 100) -> tuple[str, ...]:
+# def segmentation(markdown_text: str, max_size: int = 1_000, min_size: int = 200) -> tuple[str, ...]:
     splitter = semantic_text_splitter.MarkdownSplitter(max_size)
     chunks = splitter.chunks(markdown_text)
 
@@ -274,3 +272,9 @@ def get_relevant_chunks(url: str) -> tuple[str]:
     )
 
     return tuple(plain_chunks[each_chunk_score.chunk_index] for each_chunk_score in chunk_scores)
+
+
+def markdown_to_plain_text(md_text: str) -> str:
+    html = markdown(md_text)  # Convert Markdown to HTML
+    soup = BeautifulSoup(html, "html.parser")  # Parse the HTML
+    return soup.get_text()  # Extract plain text
