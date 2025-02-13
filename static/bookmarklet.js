@@ -650,26 +650,31 @@ function exchange(messageType, content) {
 
                 case "quote_message":
                     // [x]
+                    console.log("quote message", response);
                     ExtractKeypoints.processQuoteMessage(response);
                     break;
 
                 case "keypoint_message":
                     // [x]
+                    console.log("keypoint message", response);
                     ExtractKeypoints.processKeypointMessage(response);
                     break;
 
                 case "sources_message":
                     // [x]
+                    console.log("sources message", response);
                     RetrieveSources.processSourcefinderMessage(response);
                     break;
 
                 case "rating_message":
                     // [x]
+                    console.log("rating message", response);
                     CrosscheckSources.processRatingMessage(response);
                     break;
 
                 case "explanation_message":
                     // [x]
+                    console.log("explanation message", response);
                     CrosscheckSources.processExplanationMessage(response);
                     break;
 

@@ -5,6 +5,34 @@ import ollama
 
 
 def summarize_ollama(text: str, language: str | None = None) -> Generator[str, None, None]:
+    model= "tulu3"
+
+    language = "the text's language" or language
+
+    date_string = datetime.datetime.now().strftime("%B %d, %Y")
+    ollama.pull(model)
+    prompt = (
+        "```text\n"
+        "{chunk}\n"
+        "```\n"
+        "\n"
+        "Summarize the the text above in one concise sentence and in {language}. Respond with the summary only: no "
+        "disclaimer, introduction, or conclusion.\n"
+        "\n"
+    )
+    stream = ollama.chat(
+        model=model,
+        messages=[
+            {'role': 'system', 'content': "You are an expert at summarizing texts, focusing on key information and facts."},
+            {'role': 'user', 'content': prompt.format(chunk=text, today=date_string, language=language)},
+            # {"role": "assistant", "content": "This is a short summary of the text:"},
+        ],
+        stream=True
+    )
+    yield from (response['message']['content'] for response in stream)
+
+
+def _summarize_ollama(text: str, language: str | None = None) -> Generator[str, None, None]:
     model = "gemma2"
     model = "phi3.5"
     model = "nuextract"
@@ -15,6 +43,9 @@ def summarize_ollama(text: str, language: str | None = None) -> Generator[str, N
     model= "dolphin3"
     model= "smallthinker"
     model = "qwen2.5"
+
+    model = "deepseek-r1:8b"
+    model = "llama3.2:3b-instruct-q8_0"
     model= "tulu3"
 
     language = "the text's language" or language
