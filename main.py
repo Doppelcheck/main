@@ -520,6 +520,7 @@ class Server:
                             for each_response in stream:
                                 each_statements += each_response
                                 print(each_response, end='', flush=True)
+                            print()
 
                             telegraphs = (x.strip() for x in each_statements.split("<STOP>"))
                             statements.append(tuple(telegraphs))
