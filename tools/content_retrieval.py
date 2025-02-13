@@ -4,6 +4,7 @@ from typing import Sequence
 
 import bs4
 import newspaper
+import trafilatura
 
 from tools.global_instances import DETECTOR_BUILT
 
@@ -119,7 +120,8 @@ def extract_entities(text: str) -> dict[str, EntityWordInfo]:
     return entity_word_info
 
 
-def segmentation(markdown_text: str, max_size: int = 500, min_size: int = 100) -> tuple[str, ...]:
+# def segmentation(markdown_text: str, max_size: int = 500, min_size: int = 100) -> tuple[str, ...]:
+def segmentation(markdown_text: str, max_size: int = 1_000, min_size: int = 200) -> tuple[str, ...]:
     splitter = semantic_text_splitter.MarkdownSplitter(max_size)
     chunks = splitter.chunks(markdown_text)
 
@@ -145,9 +147,7 @@ def markdown_to_text(markdown_text: str) -> str:
     return plain_text
 
 
-def get_chunks(article: newspaper.Article) -> list[str]:
-    html_text = article.html
-    markdown_text = markdownify.markdownify(html_text)
+def get_chunks(markdown_text: str) -> list[str]:
     markdown_chunks = get_markdown_segments(markdown_text)
     plain_chunks = [
         markdown_to_text(each_chunk).replace("\n", " ").strip()
@@ -252,13 +252,21 @@ def calculate_chunk_tfidf_scores(
 
     return chunk_scores[:top_k]
 
+def get_as_markdown(url: str) -> str:
+    downloaded = trafilatura.fetch_url(url)
+    md = trafilatura.extract(downloaded, output_format="markdown")
+    return md
 
 def get_relevant_chunks(url: str) -> tuple[str]:
     article = get_article(url)
     plain_text = article.text
     mapped_entities = extract_entities(plain_text)
 
-    plain_chunks = get_chunks(article)
+    # html_text = article.article_html
+    # markdown_text = markdownify.markdownify(html_text)
+    markdown_text = get_as_markdown(url)
+
+    plain_chunks = get_chunks(markdown_text)
 
     chunk_scores = calculate_chunk_tfidf_scores(
         plain_chunks, mapped_entities, top_k=5
