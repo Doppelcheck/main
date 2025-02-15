@@ -39,3 +39,5 @@ markdownify~=0.14.1
 Markdown~=3.7
 lxml_html_clean~=0.4.1
 trafilatura~=2.0.0
+markdown-it-py~=3.0.0
+mdit-plain~=1.0.1

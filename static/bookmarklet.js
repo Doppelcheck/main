@@ -388,6 +388,8 @@ const ExtractKeypoints = {
         const highlight = response["content"]
         const keypointId = response["keypoint_id"] % 10;
 
+        console.log(`highlighting keypoint ${keypointId}: ${highlight}`);
+
         const markInstance = new Mark(document.querySelector("#doppelcheck-main-content"));
 
         for (const regexPattern of ExtractKeypoints.segmentWords(highlight, 5)) {
