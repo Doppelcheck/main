@@ -1,10 +1,14 @@
 import math
+import re
 from dataclasses import dataclass
 from typing import Sequence
 
 import bs4
 import newspaper
 import trafilatura
+
+from markdown_it import MarkdownIt
+from mdit_plain.renderer import RendererPlain
 
 from tools.global_instances import DETECTOR_BUILT
 
@@ -274,7 +278,23 @@ def get_relevant_chunks(url: str) -> tuple[str]:
     return tuple(plain_chunks[each_chunk_score.chunk_index] for each_chunk_score in chunk_scores)
 
 
-def markdown_to_plain_text(md_text: str) -> str:
-    html = markdown(md_text)  # Convert Markdown to HTML
-    soup = BeautifulSoup(html, "html.parser")  # Parse the HTML
-    return soup.get_text()  # Extract plain text
+def normalize_emphasis(markdown_text: str) -> str:
+    # Normalize strong emphasis by stripping spaces inside the markers.
+    # This regex finds **, optional whitespace, some text, optional whitespace, and **.
+    # It then re-inserts the text without the extra spaces.
+    return re.sub(r'\*\*\s*(.*?)\s*\*\*', r'**\1**', markdown_text)
+
+
+def markdown_to_plain_text(markdown_text: str) -> str:
+    normalized_text = normalize_emphasis(markdown_text)
+    md = MarkdownIt(renderer_cls=RendererPlain)
+    return md.render(normalized_text)
+
+
+if __name__ == "__main__":
+    test_text = """**analyse**# Ampelkoalition in der Krise Habecks Botschaft, Habecks Angebot
+**Der Ampel-Regierung droht ein vorzeitiges Aus. Vizekanzler Habeck versucht noch einmal, das Bündnis zu retten. Mit einem Angebot an die FDP. Und nicht ganz ohne Eigennutz. **
+Tagelang hat Vizekanzler Robert Habeck wenig bis gar nichts zur aktuellen Ampel-Krise gesagt. Nun also dieser Auftritt am Montagnachmittag, nur wenige Minuten lang."""
+
+    plain = markdown_to_plain_text(test_text)
+    print(plain)
