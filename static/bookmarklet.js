@@ -218,15 +218,14 @@ const InitializeDoppelcheck = {
         subheading.innerText = "Keypoints";
         sidebar.appendChild(subheading);
 
-        const extractKeypoints = document.createElement("button");
-        extractKeypoints.id = "doppelcheck-button-start";
-        extractKeypoints.innerText = "Full website";
-        extractKeypoints.addEventListener("click", async function () {
-            extractKeypoints.disabled = true;
-            const fullHTML = document.documentElement.outerHTML;
-            exchange("keypoint", fullHTML);
+        const newKeypoints = document.createElement("button");
+        newKeypoints.id = "doppelcheck-button-start-new";
+        newKeypoints.innerText = "Full website new";
+        newKeypoints.addEventListener("click", async function () {
+            newKeypoints.disabled = true;
+            exchange("keypoint_new", "");
         });
-        sidebar.appendChild(extractKeypoints);
+        sidebar.appendChild(newKeypoints);
 
         const addKeypoint = document.createElement("button");
         addKeypoint.id = "doppelcheck-button-add";
@@ -255,15 +254,6 @@ const InitializeDoppelcheck = {
             exchange("keypoint_selection", selectedText);
         });
         sidebar.appendChild(clipboardKeypoint);
-
-        const newKeypoints = document.createElement("button");
-        newKeypoints.id = "doppelcheck-button-start-new";
-        newKeypoints.innerText = "Full website new";
-        newKeypoints.addEventListener("click", async function () {
-            newKeypoints.disabled = true;
-            exchange("keypoint_new", "");
-        });
-        sidebar.appendChild(newKeypoints);
 
         document.addEventListener("selectionchange", function () {
             const selection = document.getSelection();

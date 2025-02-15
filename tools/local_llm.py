@@ -1,10 +1,47 @@
 import datetime
-from typing import Generator
+from typing import Generator, AsyncGenerator, Mapping, AsyncIterator
 
 import ollama
 
 
-def summarize_ollama(text: str, language: str | None = None) -> Generator[str, None, None]:
+async def search_query_ollama(text: str, language: str | None = None) -> AsyncGenerator[str, None]:
+    model = "tulu3"
+
+    language = "the text's language" or language
+
+    date_string = datetime.datetime.now().strftime("%B %d, %Y")
+    ollama.pull(model)
+    prompt = (
+        "```text\n"
+        "{chunk}\n"
+        "```\n"
+        "\n"
+        "For the provided text, generate a search query that would return the most relevant information on the topic. "
+        "The query should be concise and in {language}. Respond with the query only: no disclaimer, introduction, or "
+        "conclusion.\n"
+        "\n"
+    )
+
+    host=None
+    client = ollama.AsyncClient(host=host)
+
+    stream: AsyncIterator[Mapping[str, any]] = await client.chat(
+        model=model,
+        messages=[
+            {'role': 'system', 'content': "You are an expert at generating search queries to find relevant information."},
+            {'role': 'user', 'content': prompt.format(chunk=text, today=date_string, language=language)},
+            # {"role": "assistant", "content": "This is a search query for the text:"},
+        ],
+        stream=True
+    )
+
+    async for response in stream:
+        message = response["message"]
+        content = message["content"]
+        yield content
+
+
+async def summarize_ollama(text: str, language: str | None = None) -> AsyncGenerator[str, None]:
     model= "tulu3"
 
     language = "the text's language" or language
@@ -20,7 +57,11 @@ def summarize_ollama(text: str, language: str | None = None) -> Generator[str, N
         "disclaimer, introduction, or conclusion.\n"
         "\n"
     )
-    stream = ollama.chat(
+
+    host=None
+    client = ollama.AsyncClient(host=host)
+
+    stream: AsyncIterator[Mapping[str, any]] = await client.chat(
         model=model,
         messages=[
             {'role': 'system', 'content': "You are an expert at summarizing texts, focusing on key information and facts."},
@@ -29,7 +70,10 @@ def summarize_ollama(text: str, language: str | None = None) -> Generator[str, N
         ],
         stream=True
     )
-    yield from (response['message']['content'] for response in stream)
+    async for response in stream:
+        message = response["message"]
+        content = message["content"]
+        yield content
 
 
 def _summarize_ollama(text: str, language: str | None = None) -> Generator[str, None, None]:

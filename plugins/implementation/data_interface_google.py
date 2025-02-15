@@ -163,7 +163,7 @@ class Google(InterfaceData):
 
     async def get_search_query(
             self, llm_interface: InterfaceLLM, keypoint_text: str,
-            context: str | None = None, language: str | None = None):
+            context: str | None = None, language: str | None = None) -> str:
 
         summarized_context = await llm_interface.summarize(context)
         prompt = Google._get_query(keypoint_text, context=summarized_context, language=language)

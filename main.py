@@ -299,6 +299,39 @@ class Server:
         async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_id, source_id):
             yield each_segment
 
+    async def get_matches_new(
+            self, instance_id: str, keypoint_id: int, keypoint_text: str,
+            source_id: str, source_uri: str, data_interface_name: str
+    ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
+
+        llm_interface = Server.get_match_llm_interface(instance_id)
+        data_interface_config = ConfigModel.get_data_interface(instance_id, data_interface_name)
+        data_interface = Server._data_interface_from_config(data_interface_config)
+
+        language = ConfigModel.get_general_language(instance_id)
+
+        source = await data_interface.get_source_content(source_uri)
+        if source.error is not None:
+            logger.error(f"source error: {source.error}")
+            return
+            # raise RetrieveSourceException(source.error)
+
+        source_content = source.content
+
+        node_generator = text_node_generator(source_content)
+        source_text = "".join(node_generator)
+
+        logger.info(f"summarizing source ({len(source_text)} characters)")
+        summarized = await llm_interface.summarize(source_text)
+
+        customized_instruction = ConfigModel.get_comparison_prompt(instance_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
+        prompt = instruction_crosschecking(keypoint_text, summarized, customized_instruction, language=language)
+
+        # noinspection PyTypeChecker
+        response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
+        async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_id, source_id):
+            yield each_segment
+
     @staticmethod
     def _to_json(message: dataclasses.dataclass, instance_id: str) -> dict:
         dc_dict = dataclasses.asdict(message)
@@ -514,13 +547,13 @@ class Server:
                             plain_chunk = markdown_to_plain_text(each_chunk)
                             each_statements = ""
 
-                            stream = summarize_ollama(each_chunk)
                             quote_message = QuoteMessage(keypoint_id=chunk_index, content=plain_chunk)
                             quote_dict = Server._to_json(quote_message, instance_id)
                             await websocket.send_json(quote_dict)
 
                             print(f"\nSummary of chunk {chunk_index + 1}:\n", end='')
-                            for each_response in stream:
+                            stream = summarize_ollama(each_chunk)
+                            async for each_response in stream:
                                 each_statements += each_response
                                 print(each_response, end='', flush=True)
                                 keypoint_message = KeypointMessage(keypoint_id=chunk_index, content=each_response)
@@ -550,15 +583,10 @@ class Server:
                         """
                         pass
 
-                    case "keypoint" | "keypoint_selection":
+                    case "keypoint_selection":
                         # [x] Keypoint Assistant
-                        if message_type == "keypoint":
-                            base_text = text_node_generator(content)
-                            keypoint_count = ConfigModel.get_number_of_keypoints(instance_id)
-
-                        else:
-                            base_text = content
-                            keypoint_count = 1
+                        base_text = content
+                        keypoint_count = 1
 
                         async for segment in self.get_keypoints_from_str(base_text, keypoint_count, instance_id):
                             each_dict = Server._to_json(segment, instance_id)
