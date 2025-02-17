@@ -39,7 +39,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 from starlette.middleware.base import BaseHTTPMiddleware
-
+import trafilatura
 
 VERSION = "0.4.0"
 UNRESTRICTED = {"/", "/config", "/login", "/doc"}
@@ -232,11 +232,6 @@ class Server:
 
         data_interfaces = Server.get_data_interfaces(instance_id)
         language = ConfigModel.get_general_language(instance_id)
-
-        content = await BROWSER_INSTANCE.get_html_content(original_url)
-        article = await parse_url(original_url, input_html=content.content)
-
-        logger.info(f"summarizing context ({len(article.summary)} characters)")
 
         async def get_uris(_keypoint_text: str, data_interface: InterfaceData) -> tuple[InterfaceData, str, list[Uri]]:
             _query = await data_interface.get_search_query(
@@ -631,11 +626,13 @@ class Server:
                 error_dict = dataclasses.asdict(error_message)
                 await websocket.send_json(error_dict)
 
+            """
             except Exception as e:
                 error_message = ErrorMessage(content=str(e))
                 error_dict = dataclasses.asdict(error_message)
                 await websocket.send_json(error_dict)
                 raise e
+            """
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -652,6 +649,12 @@ def install_playwright() -> None:
 
 
 def main() -> None:
+    # run `curl -fsSL https://ollama.com/install.sh | sh`
+    #os.system("curl -fsSL https://ollama.com/install.sh | sh")
+
+    # run `python -m spacy download de_core_news_lg`  # 568 MB model
+    #os.system("python -m spacy download de_core_news_lg")
+
     upgrade_pip()
     install_pip_requirements()
     install_playwright()

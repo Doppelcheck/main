@@ -22,6 +22,8 @@ slowapi~=0.1.9
 wikipedia~=1.4.0
 tiktoken~=0.6.0
 newspaper3k~=0.2.8
+semantic-text-splitter~=0.24.0
+trafilatura~=2.0.0
 
 # instructor~=1.0.3
 
@@ -38,6 +40,5 @@ spacy~=3.8.4
 markdownify~=0.14.1
 Markdown~=3.7
 lxml_html_clean~=0.4.1
-trafilatura~=2.0.0
 markdown-it-py~=3.0.0
 mdit-plain~=1.0.1
