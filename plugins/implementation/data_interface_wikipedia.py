@@ -114,7 +114,7 @@ class Wikipedia(InterfaceData):
         async for query_token in search_query_wikipedia_ollama(keypoint_text, language=language):
             query_token_list.append(query_token)
 
-        query = "\n".join(query_token_list)
+        query = "".join(query_token_list)
         return query
 
     def wikipedia_pageid_from_title(self, title: str) -> int:
@@ -129,9 +129,8 @@ class Wikipedia(InterfaceData):
         return unquote(title).replace("_", " ")
 
     async def get_uris(self, query: str) -> AsyncGenerator[Uri, None]:
-        search_query, language_code = query.split(sep="\n", maxsplit=1)
-        wikipedia.set_lang(language_code.strip())
-        results = wikipedia.search(search_query.strip(), results=5)
+        wikipedia.set_lang("de")
+        results = wikipedia.search(query.strip(), results=5)
         for each_item in results:
             try:
                 yield Uri(uri_string=self.wikipedia_url_from_title(each_item), title=each_item)

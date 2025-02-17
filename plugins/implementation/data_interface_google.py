@@ -170,7 +170,7 @@ class Google(InterfaceData):
         async for query_token in search_query_google_ollama(keypoint_text, language=language):
             query_token_list.append(query_token)
 
-        query = "\n".join(query_token_list)
+        query = "".join(query_token_list)
         return query
 
     async def get_uris(self, query: str) -> AsyncGenerator[Uri, None]:

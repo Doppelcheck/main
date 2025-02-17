@@ -15,11 +15,11 @@ async def search_query_wikipedia_ollama(claim: str, language: str | None = None)
         f"{claim}\n"
         f"```\n"
         f"\n"
-        f"Generate a Wikipedia search query in {language} to check the claim above. Respond with the query only: no "
+        f"Generate a query for the Wikipedia search in {language} to check the claim above. Respond with the query only: no "
         f"disclaimer, introduction, or conclusion.\n"
     )
 
-    host=None
+    host = None
     client = ollama.AsyncClient(host=host)
 
     stream: AsyncIterator[Mapping[str, any]] = await client.chat(
@@ -56,7 +56,7 @@ async def search_query_google_ollama(text: str, language: str | None = None) -> 
         f"\n"
     )
 
-    host=None
+    host = None
     client = ollama.AsyncClient(host=host)
 
     stream: AsyncIterator[Mapping[str, any]] = await client.chat(
@@ -97,10 +97,9 @@ async def summarize_ollama(text: str, context: str | None = None, language: str 
         f"{text}\n"
         f"```\n"
         f"\n"
-        f"Summarize the text above in one concise sentence and in {language}. Mention time, location, and people if "
-        f"available but replace all relative references to time, location, or people with their explicit, specific "
-        f"counterparts.{context_instruction} Respond with the summary only: no disclaimer, introduction, or "
-        f"conclusion.\n"
+        f"Extract the main claim from the text above. Mention time, location, and people if available but replace all relative references to time, "
+        f"location, or people with their explicit, specific counterparts.{context_instruction} Respond in {language} with one single sentence only: "
+        f"no disclaimer, introduction, or conclusion.\n"
         "\n"
     )
 
