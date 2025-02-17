@@ -223,7 +223,41 @@ const InitializeDoppelcheck = {
         newKeypoints.innerText = "Full website new";
         newKeypoints.addEventListener("click", async function () {
             newKeypoints.disabled = true;
-            exchange("keypoint_new", "");
+
+            if (typeof Readability === 'undefined' || typeof DOMPurify === 'undefined') {
+                InitializeDoppelcheck.notifyUser("Required libraries are still loading. Please try again in a moment.");
+                newKeypoints.disabled = false;
+                return;
+            }
+
+            try {
+                // Create a clone of the document to avoid modifying the original
+                const documentClone = document.cloneNode(true);
+
+                // Create a new Readability object and parse the content
+                const reader = new Readability(documentClone);
+                const article = reader.parse();
+
+                if (article && article.content) {
+                    // Sanitize the content with DOMPurify
+                    const sanitizedContent = DOMPurify.sanitize(article.content, {
+                        FORBID_TAGS: ['style', 'script'],
+                        FORBID_ATTR: ['style', 'onerror', 'onload'],
+                        KEEP_CONTENT: true
+                    });
+
+                    // Send the sanitized content to the server
+                    exchange("keypoint_new", sanitizedContent);
+                } else {
+                    InitializeDoppelcheck.notifyUser("Could not extract readable content from the page.");
+                    newKeypoints.disabled = false;
+                }
+            } catch (error) {
+                console.error("Error parsing page content:", error);
+                InitializeDoppelcheck.notifyUser("Error extracting content from the page.");
+                newKeypoints.disabled = false;
+            }
+
         });
         sidebar.appendChild(newKeypoints);
 
@@ -279,6 +313,18 @@ const InitializeDoppelcheck = {
         sidebar.appendChild(keypointContainer);
 
         // add disabled text area as log?
+
+        // Add DOMPurify first since Readability might use it
+        const domPurifyJs = document.createElement("script");
+        domPurifyJs.src = `https://${serverHost}/static/purify.min.js`;
+        domPurifyJs.defer = true;
+        document.head.appendChild(domPurifyJs);
+
+        // Add Readability.js
+        const readabilityJs = document.createElement("script");
+        readabilityJs.src = `https://${serverHost}/static/Readability.min.js`;
+        readabilityJs.defer = true;
+        document.head.appendChild(readabilityJs);
 
         // add mark.js
         const markJs = document.createElement("script");
@@ -364,13 +410,37 @@ const ExtractKeypoints = {
     },
 
     segmentWords(text, segmentLength) {
-        const words = text.split(/\s+/);
+        // Guard against null or undefined input
+        if (!text) return [];
+
+        // Convert to string in case input is a number or other type
+        const inputText = String(text);
+
+        // Split into words and filter out empty strings
+        const words = inputText.split(/\s+/).filter(word => word.length > 0);
         const segments = [];
+
         for (let i = 0; i <= words.length - segmentLength; i++) {
-            // Join with a regular expression pattern as a string
-            const regexPattern = words.slice(i, i + segmentLength).join('\\s+');
-            segments.push(new RegExp(regexPattern, 'g')); // Create a RegExp object
+            // Get the segment of words
+            const wordSegment = words.slice(i, i + segmentLength);
+
+            // Escape special regex characters in each word
+            const escapedWords = wordSegment.map(word =>
+                word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+            );
+
+            // Join with word boundary and whitespace pattern
+            const regexPattern = escapedWords.join('\\s+');
+
+            try {
+                // Create RegExp object with the escaped pattern
+                segments.push(new RegExp(regexPattern, 'g'));
+            } catch (error) {
+                console.error('Error creating regex for pattern:', regexPattern);
+                console.error('Error details:', error);
+            }
         }
+
         return segments;
     },
 

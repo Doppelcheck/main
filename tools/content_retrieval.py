@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 import bs4
+import markdownify
 import newspaper
 import trafilatura
 
@@ -88,9 +89,12 @@ def detect_language(text: str) -> str:
     return language.iso_code_639_1.name.lower()
 
 
-def get_article(url: str) -> newspaper.Article:
+def get_article(url: str, html: None | str = None) -> newspaper.Article:
     article = newspaper.Article(url)
-    article.download()
+    if html is None:
+        article.download()
+    else:
+        article.set_html(html)
     article.parse()
     article.nlp()
     return article
@@ -260,14 +264,12 @@ def get_as_markdown(url: str) -> str:
     md = trafilatura.extract(downloaded, output_format="markdown")
     return md
 
-def get_relevant_chunks(url: str) -> tuple[str]:
-    article = get_article(url)
-    plain_text = article.text
-    mapped_entities = extract_entities(plain_text)
+def get_relevant_chunks(url: str, html: str | None = None) -> tuple[str]:
+    # article = get_article(url, html=html)
+    markdown_text = markdownify.markdownify(html)
 
-    # html_text = article.article_html
-    # markdown_text = markdownify.markdownify(html_text)
-    markdown_text = get_as_markdown(url)
+    plain_text = markdown_to_plain_text(markdown_text)
+    mapped_entities = extract_entities(plain_text)
 
     plain_chunks = get_chunks(markdown_text)
 

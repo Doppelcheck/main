@@ -539,7 +539,7 @@ class Server:
                         await websocket.send_json(json_dict)
 
                     case "keypoint_new":
-                        relevant_chunks = get_relevant_chunks(original_url)
+                        relevant_chunks = get_relevant_chunks(original_url, html=content)
                         for chunk_index, each_chunk in enumerate(relevant_chunks):
                             print(f"\nChunk {chunk_index + 1}:\n", end='')
                             print(each_chunk)
