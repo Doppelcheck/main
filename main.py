@@ -8,6 +8,7 @@ import uuid
 from typing import Generator, Sequence, AsyncGenerator, Iterable
 from urllib.parse import urlparse, unquote
 
+import markdownify
 import nltk
 from fastapi import WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -230,32 +231,23 @@ class Server:
     ) -> AsyncGenerator[SourcesMessage, None]:
 
         data_interfaces = Server.get_data_interfaces(instance_id)
-        llm_interface = Server.get_retrieval_llm_interface(instance_id)
         language = ConfigModel.get_general_language(instance_id)
 
         content = await BROWSER_INSTANCE.get_html_content(original_url)
         article = await parse_url(original_url, input_html=content.content)
 
         logger.info(f"summarizing context ({len(article.summary)} characters)")
-        summarized = await llm_interface.summarize(article.summary)
-        context = f"{article.title.upper()}\n\n{summarized}"
 
-        if len(context.strip()) < 20:
-            context = None
-
-        elif article.publish_date is not None:
-            context += f"\n\npublished on {article.publish_date}"
-
-        async def get_uris(data_interface: InterfaceData) -> tuple[InterfaceData, str, list[Uri]]:
+        async def get_uris(_keypoint_text: str, data_interface: InterfaceData) -> tuple[InterfaceData, str, list[Uri]]:
             _query = await data_interface.get_search_query(
-                llm_interface, keypoint_text, context=context, language=language
+                _keypoint_text, language=language
             )
 
             # noinspection PyTypeChecker
             interface_uris: AsyncGenerator[Uri, None] = data_interface.get_uris(_query)
             return data_interface, _query, [_each_uri async for _each_uri in interface_uris if _each_uri != original_url]
 
-        tasks = [get_uris(each_interface) for each_interface in data_interfaces]
+        tasks = [get_uris(keypoint_text, each_interface) for each_interface in data_interfaces]
 
         for future in asyncio.as_completed(tasks):
             each_interface, query, uris = await future
@@ -530,7 +522,7 @@ class Server:
                 instance_id = message['instance_id']
                 message_type = message['message_type']
                 original_url = message['original_url']
-                content = message['content']
+                html_content = message['content']
 
                 match message_type:
                     case "ping":
@@ -539,20 +531,21 @@ class Server:
                         await websocket.send_json(json_dict)
 
                     case "keypoint_new":
-                        relevant_chunks = get_relevant_chunks(original_url, html=content)
-                        for chunk_index, each_chunk in enumerate(relevant_chunks):
+                        markdown_text = markdownify.markdownify(html_content)
+                        relevant_chunks = get_relevant_chunks(markdown_text)
+                        for chunk_index, md_chunk in enumerate(relevant_chunks):
                             print(f"\nChunk {chunk_index + 1}:\n", end='')
-                            print(each_chunk)
+                            print(md_chunk)
 
-                            plain_chunk = markdown_to_plain_text(each_chunk)
-                            each_statements = ""
-
+                            plain_chunk = markdown_to_plain_text(md_chunk)
                             quote_message = QuoteMessage(keypoint_id=chunk_index, content=plain_chunk)
                             quote_dict = Server._to_json(quote_message, instance_id)
                             await websocket.send_json(quote_dict)
 
                             print(f"\nSummary of chunk {chunk_index + 1}:\n", end='')
-                            stream = summarize_ollama(each_chunk)
+                            # stream = summarize_ollama(md_chunk, context=markdown_text)
+                            stream = summarize_ollama(md_chunk)
+                            each_statements = ""
                             async for each_response in stream:
                                 each_statements += each_response
                                 print(each_response, end='', flush=True)
@@ -567,25 +560,15 @@ class Server:
 
                             print()
 
-
                         """
                         summaries need context
-                            + give full text
-                            + ask to summarize segment
                             + add metadata
                                 + stuff from article.get_metadata() ?
                         """
-                        """
-                        get relevant segments
-                        for each_relevant_segment:
-                            send segment
-                            stream summary
-                        """
-                        pass
 
                     case "keypoint_selection":
                         # [x] Keypoint Assistant
-                        base_text = content
+                        base_text = html_content
                         keypoint_count = 1
 
                         async for segment in self.get_keypoints_from_str(base_text, keypoint_count, instance_id):
@@ -599,8 +582,8 @@ class Server:
 
                     case "sourcefinder":
                         # [x] Sourcefinder Assistant
-                        keypoint_id = content['keypoint_id']
-                        keypoint_text = content['keypoint_text']
+                        keypoint_id = html_content['keypoint_id']
+                        keypoint_text = html_content['keypoint_text']
 
                         uri_generator = self.get_source_uris(keypoint_id, keypoint_text, instance_id, original_url)
                         async for segment in uri_generator:
@@ -615,11 +598,11 @@ class Server:
 
                     case "crosschecker":
                         # [x] Crosschecker Assistant
-                        keypoint_id = content['keypoint_id']
-                        keypoint_text = content['keypoint_text']
-                        source_id = content['source_id']
-                        source_uri = content['source_uri']
-                        data_source = content['data_source']
+                        keypoint_id = html_content['keypoint_id']
+                        keypoint_text = html_content['keypoint_text']
+                        source_id = html_content['source_id']
+                        source_uri = html_content['source_uri']
+                        data_source = html_content['data_source']
                         async for segment in self.get_matches(
                             instance_id, keypoint_id, keypoint_text, source_id, source_uri, data_source
                         ):
@@ -635,7 +618,7 @@ class Server:
 
                     case _:
                         message_segment = ErrorMessage(
-                            content=f"unknown message type {message_type}, len {len(content)}")
+                            content=f"unknown message type {message_type}, len {len(html_content)}")
                         each_dict = dataclasses.asdict(message_segment)
                         await websocket.send_json(each_dict)
 

@@ -8,35 +8,23 @@ from loguru import logger
 from nicegui import ui
 
 from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
-    DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM, Document
+    DictSerializable, ConfigurationCallbacks, Uri, Document
 from tools.global_instances import WIKIPEDIA_LANGUAGES
+from tools.local_llm import search_query_wikipedia_ollama
 from tools.text_processing import extract_code_block
 
 
 class Wikipedia(InterfaceData):
     @staticmethod
-    def _get_query(claim: str, context: str | None = None, language: str | None = None) -> str:
-        context_data = (
-            f"```context\n"
-            f"{context}\n"
-            f"```\n"
-            f"\n"
-        ) if context else ""
-
-        context_instruction = (
-            f" Refine your query according to the provided context."
-        ) if context else ""
-
+    def _get_query(claim: str, language: str | None = None) -> str:
         language_instruction = f"Respond in {language}" if language or language != "default" else "Respond in the language of the claim"
 
         return (
-            f"{context_data}"
             f"```claim\n"
             f"{claim}\n"
             f"```\n"
             f"\n"
-            f"Generate a Wikipedia search query for results to verify of the claim above."
-            f"{context_instruction}\n"
+            f"Generate a Wikipedia search query for results to verify of the claim above.\n"
             f"\n"
             f"{language_instruction}, add the according Wikipedia language code (one of "
             f"{', '.join(WIKIPEDIA_LANGUAGES)}), and respond in a fenced code block according to the following "
@@ -119,13 +107,14 @@ class Wikipedia(InterfaceData):
         super().__init__(name, parameters, from_admin)
 
     async def get_search_query(
-            self, llm_interface: InterfaceLLM, keypoint_text: str,
+            self, keypoint_text: str,
             context: str | None = None, language: str | None = None):
-        summarized_context = await llm_interface.summarize(context)
-        prompt = Wikipedia._get_query(keypoint_text, context=summarized_context, language=language)
 
-        response = await llm_interface.reply_to_prompt(prompt)
-        query = extract_code_block(response)
+        query_token_list = list()
+        async for query_token in search_query_wikipedia_ollama(keypoint_text, language=language):
+            query_token_list.append(query_token)
+
+        query = "\n".join(query_token_list)
         return query
 
     def wikipedia_pageid_from_title(self, title: str) -> int:

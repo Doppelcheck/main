@@ -132,7 +132,7 @@ class InterfaceData(Interface, ABC, metaclass=InterfaceMeta):
 
     @abstractmethod
     async def get_search_query(
-            self, llm_interface: InterfaceLLM, keypoint_text: str,
+            self, keypoint_text: str,
             context: str | None = None, language: str | None = None):
         raise NotImplementedError("Method not implemented")
 
