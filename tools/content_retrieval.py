@@ -153,16 +153,6 @@ def markdown_to_text(markdown_text: str) -> str:
     return plain_text
 
 
-def get_chunks(markdown_text: str) -> list[str]:
-    markdown_chunks = get_markdown_segments(markdown_text)
-    plain_chunks = [
-        each_chunk
-        # markdown_to_text(each_chunk).replace("\n", " ").strip()
-        for each_chunk in markdown_chunks
-    ]
-    return plain_chunks
-
-
 def calculate_tf(entity_text: str, chunk_text: str) -> float:
     """Calculate term frequency of entity in chunk."""
     # Simple frequency-based TF
@@ -264,20 +254,16 @@ def get_as_markdown(url: str) -> str:
     md = trafilatura.extract(downloaded, output_format="markdown")
     return md
 
-def get_relevant_chunks(url: str, html: str | None = None) -> tuple[str]:
-    # article = get_article(url, html=html)
-    markdown_text = markdownify.markdownify(html)
-
+def get_relevant_chunks(markdown_text: str) -> tuple[str]:
     plain_text = markdown_to_plain_text(markdown_text)
     mapped_entities = extract_entities(plain_text)
 
-    plain_chunks = get_chunks(markdown_text)
-
+    md_chunks = get_markdown_segments(markdown_text)
     chunk_scores = calculate_chunk_tfidf_scores(
-        plain_chunks, mapped_entities, top_k=5
+        md_chunks, mapped_entities, top_k=5
     )
 
-    return tuple(plain_chunks[each_chunk_score.chunk_index] for each_chunk_score in chunk_scores)
+    return tuple(md_chunks[each_chunk_score.chunk_index] for each_chunk_score in chunk_scores)
 
 
 def normalize_emphasis(markdown_text: str) -> str:

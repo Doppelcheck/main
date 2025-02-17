@@ -4,22 +4,19 @@ from typing import Generator, AsyncGenerator, Mapping, AsyncIterator
 import ollama
 
 
-async def search_query_ollama(text: str, language: str | None = None) -> AsyncGenerator[str, None]:
+async def search_query_wikipedia_ollama(claim: str, language: str | None = None) -> AsyncGenerator[str, None]:
     model = "tulu3"
 
-    language = "the text's language" or language
+    language = "the claim's language" or language
 
-    date_string = datetime.datetime.now().strftime("%B %d, %Y")
     ollama.pull(model)
     prompt = (
-        "```text\n"
-        "{chunk}\n"
-        "```\n"
-        "\n"
-        "For the provided text, generate a search query that would return the most relevant information on the topic. "
-        "The query should be concise and in {language}. Respond with the query only: no disclaimer, introduction, or "
-        "conclusion.\n"
-        "\n"
+        f"```claim\n"
+        f"{claim}\n"
+        f"```\n"
+        f"\n"
+        f"Generate a Wikipedia search query in {language} to check the claim above. Respond with the query only: no "
+        f"disclaimer, introduction, or conclusion.\n"
     )
 
     host=None
@@ -29,7 +26,7 @@ async def search_query_ollama(text: str, language: str | None = None) -> AsyncGe
         model=model,
         messages=[
             {'role': 'system', 'content': "You are an expert at generating search queries to find relevant information."},
-            {'role': 'user', 'content': prompt.format(chunk=text, today=date_string, language=language)},
+            {'role': 'user', 'content': prompt},
             # {"role": "assistant", "content": "This is a search query for the text:"},
         ],
         stream=True
@@ -41,20 +38,69 @@ async def search_query_ollama(text: str, language: str | None = None) -> AsyncGe
         yield content
 
 
-async def summarize_ollama(text: str, language: str | None = None) -> AsyncGenerator[str, None]:
-    model= "tulu3"
+async def search_query_google_ollama(text: str, language: str | None = None) -> AsyncGenerator[str, None]:
+    model = "tulu3"
 
     language = "the text's language" or language
 
     date_string = datetime.datetime.now().strftime("%B %d, %Y")
     ollama.pull(model)
     prompt = (
-        "```text\n"
-        "{chunk}\n"
-        "```\n"
-        "\n"
-        "Summarize the the text above in one concise sentence and in {language}. Respond with the summary only: no "
-        "disclaimer, introduction, or conclusion.\n"
+        f"```text\n"
+        f"{text}\n"
+        f"```\n"
+        f"\n"
+        f"For the provided text, generate a search query that would return the most relevant information on the topic. "
+        f"The query should be concise and in {language}. Respond with the query only: no disclaimer, introduction, or "
+        f"conclusion.\n"
+        f"\n"
+    )
+
+    host=None
+    client = ollama.AsyncClient(host=host)
+
+    stream: AsyncIterator[Mapping[str, any]] = await client.chat(
+        model=model,
+        messages=[
+            {'role': 'system', 'content': "You are an expert at generating search queries to find relevant information."},
+            {'role': 'user', 'content': prompt},
+            # {"role": "assistant", "content": "This is a search query for the text:"},
+        ],
+        stream=True
+    )
+
+    async for response in stream:
+        message = response["message"]
+        content = message["content"]
+        yield content
+
+
+async def summarize_ollama(text: str, context: str | None = None, language: str | None = None) -> AsyncGenerator[str, None]:
+    model= "tulu3"
+
+    language = "the text's language" or language
+    context_snippet = (
+        f"```\n"
+        f"{context}\n"
+        f"```\n"
+        f"\n"
+    ) if context else ""
+
+    context_instruction = (
+        "Consider the provided context in your summary but summarize only the extracted text."
+    ) if context else ""
+
+    ollama.pull(model)
+    prompt = (
+        f"{context_snippet}"
+        f"```text\n"
+        f"{text}\n"
+        f"```\n"
+        f"\n"
+        f"Summarize the text above in one concise sentence and in {language}. Mention time, location, and people if "
+        f"available but replace all relative references to time, location, or people with their explicit, specific "
+        f"counterparts.{context_instruction} Respond with the summary only: no disclaimer, introduction, or "
+        f"conclusion.\n"
         "\n"
     )
 
@@ -65,7 +111,7 @@ async def summarize_ollama(text: str, language: str | None = None) -> AsyncGener
         model=model,
         messages=[
             {'role': 'system', 'content': "You are an expert at summarizing texts, focusing on key information and facts."},
-            {'role': 'user', 'content': prompt.format(chunk=text, today=date_string, language=language)},
+            {'role': 'user', 'content': prompt},
             # {"role": "assistant", "content": "This is a short summary of the text:"},
         ],
         stream=True

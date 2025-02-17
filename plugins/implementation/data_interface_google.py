@@ -7,9 +7,10 @@ from loguru import logger
 from nicegui import ui
 
 from plugins.abstract import InterfaceData, Parameters, DictSerializableImplementation, InterfaceDataConfig, \
-    DictSerializable, ConfigurationCallbacks, Uri, InterfaceLLM, Document
+    DictSerializable, ConfigurationCallbacks, Uri, Document
 from tools.content_retrieval import parse_url
 from tools.global_instances import BROWSER_INSTANCE, HTTPX_SESSION
+from tools.local_llm import search_query_google_ollama
 from tools.text_processing import extract_code_block
 
 
@@ -162,14 +163,14 @@ class Google(InterfaceData):
         super().__init__(name, parameters, from_admin)
 
     async def get_search_query(
-            self, llm_interface: InterfaceLLM, keypoint_text: str,
+            self, keypoint_text: str,
             context: str | None = None, language: str | None = None) -> str:
 
-        summarized_context = await llm_interface.summarize(context)
-        prompt = Google._get_query(keypoint_text, context=summarized_context, language=language)
+        query_token_list = list()
+        async for query_token in search_query_google_ollama(keypoint_text, language=language):
+            query_token_list.append(query_token)
 
-        response = await llm_interface.reply_to_prompt(prompt)
-        query = extract_code_block(response)
+        query = "\n".join(query_token_list)
         return query
 
     async def get_uris(self, query: str) -> AsyncGenerator[Uri, None]:
