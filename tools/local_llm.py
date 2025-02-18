@@ -97,9 +97,10 @@ async def summarize_ollama(text: str, context: str | None = None, language: str 
         f"{text}\n"
         f"```\n"
         f"\n"
-        f"Extract the main claim from the text above. Mention time, location, and people if available but replace all relative references to time, "
-        f"location, or people with their explicit, specific counterparts.{context_instruction} Respond in {language} with one single sentence only: "
-        f"no disclaimer, introduction, or conclusion.\n"
+        f"Extract the main claim from the text above. If time, location, and people are available, make sure to "
+        f"mention them by converting any and all relative references to their absolute, explicitly, and specific "
+        f"counterparts.{context_instruction} Respond in {language} with one single sentence only: no disclaimer, "
+        f"introduction, or conclusion.\n"
         "\n"
     )
 

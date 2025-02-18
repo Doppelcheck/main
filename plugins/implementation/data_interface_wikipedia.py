@@ -115,6 +115,7 @@ class Wikipedia(InterfaceData):
             query_token_list.append(query_token)
 
         query = "".join(query_token_list)
+        print(f"Wiki search query: {query}")
         return query
 
     def wikipedia_pageid_from_title(self, title: str) -> int:
