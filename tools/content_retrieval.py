@@ -5,6 +5,7 @@ from typing import Sequence
 
 import bs4
 import markdownify
+import readabilipy
 import newspaper
 import trafilatura
 

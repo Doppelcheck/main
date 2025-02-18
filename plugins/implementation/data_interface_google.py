@@ -11,7 +11,6 @@ from plugins.abstract import InterfaceData, Parameters, DictSerializableImplemen
 from tools.content_retrieval import parse_url
 from tools.global_instances import BROWSER_INSTANCE, HTTPX_SESSION
 from tools.local_llm import search_query_google_ollama
-from tools.text_processing import extract_code_block
 
 
 class Google(InterfaceData):
@@ -171,6 +170,7 @@ class Google(InterfaceData):
             query_token_list.append(query_token)
 
         query = "".join(query_token_list)
+        print(f"Google search query: {query}")
         return query
 
     async def get_uris(self, query: str) -> AsyncGenerator[Uri, None]:

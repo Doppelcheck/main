@@ -17,9 +17,9 @@ const ProxyUrlServices = {
         const proxyUrl = ProxyUrlServices.localBypass(window.location.href);
 
         InitializeDoppelcheck.notifyUser(
-            `<p>Connection to the Doppelcheck server failed. This may be due to ` +
+            `<p>Loading assets from the Doppelcheck server failed. This may be due to ` +
             `restrictive security settings on the current website.</p>${window.location.hostname}<p>Please use ` +
-            `Doppelcheck on <a href="${proxyUrl}" target="_blank">an accessible version of this website</a> and ` +
+            `Doppelcheck on <a href="${proxyUrl}" target="_blank">an accessible version of the same website</a> and ` +
             `make sure the Doppelcheck server is running at ` +
             `<a href="https://${serverHost}" target="_blank">${serverHost}</a>.</p>`,
             false);
@@ -225,8 +225,7 @@ const InitializeDoppelcheck = {
             newKeypoints.disabled = true;
 
             if (typeof Readability === 'undefined' || typeof DOMPurify === 'undefined') {
-                InitializeDoppelcheck.notifyUser("Required libraries are still loading. Please try again in a moment.");
-                newKeypoints.disabled = false;
+                ProxyUrlServices.corsError();
                 return;
             }
 
