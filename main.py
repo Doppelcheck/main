@@ -26,11 +26,12 @@ from configuration.full import full_configuration
 from model.storages import ConfigModel, PasswordsModel
 from plugins.abstract import InterfaceLLM, InterfaceData, InterfaceDataConfig, Uri
 from prompts.agent_patterns import instruction_keypoint_extraction, instruction_crosschecking
-from tools.content_retrieval import parse_url, get_article, get_relevant_chunks, markdown_to_plain_text
+from tools.content_retrieval import parse_url, get_article, get_relevant_chunks, markdown_to_plain_text, \
+    get_google_results, get_wiki_results
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_objects import (
     Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, RatingMessage, ExplanationMessage)
-from tools.local_llm import summarize_ollama
+from tools.local_llm import summarize_ollama, search_query_google_ollama, search_query_wikipedia_ollama
 from tools.text_processing import (
     text_node_generator, pipe_codeblock_content, get_range, get_text_lines)
 
@@ -580,9 +581,38 @@ class Server:
                         keypoint_id = html_content['keypoint_id']
                         keypoint_text = html_content['keypoint_text']
 
-                        uri_generator = self.get_source_uris(keypoint_id, keypoint_text, instance_id, original_url)
-                        async for segment in uri_generator:
-                            each_dict = dataclasses.asdict(segment)
+                        query_google = search_query_google_ollama(keypoint_text)
+                        query_google_str = ""
+                        async for each_query in query_google:
+                            query_google_str += each_query
+                        print(f"Google query: {query_google_str}")
+
+                        urls_google = get_google_results(query_google_str)
+                        async for each_url in urls_google:
+                            each_id = uuid.uuid4().hex
+                            message =  SourcesMessage(
+                                keypoint_id=keypoint_id, source_id=each_id, data_source="Google",
+                                query=query_google_str, content=each_url.url, title=each_url.title
+                            )
+
+                            each_dict = dataclasses.asdict(message)
+                            await websocket.send_json(each_dict)
+
+                        query_wiki = search_query_wikipedia_ollama(keypoint_text)
+                        query_wiki_str = ""
+                        async for each_query in query_wiki:
+                            query_wiki_str += each_query
+                        print(f"Wikipedia query: {query_wiki_str}")
+
+                        urls_wiki = get_wiki_results(query_wiki_str)
+                        async for each_url in urls_wiki:
+                            each_id = uuid.uuid4().hex
+                            message = SourcesMessage(
+                                keypoint_id=keypoint_id, source_id=each_id, data_source="Wikipedia",
+                                query=query_wiki_str, content=each_url.url, title=each_url.title
+                            )
+
+                            each_dict = dataclasses.asdict(message)
                             await websocket.send_json(each_dict)
 
                         stop_message = SourcesMessage(

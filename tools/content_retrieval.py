@@ -1,7 +1,8 @@
 import math
 import re
+from collections.abc import AsyncGenerator
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Sequence, Generator
 
 import bs4
 import markdownify
@@ -11,8 +12,9 @@ import trafilatura
 
 from markdown_it import MarkdownIt
 from mdit_plain.renderer import RendererPlain
+from wikipedia import suggest
 
-from tools.global_instances import DETECTOR_BUILT
+from tools.global_instances import DETECTOR_BUILT, BROWSER_INSTANCE
 
 from spacy.tokens.span import Span as Entity
 import spacy
@@ -22,11 +24,34 @@ from semantic_text_splitter import semantic_text_splitter
 from bs4 import BeautifulSoup
 from markdown import markdown
 
+from googlesearch import search, SearchResult
+import wikipedia
+
 
 header = {
     "User-Agent": "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) "
                   "Chrome/W.X.Y.Z Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
 }
+
+async def get_google_results(query: str) -> AsyncGenerator[SearchResult, None, None]:
+    for each_result in search(query, lang="de", num_results=10, advanced=True):
+        yield each_result
+
+async def get_wiki_results(query: str) -> AsyncGenerator[SearchResult, None, None]:
+    wikipedia.set_lang("de")
+    results = wikipedia.search(query, results=10)
+    for each_title in results:
+        try:
+            each_page = wikipedia.page(title=each_title)
+            each_result = SearchResult(url=each_page.url, title=each_page.title, description=each_page.summary)
+            yield each_result
+
+        except wikipedia.exceptions.DisambiguationError as e:
+            pass
+
+        except wikipedia.exceptions.PageError as e:
+            pass
+
 
 
 async def parse_url(url: str, input_html: str | None = None) -> newspaper.Article:
