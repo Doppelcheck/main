@@ -24,6 +24,7 @@ tiktoken~=0.6.0
 newspaper3k~=0.2.8
 semantic-text-splitter~=0.24.0
 trafilatura~=2.0.0
+googlesearch-python~=1.3.0
 
 # instructor~=1.0.3
 

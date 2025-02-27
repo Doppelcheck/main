@@ -15,8 +15,8 @@ async def search_query_wikipedia_ollama(claim: str, language: str | None = None)
         f"{claim}\n"
         f"```\n"
         f"\n"
-        f"Generate a query for the Wikipedia search in {language} to check the claim above. Respond with the query only: no "
-        f"disclaimer, introduction, or conclusion.\n"
+        f"Generate a very simple Wikipedia query (two words max.) in {language} for articles that might cover the claim above. Respond "
+        f"with the query only: no disclaimer, introduction, or conclusion.\n"
     )
 
     host = None
