@@ -289,31 +289,37 @@ class Server:
 
     async def get_matches_new(
             self, instance_id: str, keypoint_id: int, keypoint_text: str,
-            source_id: str, source_uri: str, data_interface_name: str
+            source_id: str, source_uri: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
 
-        llm_interface = Server.get_match_llm_interface(instance_id)
-        data_interface_config = ConfigModel.get_data_interface(instance_id, data_interface_name)
-        data_interface = Server._data_interface_from_config(data_interface_config)
+        """
+        cleaned up source text (trafilatura or readabilipy)
+        """
 
-        language = ConfigModel.get_general_language(instance_id)
+        source_content = ""
 
-        source = await data_interface.get_source_content(source_uri)
-        if source.error is not None:
-            logger.error(f"source error: {source.error}")
-            return
-            # raise RetrieveSourceException(source.error)
+        prompt = (
+            f"```source\n"
+            f"{source_content}\n"
+            f"```\n"
+            f"\n"
+            f"```claim\n"
+            f"{keypoint_text}\n"
+            f"```\n"
+            f"\n"
+            f"Determine the semantic similarity between the `claim` and the `source` above. Respond with a rating "
+            f"from -2 to +2, where -2 indicates strong contradiction and +2 indicates strong support. Also provide a "
+            f"short, one-sentence explanation for the rating. If the source text is not relevant to the claim, respond "
+            f"with a rating of 0.\n"
+            f"\n"
+            f"Answer in the following format, without the code fence:\n"
+            f"```\n"
+            f"Rating: 3\n"
+            f"Explanation: The claim is partially supported by the source text.\n"
+            f"```\n"
+            f"\n"
+        )
 
-        source_content = source.content
-
-        node_generator = text_node_generator(source_content)
-        source_text = "".join(node_generator)
-
-        logger.info(f"summarizing source ({len(source_text)} characters)")
-        summarized = await llm_interface.summarize(source_text)
-
-        customized_instruction = ConfigModel.get_comparison_prompt(instance_id) or DEFAULT_CUSTOM_COMPARISON_PROMPT
-        prompt = instruction_crosschecking(keypoint_text, summarized, customized_instruction, language=language)
 
         # noinspection PyTypeChecker
         response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
