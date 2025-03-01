@@ -4,31 +4,23 @@ from typing import Generator, AsyncGenerator, Mapping, AsyncIterator
 import ollama
 
 
-async def search_query_wikipedia_ollama(claim: str, language: str | None = None) -> AsyncGenerator[str, None]:
+async def prompt_ollama(prompt: str, system_prompt: str | None = None) -> AsyncGenerator[str, None]:
     model = "tulu3"
 
-    language = "the claim's language" or language
-
     ollama.pull(model)
-    prompt = (
-        f"```claim\n"
-        f"{claim}\n"
-        f"```\n"
-        f"\n"
-        f"Generate a very simple Wikipedia query (two words max.) in {language} for articles that might cover the claim above. Respond "
-        f"with the query only: no disclaimer, introduction, or conclusion.\n"
-    )
 
     host = None
     client = ollama.AsyncClient(host=host)
 
+    messages = list()
+    if system_prompt is not None:
+        messages = [{'role': 'system', 'content': system_prompt}]
+
+    messages.append({'role': 'user', 'content': prompt})
+
     stream: AsyncIterator[Mapping[str, any]] = await client.chat(
         model=model,
-        messages=[
-            {'role': 'system', 'content': "You are an expert at generating search queries to find relevant information."},
-            {'role': 'user', 'content': prompt},
-            # {"role": "assistant", "content": "This is a search query for the text:"},
-        ],
+        messages=messages,
         stream=True
     )
 
@@ -38,13 +30,25 @@ async def search_query_wikipedia_ollama(claim: str, language: str | None = None)
         yield content
 
 
+async def search_query_wikipedia_ollama(claim: str, language: str | None = None) -> AsyncGenerator[str, None]:
+    prompt = (
+        f"```claim\n"
+        f"{claim}\n"
+        f"```\n"
+        f"\n"
+        f"Generate a very simple Wikipedia query (two words max.) in {language} for articles that might cover the claim above. Respond "
+        f"with the query only: no disclaimer, introduction, or conclusion.\n"
+    )
+
+    system_prompt = "You are an expert at generating search queries to find relevant information."
+
+    async for response in prompt_ollama(prompt, system_prompt=system_prompt):
+        yield response
+
+
 async def search_query_google_ollama(text: str, language: str | None = None) -> AsyncGenerator[str, None]:
-    model = "tulu3"
+    language = language or "the text's language"
 
-    language = "the text's language" or language
-
-    date_string = datetime.datetime.now().strftime("%B %d, %Y")
-    ollama.pull(model)
     prompt = (
         f"```text\n"
         f"{text}\n"
@@ -56,29 +60,16 @@ async def search_query_google_ollama(text: str, language: str | None = None) -> 
         f"\n"
     )
 
-    host = None
-    client = ollama.AsyncClient(host=host)
+    system_prompt = "You are an expert at generating search queries to find relevant information."
 
-    stream: AsyncIterator[Mapping[str, any]] = await client.chat(
-        model=model,
-        messages=[
-            {'role': 'system', 'content': "You are an expert at generating search queries to find relevant information."},
-            {'role': 'user', 'content': prompt},
-            # {"role": "assistant", "content": "This is a search query for the text:"},
-        ],
-        stream=True
-    )
-
-    async for response in stream:
-        message = response["message"]
-        content = message["content"]
-        yield content
+    async for response in prompt_ollama(prompt, system_prompt=system_prompt):
+        yield response
 
 
 async def summarize_ollama(text: str, context: str | None = None, language: str | None = None) -> AsyncGenerator[str, None]:
     model= "tulu3"
 
-    language = "the text's language" or language
+    language = language or "the text's language"
     context_snippet = (
         f"```\n"
         f"{context}\n"
@@ -90,7 +81,6 @@ async def summarize_ollama(text: str, context: str | None = None, language: str 
         "Consider the provided context in your summary but summarize only the extracted text."
     ) if context else ""
 
-    ollama.pull(model)
     prompt = (
         f"{context_snippet}"
         f"```text\n"
@@ -104,22 +94,10 @@ async def summarize_ollama(text: str, context: str | None = None, language: str 
         "\n"
     )
 
-    host=None
-    client = ollama.AsyncClient(host=host)
+    system_prompt = "You are an expert at summarizing texts, focusing on key information and facts."
 
-    stream: AsyncIterator[Mapping[str, any]] = await client.chat(
-        model=model,
-        messages=[
-            {'role': 'system', 'content': "You are an expert at summarizing texts, focusing on key information and facts."},
-            {'role': 'user', 'content': prompt},
-            # {"role": "assistant", "content": "This is a short summary of the text:"},
-        ],
-        stream=True
-    )
-    async for response in stream:
-        message = response["message"]
-        content = message["content"]
-        yield content
+    async for response in prompt_ollama(prompt, system_prompt=system_prompt):
+        yield response
 
 
 def _summarize_ollama(text: str, language: str | None = None) -> Generator[str, None, None]:
@@ -138,7 +116,7 @@ def _summarize_ollama(text: str, language: str | None = None) -> Generator[str, 
     model = "llama3.2:3b-instruct-q8_0"
     model= "tulu3"
 
-    language = "the text's language" or language
+    language = language or "the text's language"
 
     date_string = datetime.datetime.now().strftime("%B %d, %Y")
     ollama.pull(model)

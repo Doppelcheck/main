@@ -9,6 +9,7 @@ import markdownify
 import readabilipy
 import newspaper
 import trafilatura
+from loguru import logger
 
 from markdown_it import MarkdownIt
 from mdit_plain.renderer import RendererPlain
@@ -47,10 +48,10 @@ async def get_wiki_results(query: str) -> AsyncGenerator[SearchResult, None, Non
             yield each_result
 
         except wikipedia.exceptions.DisambiguationError as e:
-            pass
+            logger.error(f"Disambiguation error: {e}")
 
         except wikipedia.exceptions.PageError as e:
-            pass
+            logger.error(f"Page error: {e}")
 
 
 
