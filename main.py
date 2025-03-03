@@ -31,7 +31,7 @@ from tools.content_retrieval import parse_url, get_article, get_relevant_chunks,
 from tools.global_instances import BROWSER_INSTANCE
 from tools.data_objects import (
     Pong, KeypointMessage, QuoteMessage, Message, SourcesMessage, ErrorMessage, RatingMessage, ExplanationMessage)
-from tools.local_llm import summarize_ollama, search_query_google_ollama, search_query_wikipedia_ollama
+from tools.local_llm import summarize_ollama, search_query_google_ollama, search_query_wikipedia_ollama, prompt_ollama
 from tools.text_processing import (
     text_node_generator, pipe_codeblock_content, get_range, get_text_lines)
 
@@ -254,7 +254,7 @@ class Server:
                     query=query, content=each_uri.uri_string, title=each_uri.title
                 )
 
-    async def get_matches(
+    async def get_matches_old(
             self, instance_id: str, keypoint_id: int, keypoint_text: str,
             source_id: str, source_uri: str, data_interface_name: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
@@ -287,7 +287,7 @@ class Server:
         async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_id, source_id):
             yield each_segment
 
-    async def get_matches_new(
+    async def get_matches(
             self, instance_id: str, keypoint_id: int, keypoint_text: str,
             source_id: str, source_uri: str
     ) -> Generator[RatingMessage | ExplanationMessage, None, None]:
@@ -296,7 +296,8 @@ class Server:
         cleaned up source text (trafilatura or readabilipy)
         """
 
-        source_content = ""
+        file_content = await BROWSER_INSTANCE.get_html_content(source_uri)
+        source_content = trafilatura.extract(file_content, url=source_uri, output_format="markdown")
 
         prompt = (
             f"```source\n"
@@ -314,15 +315,14 @@ class Server:
             f"\n"
             f"Answer in the following format, without the code fence:\n"
             f"```\n"
-            f"Rating: 3\n"
-            f"Explanation: The claim is partially supported by the source text.\n"
+            f"1\n"
+            f"The claim is partially supported by the source text.\n"
             f"```\n"
             f"\n"
         )
 
-
         # noinspection PyTypeChecker
-        response: AsyncGenerator[str, None] = llm_interface.stream_reply_to_prompt(prompt)
+        response: AsyncGenerator[str, None] = prompt_ollama(prompt)
         async for each_segment in Server._stream_crosscheck_to_browser(response, keypoint_id, source_id):
             yield each_segment
 
@@ -635,7 +635,7 @@ class Server:
                         source_uri = html_content['source_uri']
                         data_source = html_content['data_source']
                         async for segment in self.get_matches(
-                            instance_id, keypoint_id, keypoint_text, source_id, source_uri, data_source
+                            instance_id, keypoint_id, keypoint_text, source_id, source_uri
                         ):
                             each_dict = dataclasses.asdict(segment)
                             await websocket.send_json(each_dict)

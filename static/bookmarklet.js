@@ -170,6 +170,7 @@ const InitializeDoppelcheck = {
 
         } catch (error) {
             // request failed, offer redirection
+            console.error(`Failed to get config: ${error}`);
             ProxyUrlServices.corsError();
             return;
         }
@@ -224,7 +225,20 @@ const InitializeDoppelcheck = {
         newKeypoints.addEventListener("click", async function () {
             newKeypoints.disabled = true;
 
+            if (typeof Readability === 'undefined') {
+                console.error("Readability not loaded!");
+            }
+
+            if (typeof DOMPurify === 'undefined') {
+                console.error("DOMPurify not loaded!");
+            }
+
+            if (typeof markJs === 'undefined') {
+                console.error("mark.js not loaded!");
+            }
+
             if (typeof Readability === 'undefined' || typeof DOMPurify === 'undefined') {
+                console.error("Readability or DOMPurify not loaded");
                 ProxyUrlServices.corsError();
                 return;
             }
@@ -753,7 +767,7 @@ function exchange(messageType, content) {
         }
 
         ws.onerror = function (event) {
-            console.log("Error performing WebSocket communication ", event);
+            console.error("Error performing WebSocket communication ", event);
             ProxyUrlServices.corsError();
         }
 
