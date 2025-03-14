@@ -342,6 +342,12 @@ class Server:
                             await websocket.send_json(quote_dict)
 
                             print(f"\nSummary of chunk {chunk_index + 1}:\n", end='')
+                            """
+                            keypoint_message = KeypointMessage(keypoint_id=chunk_index, content=plain_chunk)
+                            keypoint_dict = Server._to_json(keypoint_message, instance_id)
+                            await websocket.send_json(keypoint_dict)
+                            """
+
                             # stream = summarize_ollama(md_chunk, context=markdown_text)
                             stream = summarize_ollama(md_chunk)
                             each_statements = ""
