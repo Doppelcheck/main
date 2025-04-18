@@ -1,24 +1,36 @@
-# Use an official Python runtime as a base image
-FROM python:3.11-slim
+# syntax=docker/dockerfile:1
 
-# Set the working directory in the container
+# Use official PyTorch image with both CUDA and ROCm support
+FROM pytorch/pytorch:2.2.2-cuda12.1-cudnn8-runtime
+
+# Install system dependencies and Ollama dependencies
+RUN apt-get update && \
+    apt-get install -y git ffmpeg libsm6 libxext6 curl ca-certificates gnupg lsb-release sudo \
+    libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0 libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2 && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Set workdir
 WORKDIR /app
 
-# Copies the local code to the container
-COPY . /app
 
-# Install the required dependencies
-RUN apt-get update && apt-get install -y libxcursor1 libxdamage1 libgtk-3-0 libpangocairo-1.0-0 libpango-1.0-0  \
-    libatk1.0-0 libcairo-gobject2 libcairo2 libgdk-pixbuf-2.0-0 libasound2 libdbus-glib-1-2
+# Copy requirements and install Python dependencies
+COPY requirements.txt ./
+RUN pip install --upgrade pip && pip install -r requirements.txt && \
+    python -m spacy download de_core_news_lg && \
+    python -m playwright install-deps && \
+    python -m playwright install && \
+    python -c "import stanza; stanza.download('multilingual')"
 
-# Install dependencies via pip
-RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir -r requirements.txt && playwright install
+# Copy the rest of the code
+COPY . .
 
-# Copy the config.example.json to config.json
-COPY config.example.json config.json
+# Expose port (default from config)
+EXPOSE 5000
 
-# Expose the port the app runs on
-EXPOSE 8000
+# Set environment variables for GPU support (NVIDIA/ROCm)
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+ENV HSA_VISIBLE_DEVICES=all
 
-# Command to run the server
-CMD ["python3", "main.py"]
+# Default command
+CMD ["python", "main.py"]
