@@ -64,8 +64,8 @@ DoppelCheck can be customized by editing the `content_analysis_config.json` file
         "https://sueddeutsche.de",
         "https://tagesschau.de"
     ],
-    "google_custom_search_api_key": "AIzaSyA0uco4J3foYY5H7Fm1pQirmI1kzPj1ZB4",
-    "google_custom_search_engine_id": "67d78a2b549ad4939"
+    "google_custom_search_api_key": "YOUR_API_KEY_HERE",
+    "google_custom_search_engine_id": "YOUR_SEARCH_ENGINE_ID_HERE"
 }
 ```
 
@@ -76,8 +76,8 @@ Settings you can change:
 - **ollama_host**: The address of your Ollama installation
 - **debug**: Set to "true" if you're experiencing issues
 - **custom_urls**: Pre-configured trusted domains for searches
-- **google_custom_search_api_key**: Your Google API key (if you want to use your own)
-- **google_custom_search_engine_id**: Your Google Search Engine ID (if you want to use your own)
+- **google_custom_search_api_key**: Your Google API key (replace with your actual key)
+- **google_custom_search_engine_id**: Your Google Search Engine ID (replace with your actual ID)
 
 ### API Keys
 
@@ -86,7 +86,7 @@ If you want to use your own Google search capabilities instead of the default on
 - **Google Custom Search API Key**: Get it from [Google Cloud Console](https://developers.google.com/custom-search/v1/introduction)
 - **Google Custom Search Engine ID**: Create a new search engine and get the ID from [Programmable Search Engine Control Panel](https://programmablesearchengine.google.com/controlpanel/all)
 
-Then update these values in your `content_analysis_config.json` file.
+Then update these values in your `content_analysis_config.json` file. The example values shown in the configuration above are placeholders and will not work - you must replace them with your own credentials.
 
 **Note**: When running with Docker, the Ollama service runs on port 11435 (mapped from container port 11434), but DoppelCheck is configured to connect to it internally on port 11434. If you're running Ollama separately outside of Docker, use port 11434 in your configuration.
 
@@ -414,4 +414,3 @@ Special thanks to our contributors and supporters for their invaluable assistanc
   - [WPK Innovationsfonds](https://innovationsfonds.wpk.org/doppelcheck-ki-gestuetzte-lokale-faktenpruefung/)
   - [Media Lab Bayern](https://media-lab.de/de/angebote/media-tech-lab/doppelcheck/)
   - [GitHub](https://github.com/Doppelcheck)
-````
