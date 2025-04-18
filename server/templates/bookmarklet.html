@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        /* Bookmarklet page styling */
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .bookmarklet-container {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .bookmarklet {
+            display: inline-block;
+            padding: 10px 15px;
+            background-color: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 20px 0;
+            cursor: move;
+        }
+
+        .bookmarklet:hover {
+            background-color: #2980b9;
+        }
+
+        .instructions {
+            background-color: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .instructions ol {
+            padding-left: 25px;
+        }
+
+        .instructions li {
+            margin-bottom: 10px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 20px 0;
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>{{ title }}</h1>
+    </header>
+
+    <div class="container">
+        <div class="bookmarklet-container">
+            <h2>Install the Bookmarklet</h2>
+            <p>Drag the button below to your bookmarks bar:</p>
+
+            <div style="text-align: center;">
+                <a class="bookmarklet" href="javascript:(function(){var script=document.createElement('script');script.src='{{ request.url_for('get_bookmarklet_js') }}?_='+new Date().getTime();document.body.appendChild(script);})();">
+                    Content Analysis
+                </a>
+            </div>
+
+            <p><small>If you don't see your bookmarks bar, press Ctrl+Shift+B (Windows/Linux) or Command+Shift+B (Mac) to show it.</small></p>
+        </div>
+
+        <div class="instructions">
+            <h2>How to Use</h2>
+            <ol>
+                <li>Navigate to any article or content-heavy webpage you want to analyze.</li>
+                <li>Click the "Content Analysis" bookmarklet in your bookmarks bar.</li>
+                <li>Wait a few moments while the content is analyzed.</li>
+                <li>Review the key points extracted from the content in the sidebar.</li>
+                <li>Click on any key point to highlight its source in the original page.</li>
+                <li>Use the "Find supporting evidence" button to search for verification.</li>
+                <li>Check alignment between original content and search results.</li>
+            </ol>
+
+            <h3>Features</h3>
+            <ul>
+                <li><strong>Extract</strong>: Identify and summarize key points from the webpage.</li>
+                <li><strong>Retrieve</strong>: Find supporting evidence for specific claims.</li>
+                <li><strong>Compare</strong>: Check alignment between original content and external sources.</li>
+            </ul>
+        </div>
+    </div>
+
+    <footer>
+        <p>Web Content Analysis Bookmarklet System</p>
+    </footer>
+</body>
+</html>

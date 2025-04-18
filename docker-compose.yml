@@ -1,9 +1,116 @@
-version: '3.8'
-
 services:
-  app:
-    build: .
-    ports:
-      - "8000:8000"
+  # Ollama service using the official image
+  ollama-cpu:
+    image: ollama/ollama:latest
+    container_name: ollama-cpu
     volumes:
-      - .:/app
+      - ollama_data:/root/.ollama
+    ports:
+      - "11435:11434"
+    restart: unless-stopped
+    profiles: ["default", "cpu"]
+
+  ollama-nvidia:
+    image: ollama/ollama:latest
+    container_name: ollama-nvidia
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11435:11434"
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute, utility]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    profiles: ["nvidia"]
+
+  ollama-amd:
+    image: ollama/ollama:rocm
+    container_name: ollama-amd
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11435:11434"
+    restart: unless-stopped
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+    environment:
+      - HSA_VISIBLE_DEVICES=all
+    profiles: ["amd"]
+
+  # DoppelCheck application services
+  doppelcheck-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: doppelcheck:latest
+    container_name: doppelcheck-cpu
+    volumes:
+      - ./content_analysis_config.json:/app/content_analysis_config.json
+    ports:
+      - "5000:5000"
+    environment:
+      - OLLAMA_HOST=http://ollama-cpu:11434
+    depends_on:
+      - ollama-cpu
+    restart: unless-stopped
+    profiles: ["default", "cpu"]
+
+  doppelcheck-nvidia:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: doppelcheck:latest
+    container_name: doppelcheck-nvidia
+    volumes:
+      - ./content_analysis_config.json:/app/content_analysis_config.json
+    ports:
+      - "5000:5000"
+    environment:
+      - OLLAMA_HOST=http://ollama-nvidia:11434
+      - NVIDIA_VISIBLE_DEVICES=all
+    depends_on:
+      - ollama-nvidia
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [compute, utility]
+    profiles: ["nvidia"]
+
+  doppelcheck-amd:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: doppelcheck:latest
+    container_name: doppelcheck-amd
+    volumes:
+      - ./content_analysis_config.json:/app/content_analysis_config.json
+    ports:
+      - "5000:5000"
+    environment:
+      - OLLAMA_HOST=http://ollama-amd:11434
+      - HSA_VISIBLE_DEVICES=all
+    depends_on:
+      - ollama-amd
+    restart: unless-stopped
+    devices:
+      - /dev/kfd:/dev/kfd
+      - /dev/dri:/dev/dri
+    group_add:
+      - video
+    profiles: ["amd"]
+
+volumes:
+  ollama_data:

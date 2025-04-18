@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Title from prototype -->
+    <title>{{ title }}</title>
+    <!-- Asset path updated using url_for -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <!-- Asset path updated using url_for -->
+    <script src="{{ url_for('static', path='js/script.js') }}" defer="defer"></script>
+    <!-- Add links to fonts if needed directly, or ensure they are correctly referenced within style.css -->
+</head>
+<body>
+    <header>
+        <div class="nav-content">
+            <nav class="nav-menu">
+                <div class="logo">
+                    <a href="#hero">
+                        <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                        <img src="{{ url_for('static', path='images/DC_Logo__midnight_sideways_1.svg') }}" alt="doppelcheck logo">
+                    </a>
+                </div>
+                <a href="#funktion">FUNKTION</a>
+                <a href="#installation">INSTALLATION</a>
+                <a href="#handbuch">ANWENDUNG</a>
+                <a href="#info">INFO</a>
+                <a href="#language" class="language-switch">DE\EN</a>
+                <a href="#admin">ADMIN</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="scroll-container">
+        <section class="hero" id="hero">
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1>Kritisch denken –<br>informiert handeln.</h1>
+                    <p>Doppelcheck unterstützt beim kritischen Umgang mit Online-Informationen und stärkt digitale Mündigkeit. Lokal, sicher und individuell anpassbar.</p>
+                    <button class="cta-button" onclick="location.href='#funktion';">
+                        MEHR ERFAHREN
+                        <svg viewBox="0 0 28 27" fill="none" xmlns="http://www.w3.org/2000/svg" class="button-arrow">
+                            <path d="M1.93329 1.5L13.5697 14.5L25.9333 1.5" stroke="#F59A00" stroke-width="3" stroke-linecap="round"></path>
+                            <path d="M1.93329 11.5L13.5697 24.5L25.9333 11.5" stroke="#F59A00" stroke-width="3" stroke-linecap="round"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <section id="funktion" class="function-section">
+            <div class="function-demo">
+                <h2 class="section-title">Wie es funktioniert</h2>
+                <video controls="controls" id="user-video">
+                    <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                    <source src="{{ url_for('static', path='videos/250123_DC_Erklaervideo.mp4') }}" type="video/mp4" alt="Monitor icon showing how it works">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </section>
+
+        <section id="installation" class="installation-section">
+            <div class="installation-content">
+                <h2 class="section-title installation-title">INSTALLATION</h2>
+                <video controls="controls" id="installation-video">
+                     <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                    <source src="{{ url_for('static', path='videos/DC_Installationsvideo_1.mp4') }}" type="video/mp4" alt="Monitor icon showing how to install it">
+                    Your browser does not support the video tag.
+                </video>
+                <div class="installation-steps">
+                    <ol>
+                        <li>
+                            <!-- Integrated Bookmarklet Link from Prototype -->
+                            <!-- Make sure your CSS styles this appropriately as a draggable button -->
+                            <a class="bookmarklet prototype-bookmarklet-class" href="javascript:(function(){var script=document.createElement('script');script.src='{{ request.url_for('get_bookmarklet_js') }}?_='+new Date().getTime();document.body.appendChild(script);})();">
+                                doppelcheck⠆
+                            </a> in Lesezeichenzeile ziehen.
+                            <small>Ctrl+Shift+B (Windows/Linux) oder Command+Shift+B (Mac) zeigt die Lesezeichenleiste.</small>
+                        </li>
+                        <li>Bestätigen.</li>
+                        <li>Auf beliebiger Seite anwenden.</li>
+                    </ol>
+                </div>
+            </div>
+        </section>
+
+        <section id="handbuch" class="manual-section">
+            <div class="manual-content">
+                <h2 class="section-title">Anwendung</h2>
+                <div class="manual-steps">
+                    <div class="manual-step">
+                         <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                        <img src="{{ url_for('static', path='images/DC_Homepage_Installationsgrafik_1.png') }}" alt="Step 1">
+                        <p>Eine Webseite mit Textinhalten wird aufgerufen.</p>
+                    </div>
+                    <div class="manual-step">
+                         <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                        <img src="{{ url_for('static', path='images/DC_Homepage_Installationsgrafik_2.png') }}" alt="Step 2">
+                        <p>Ein Klick auf das Doppelcheck-Bookmarklet öffnet die Seitenleiste.</p>
+                    </div>
+                    <div class="manual-step">
+                         <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                        <img src="{{ url_for('static', path='images/DC_Homepage_Installationsgrafik_3.png') }}" alt="Step 3">
+                        <p>Der Klick auf eine Textauswahl aktiviert den Doppelcheck.</p>
+                    </div>
+                    <div class="manual-step">
+                         <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                        <img src="{{ url_for('static', path='images/DC_Homepage_Installationsgrafik_4.png') }}" alt="Step 4">
+                        <p>Die Keypoints erscheinen farbig markiert in der Seitenleiste.</p>
+                    </div>
+                </div>
+
+                <div class="manual-step-detailed">
+                    <div class="interface-container">
+                         <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                        <img src="{{ url_for('static', path='images/DC_Homepage_Installationsgrafik_5_1.png') }}" alt="Detailed view of Doppelcheck interface">
+                    </div>
+
+                    <div class="annotations-list">
+                        <div class="annotation-item">
+                            Ein Klick auf einen der Keypoints macht Folgendes sichtbar:
+                        </div>
+                        <div class="annotation-item">
+                            Extrahierte Kernaussage
+                        </div>
+                        <div class="annotation-item">
+                            Abgleich mit weiteren Quellen
+                        </div>
+                        <div class="annotation-item">
+                            Farbcode zeigt Grad an Übereinstimmung bzw. Widerspruch zwischen Text und Vergleichsquelle
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Section -->
+            <footer id="info" class="footer">
+                <div class="footer-wrapper">
+                    <!-- Info Section -->
+                    <div class="footer-section">
+                        <h2>INFO</h2>
+                        <p>
+                            Doppelcheck ist ein Projekt des
+KI-Wissenschaftlers und -beraters Mark Wernsdorfer. Möglich gemacht
+wurde es durch Förderprogramme des WPK-Innovationsfonds sowie des Media
+Lab Bayern.
+                        </p>
+                    </div>
+
+                    <!-- Links Section -->
+                    <div class="footer-section">
+                        <h2>LINKS</h2>
+                        <ul>
+                            <li><a href="https://markwernsdorfer.com/" target="_blank">Mark Wernsdorfer</a></li>
+                            <li><a href="https://innovationsfonds.wpk.org/doppelcheck-ki-gestuetzte-lokale-faktenpruefung/" target="_blank">WPK Innovationsfonds</a></li>
+                            <li><a href="https://media-lab.de/de/angebote/media-tech-lab/doppelcheck/" target="_blank">Media Lab Bayern</a></li>
+                            <li><a href="https://github.com/Doppelcheck" target="_blank">Doppelcheck bei Github</a></li>
+                        </ul>
+                    </div>
+
+                    <!-- Contact Section -->
+                    <div class="footer-section">
+                        <h2>CONTACT</h2>
+                        <a href="mailto:info@doppelcheck.com" class="footer-email">info@doppelcheck.com</a>
+                    </div>
+
+                    <!-- Social Section -->
+                    <div class="footer-section">
+                        <h2>SOCIAL</h2>
+                        <div class="social-icons">
+                             <!-- Asset paths updated using url_for - PLEASE VERIFY FILENAMES -->
+                            <a href="#"><img src="{{ url_for('static', path='images/Icon_simple-x.svg') }}" alt="X (Twitter)"></a>
+                            <a href="#"><img src="{{ url_for('static', path='images/Icon_akar-instagram-fill.svg') }}" alt="Instagram"></a>
+                            <a href="#"><img src="{{ url_for('static', path='images/Icon_akar-linkedin-fill.svg') }}" alt="LinkedIn"></a>
+                            <a href="#"><img src="{{ url_for('static', path='images/Icon_akar-facebook-fill.svg') }}" alt="Facebook"></a>
+                            <a href="#"><img src="{{ url_for('static', path='images/Icon_akar-youtube-fill.svg') }}" alt="YouTube"></a>
+                        </div>
+                    </div>
+
+                    <!-- Impressum Section -->
+                    <div class="footer-section impressum">
+                        <h2>IMPRESSUM</h2>
+                        <p>Lorem ipsum dolor sit amet, consetetur
+sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et
+dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et
+ justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea
+takimata sanctus est Lorem ipsum dolor sit amet.</p>
+                    </div>
+                </div>
+            </footer>
+        </section>
+    </div>
+
+    <div id="admin-modal" class="admin-modal">
+        <div class="admin-logo">
+            <a href="javascript:void(0)" class="close-admin-modal" onclick="closeAdminModal()">
+                <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                <img src="{{ url_for('static', path='images/DC_Logo__midnight_sideways_1.svg') }}" alt="doppelcheck logo">
+            </a>
+        </div>
+        <div class="admin-modal-content">
+            <div class="admin-form-container">
+                <h2 class="admin-subtitle">ADMIN LOGIN</h2>
+                <form class="admin-form">
+                    <div class="input-group">
+                        <input type="text" id="username" placeholder="USERNAME" required="">
+                    </div>
+                    <div class="input-group">
+                        <div class="password-container">
+                            <input type="password" id="password" placeholder="PASSWORD" required="">
+                            <button type="button" class="toggle-password">
+                                 <!-- Asset path updated using url_for - PLEASE VERIFY FILENAME -->
+                                <img src="{{ url_for('static', path='images/Icon_feather-eye.svg') }}" alt="Toggle password visibility">
+                            </button>
+                        </div>
+                    </div>
+                    <button type="submit" class="login-button">LOGIN</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

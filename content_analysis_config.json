@@ -1,0 +1,12 @@
+{
+    "host": "0.0.0.0",
+    "port": 5000,
+    "model": "tulu3",
+    "debug": false,
+    "custom_urls": [
+        "https://sueddeutsche.de",
+        "https://tagesschau.de"
+    ],
+    "google_custom_search_api_key": "AIzaSyA0uco4J3foYY5H7Fm1pQirmI1kzPj1ZB4",
+    "google_custom_search_engine_id": "67d78a2b549ad4939"
+}
