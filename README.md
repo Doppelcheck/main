@@ -2,6 +2,8 @@
 
 DoppelCheck is a sophisticated web content analysis tool designed to help users critically evaluate online information. It supports informed decision-making by providing automated fact-checking and information verification capabilities through a browser bookmarklet.
 
+You can find extensive documentation [here](https://deepwiki.com/Doppelcheck/main).
+
 ![DoppelCheck Logo](server/static/images/DC_Logo__midnight_sideways_1.svg)
 
 ## Overview
@@ -408,7 +410,6 @@ Special thanks to our contributors and supporters for their invaluable assistanc
 
 ## Contact
 
-- Email: info@doppelcheck.com
 - Website: [Mark Wernsdorfer](https://markwernsdorfer.com/)
 - Project Links:
   - [WPK Innovationsfonds](https://innovationsfonds.wpk.org/doppelcheck-ki-gestuetzte-lokale-faktenpruefung/)
