@@ -2,6 +2,8 @@
 
 A reset of the project, keeping the **purpose** intact and rebuilding everything else around what browsers can natively do in 2026.
 
+> **Status note (2026-05).** This document is the original design rationale. One thing has changed since: the in-browser "Tier 3" path proposed below — `transformers.js` / WebLLM via WebGPU in an offscreen document — was attempted, then retired. Firefox's WebGPU VRAM ceiling (~290 MB on Linux) ruled out every viable instruct model, and Chrome 147 dropped the GPU instance mid-load on the q4f32 variants we needed there. The replacement is a **companion repo, [`doppelcheck/gemma-server`](https://github.com/doppelcheck/gemma-server)**, which ships a one-shot installer for a local Gemma-4 server that speaks the Ollama API. From the extension's point of view it's a regular network provider; from the user's point of view it's the "fully air-gapped, install-and-forget" option that Tier 3 was meant to be. Current architecture lives in [`CLAUDE.md`](CLAUDE.md). The Tier-1/Tier-2 reasoning below is unchanged.
+
 ## What the project is actually trying to do
 
 Strip away the implementation, and DoppelCheck does five things:

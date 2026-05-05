@@ -3,17 +3,14 @@
  * place: the side panel's debug log.
  *
  * Why this exists as a separate module: log entries originate in
- * many contexts (background SW / Firefox background page, Chrome
- * offscreen document, options page, side panel itself, content
- * scripts). The side panel listens via a long-lived port. Naïve
- * `runtime.sendMessage` works *across* contexts but does **not**
- * deliver to the sender's own context — and the engine-host context
- * (Firefox MV2 background page) is exactly the place we need to
- * relay errors *from*. So we keep the live panel-port set here and
- * let same-context callers broadcast directly, while cross-context
- * callers fall back to `runtime.sendMessage`. `routeLogEntry` is the
- * one entry point everyone uses; it does the right thing in both
- * cases.
+ * many contexts (background SW / Firefox background page, options
+ * page, side panel itself, content scripts). The side panel listens
+ * via a long-lived port. Naïve `runtime.sendMessage` works *across*
+ * contexts but does **not** deliver to the sender's own context. So
+ * we keep the live panel-port set here and let same-context callers
+ * broadcast directly, while cross-context callers fall back to
+ * `runtime.sendMessage`. `routeLogEntry` is the one entry point
+ * everyone uses; it does the right thing in both cases.
  */
 
 import type { LogEntry, ServerEvent } from "@/types";
@@ -28,10 +25,8 @@ import {
 const panelPorts = new Set<chrome.runtime.Port>();
 
 /**
- * Dedupe table for noisy log floods. When the WebGPU device dies
- * mid-load, MLC's internal promise pipeline drops dozens of in-flight
- * tensor operations at once and each one rejects with the same
- * "Object has already been disposed" message. Letting all of those
+ * Dedupe table for noisy log floods — when one upstream failure
+ * cascades into many identical rejections, letting all of those
  * through fills the side panel within a second and buries the
  * actually-useful first error.
  *

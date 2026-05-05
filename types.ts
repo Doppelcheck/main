@@ -1,24 +1,22 @@
 import { z } from "zod";
 
 /**
- * Three top-level user-facing buckets:
+ * Two top-level user-facing buckets:
  *
  *   - **browser-native** — uses the browser's own AI runtime
- *     (Chrome's Prompt API on Chromium; Firefox's `browser.trial.ml`
- *     on Firefox). Fails clearly when neither is available.
+ *     (Chrome's Prompt API on Chromium). Fails clearly when not
+ *     available; only Chromium currently ships a chat-style on-device
+ *     LLM exposed to extensions.
  *
- *   - **local-bundle** — runs MLC web-llm in-browser via WebGPU.
- *     Schema-constrained generation (XGrammar) gives reliable JSON
- *     output. Requires a WebGPU-capable browser; works on Chrome
- *     113+ and Firefox 141+.
+ *   - **network** — any LLM reachable over HTTP. Split into two
+ *     conceptual subgroups in the UI (the storage shape is flat):
  *
- *   - **network** — any LLM accessed over HTTP. The user picks a
- *     provider from the dropdown and supplies its config (URL, key,
- *     model). Covers Anthropic, OpenAI, Google Gemini, Ollama, and
- *     any OpenAI-compatible endpoint (OpenRouter, LM Studio, Groq,
- *     Together, vLLM, llama.cpp server, …).
+ *       • Cloud APIs — Anthropic, OpenAI, Google Gemini.
+ *       • Local server — Ollama (native API), or any OpenAI-compatible
+ *         endpoint (LM Studio, llama.cpp server, vLLM, the companion
+ *         `doppelcheck/gemma-server` zero-config Gemma 4 setup, …).
  */
-export type Tier = "browser-native" | "local-bundle" | "network";
+type Tier = "browser-native" | "network";
 
 export type NetworkProvider =
   | "anthropic"
@@ -55,7 +53,7 @@ const ProviderConfigSchemas = {
 };
 
 export const SettingsSchema = z.object({
-  tier: z.enum(["browser-native", "local-bundle", "network"]).default("browser-native"),
+  tier: z.enum(["browser-native", "network"]).default("browser-native"),
   networkProvider: z
     .enum(["anthropic", "openai", "google", "ollama", "openai-compatible"])
     .default("anthropic"),
@@ -73,15 +71,6 @@ export const SettingsSchema = z.object({
   uiLanguage: z.enum(["auto", "en", "de"]).default("auto"),
   showDebugLogs: z.boolean().default(false),
   autoVerify: z.boolean().default(true),
-
-  /**
-   * Which MLC web-llm model id the in-browser-bundle tier loads.
-   * Must be a key from `prebuiltAppConfig.model_list` shipped with
-   * `@mlc-ai/web-llm` (or a custom entry the user adds via
-   * `appConfig` — not currently exposed in the UI). The options
-   * page shows a curated dropdown of small/multilingual choices.
-   */
-  localBundleModel: z.string().default("SmolLM2-360M-Instruct-q4f16_1-MLC"),
 });
 export type Settings = z.infer<typeof SettingsSchema>;
 export type AnthropicConfig = Settings["anthropic"];
@@ -94,30 +83,32 @@ export const DEFAULT_SETTINGS: Settings = SettingsSchema.parse({});
 
 /**
  * Forward-migrate a possibly-old settings blob to the current shape.
- * Old shape used flat `llmTier` + `anthropicApiKey` / `ollamaBaseUrl`
- * fields; new shape uses `tier` + `networkProvider` + nested per-provider
- * config objects. Keeps all the user's previous values intact.
+ * Handles two historical layouts:
+ *
+ *   - Original flat shape: `llmTier` + `anthropicApiKey` / `ollamaBaseUrl`
+ *     fields. Mapped to `tier` + `networkProvider` + nested per-provider
+ *     configs.
+ *   - Three-tier shape with `local-bundle` (transformers.js, then MLC
+ *     web-llm). The in-browser tier was retired — old `local-bundle`
+ *     users are moved to `network` + `anthropic` (with whatever key
+ *     they had, or empty so the Options page surfaces the missing-key
+ *     error normally).
  */
 export function migrateSettings(raw: unknown): unknown {
   if (typeof raw !== "object" || raw === null) return raw;
   const r = raw as Record<string, unknown>;
 
-  // 2026-05 migration: the local-bundle tier moved from transformers.js
-  // (HF ONNX repo ids like `onnx-community/Qwen3-0.6B-ONNX`) to MLC
-  // web-llm (id format `Qwen3-0.6B-q4f16_1-MLC`). Migrate by mapping
-  // the previous defaults to their MLC equivalents and dropping the
-  // device selector — MLC is WebGPU-only.
-  if (typeof r.localBundleModel === "string" && r.localBundleModel.startsWith("onnx-community/")) {
-    // Migrate transformers.js HF repo ids to MLC ids. Default to
-    // SmolLM2-360M because it's the only model we've confirmed
-    // loads on both Firefox WebGPU (smallest VRAM footprint) and
-    // Chrome WebGPU (avoids the `index_kernel` shader-validator
-    // bug that hits the larger Qwen3 / Gemma models in Chrome 147).
-    r.localBundleModel = "SmolLM2-360M-Instruct-q4f16_1-MLC";
-  }
+  // Drop the retired in-browser-bundle fields wherever they appear.
+  delete r.localBundleModel;
   delete r.localBundleDevice;
 
-  if (typeof r.tier === "string") return r; // already on the current top-level shape
+  if (typeof r.tier === "string") {
+    if (r.tier === "local-bundle") {
+      r.tier = "network";
+      if (typeof r.networkProvider !== "string") r.networkProvider = "anthropic";
+    }
+    return r;
+  }
 
   const oldTier = typeof r.llmTier === "string" ? r.llmTier : undefined;
   let tier: Tier = "browser-native";
@@ -127,7 +118,9 @@ export function migrateSettings(raw: unknown): unknown {
       tier = "browser-native";
       break;
     case "local":
-      tier = "local-bundle";
+      // Retired in-browser tier — move to network + anthropic.
+      tier = "network";
+      networkProvider = "anthropic";
       break;
     case "ollama":
       tier = "network";
@@ -265,6 +258,7 @@ export type ClientCommand =
   | { kind: "clear-highlights"; tabId: number };
 
 export type ContentRequest =
+  | { kind: "ping" }
   | { kind: "extract" }
   | { kind: "highlight"; ranges: { text: string; type: HighlightType }[] }
   | { kind: "clear-highlights" };

@@ -32,9 +32,10 @@ The DoppelCheck icon now sits in the toolbar. Clicking it opens the side panel.
 Open the extension's options page (right-click the toolbar icon → "Options", or click the gear inside the side panel). At minimum you need:
 
 1. **A Brave Search API key.** Free tier gives ~1k queries/month — enough for personal use. Get one at [api-dashboard.search.brave.com](https://api-dashboard.search.brave.com/app/keys).
-2. **A language model.**
-   - **Tier 1 — Chrome Built-in AI (default).** Free, on-device, private. Requires Chrome 138+ on a supported OS. The model (Gemini Nano) downloads on first use; the options page shows status.
-   - **Tier 2 — Anthropic API key.** Used automatically if Chrome's on-device model isn't available, or always if you select it. Best price/perf for this workload is `claude-haiku-4-5-20251001` at $1/$5 per million tokens.
+2. **A language model.** Pick one of:
+   - **Browser built-in (default).** Free, on-device, private. Uses Chrome's Gemini Nano via the Prompt API. Requires Chrome 138+ on a supported OS; the model downloads on first use and the options page shows status. Not available on Firefox.
+   - **Cloud API.** Bring an API key for **Anthropic Claude** (best price/perf for this workload is `claude-haiku-4-5-20251001` at $1/$5 per million tokens), **OpenAI**, or **Google Gemini**. Streaming, schema-aware where the API supports it. Keys go directly to the provider — DoppelCheck never proxies them.
+   - **Local server.** Point DoppelCheck at any HTTP-reachable LLM running on your own machine. Two protocols are supported: **Ollama** (native API with schema-constrained generation) and **OpenAI-compatible** (LM Studio, llama.cpp server, vLLM, …). The easiest path is the companion [doppelcheck/gemma-server](https://github.com/doppelcheck/gemma-server) — a one-shot installer that runs Gemma 4 locally and exposes it as an Ollama server on `localhost:11434`; the options page has a one-click "Use gemma-server" preset.
 
 Optional but recommended:
 
@@ -57,7 +58,7 @@ Settings sync across your browsers via `chrome.storage.sync`. Keys never leave y
 
 ## What you give up vs. the legacy version
 
-- **No fully offline default.** The legacy version ran a local Ollama LLM by default, which let it work air-gapped at the cost of a multi-gigabyte install. The default tier here uses Chrome's on-device Gemini Nano (provided by Google but running locally without network calls). If you specifically need *third-party-free* local inference, a Tier-3 transformers.js / WebLLM option is on the roadmap.
+- **No fully offline default.** The legacy version ran a local Ollama LLM by default, which let it work air-gapped at the cost of a multi-gigabyte install. The default tier here uses Chrome's on-device Gemini Nano (provided by Google but running locally without network calls). If you specifically need *third-party-free* local inference, install the companion [`doppelcheck/gemma-server`](https://github.com/doppelcheck/gemma-server) and pick it from the **Local server** tier — same air-gapped guarantee as the legacy Ollama setup, with a one-shot installer instead of Docker.
 - **Mobile is out of scope.** Chrome's built-in AI doesn't ship on Android/iOS yet; mobile would need a different host.
 
 ## What's improved
@@ -80,7 +81,7 @@ Settings sync across your browsers via `chrome.storage.sync`. Keys never leave y
 │   ├── sidepanel/            React UI shown in the browser side panel
 │   └── options/              React UI for the settings page
 ├── lib/                      domain logic, all browser-side
-│   ├── llm/                  tiered LLM router (chrome-builtin, anthropic)
+│   ├── llm/                  tiered LLM router (chrome-builtin, anthropic, openai, google, ollama, openai-compatible)
 │   ├── search/               Brave Search + Google Fact Check clients
 │   ├── extract/              Defuddle wrapper + CSS Custom Highlight API
 │   ├── messaging/            typed port-based comms (panel ↔ background)

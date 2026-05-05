@@ -54,14 +54,21 @@ App state for the side panel is a single `useReducer` in `entrypoints/sidepanel/
 
 ### LLM tiering (`lib/llm/`)
 
-The router lives in `lib/llm/index.ts`. There are two implementations, both behind the same `LLM` interface:
+The router lives in `lib/llm/index.ts`. Two top-level tiers, both behind the same `LLM` interface:
 
-| Tier | When | File |
+| Tier | Where it runs | File |
 |---|---|---|
-| 1 — Chrome Built-in AI (Gemini Nano on-device) | Default. Probes `LanguageModel.availability()` at request time and falls back if unavailable. | `lib/llm/chrome-ai.ts` |
-| 2 — Anthropic Claude (`claude-haiku-4-5-20251001` default) | Either explicitly selected, or auto-fallback when Tier 1 is unavailable and a key is present. Streaming uses Anthropic's SSE; we parse it directly from `fetch` rather than pulling in `@anthropic-ai/sdk`. | `lib/llm/anthropic.ts` |
+| **browser-native** — Chrome Built-in AI (Gemini Nano, on-device) | Default when available. Probes `LanguageModel.availability()` at request time. | `lib/llm/chrome-ai.ts` |
+| **network** — any HTTP-reachable LLM | Cloud APIs or a local server. See below. | `lib/llm/{anthropic,openai,google,ollama,sse}.ts` |
 
-Streaming returns *cumulative* strings, not deltas. This is intentional — the JSON-array streaming reader in `lib/json.ts` consumes a growing buffer, so each LLM tier just yields the running concatenation.
+The `network` tier is split in the options UI into two conceptual groups; storage keeps a single flat `networkProvider` field:
+
+- **Cloud APIs** — Anthropic Claude (`claude-haiku-4-5-20251001` default; we parse Anthropic's SSE directly from `fetch` rather than pulling in `@anthropic-ai/sdk`), OpenAI, Google Gemini.
+- **Local server** — Ollama (native API, schema-constrained generation) or any OpenAI-compatible endpoint (LM Studio, llama.cpp server, vLLM, …). The companion repo [doppelcheck/gemma-server](https://github.com/doppelcheck/gemma-server) is the recommended zero-config local path — it exposes Ollama on `localhost:11434` after a one-shot install.
+
+> An earlier iteration shipped an in-browser tier via `@mlc-ai/web-llm` (WebGPU, Chrome offscreen document). It was removed: Firefox VRAM ceilings ruled out every viable instruct model, Chrome 147 lacked `shader-f16` and dropped the GPUInstance mid-load on q4f32 variants. The local-server tier with the gemma-server companion is the replacement.
+
+Streaming yields **delta** chunks — the new tokens since the previous chunk, not the cumulative text-so-far. Consumers accumulate themselves: `lib/pipeline/llm-pipeline.ts` keeps a growing `buffer += delta` and feeds it to the JSON-array reader in `lib/json.ts`, which re-scans the buffer each iteration to emit complete top-level array elements as they finish.
 
 All prompts are centralised in `lib/llm/prompts.ts`. Reply-format constraints (always JSON, never prose, language follows the article) are enforced in the system message — change them in *one place*, never per-call.
 

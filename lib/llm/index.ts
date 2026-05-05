@@ -8,7 +8,6 @@ import { promptAnthropic } from "./anthropic";
 import { promptOpenAI } from "./openai";
 import { promptGoogle } from "./google";
 import { promptOllama } from "./ollama";
-import { makeWebLLMLLM } from "./web-llm";
 
 export interface PromptInput {
   system: string;
@@ -28,9 +27,6 @@ export interface CallOpts {
    * that support grammar-constrained generation:
    *
    *   - Chrome built-in AI → passed as `responseConstraint`
-   *   - MLC web-llm        → passed as `response_format.schema`
-   *                          (XGrammar masks invalid tokens at sampling
-   *                          time, so output is guaranteed to parse)
    *   - Ollama native API  → passed as `format`
    *
    * The remaining network providers (Anthropic / OpenAI / Google /
@@ -46,9 +42,8 @@ export interface CallOpts {
  * Public LLM identity used by logging / UI labels. Mirrors the user-
  * facing tier + provider choice.
  */
-export type LLMTag =
+type LLMTag =
   | "chrome-builtin"
-  | "web-llm"
   | "anthropic"
   | "openai"
   | "google"
@@ -73,10 +68,9 @@ export interface LLM {
 }
 
 /**
- * Build an LLM client appropriate for the user's settings. All three
- * tiers go through here now: `browser-native` (Chrome built-in AI),
- * `local-bundle` (MLC web-llm in-browser), and `network` (any of the
- * remote providers).
+ * Build an LLM client appropriate for the user's settings. Two tiers:
+ * `browser-native` (Chrome built-in AI) and `network` (any of the
+ * remote providers — cloud APIs or a local OpenAI-compatible server).
  */
 export async function getLLM(settings: Settings): Promise<LLM> {
   switch (settings.tier) {
@@ -86,19 +80,15 @@ export async function getLLM(settings: Settings): Promise<LLM> {
       // there so the user picks a different tier.
       if (await chromeBuiltinAvailable()) return makeChromeLLM();
       throw new Error(
-        "Browser built-in AI isn't available on this browser. Switch the tier in Settings to In-browser bundle or Network.",
+        "Browser built-in AI isn't available on this browser. Switch the tier in Settings to Network.",
       );
     }
-    case "local-bundle":
-      return makeWebLLMLLM({
-        modelId: settings.localBundleModel,
-      });
     case "network":
       return makeNetworkLLM(settings);
   }
 }
 
-export function makeNetworkLLM(settings: Settings): LLM {
+function makeNetworkLLM(settings: Settings): LLM {
   switch (settings.networkProvider) {
     case "anthropic":
       return makeAnthropicLLM(settings);

@@ -9,13 +9,45 @@ import {
   type OpenAIConfig,
   type OpenAICompatibleConfig,
   type Settings,
-  type Tier,
 } from "@/types";
 import { probeOllama } from "@/lib/llm/ollama";
 import { probeOpenAI } from "@/lib/llm/openai";
-import { probeLocalModel } from "@/lib/llm/web-llm/probe";
-import { relayLogEntry } from "@/lib/messaging";
-import { getCurrentWindowId, openSidePanel } from "@/lib/browser-api";
+
+/**
+ * UI-only top-level choice. Storage keeps two flat fields (`tier` and
+ * `networkProvider`); the picker collapses them into a single 3-way
+ * card row so the user doesn't have to click "Network" and *then*
+ * "Cloud" / "Local server" — the two clicks are the same decision.
+ *
+ *   - "browser-native" → tier="browser-native"
+ *   - "cloud"          → tier="network", networkProvider ∈ CLOUD_PROVIDERS
+ *   - "local"          → tier="network", networkProvider ∈ LOCAL_PROVIDERS
+ */
+type TierChoice = "browser-native" | "cloud" | "local";
+
+const CLOUD_PROVIDERS: NetworkProvider[] = ["anthropic", "openai", "google"];
+
+function tierChoiceOf(s: Settings): TierChoice {
+  if (s.tier === "browser-native") return "browser-native";
+  return CLOUD_PROVIDERS.includes(s.networkProvider) ? "cloud" : "local";
+}
+
+/**
+ * Compute the `(tier, networkProvider)` pair for a chosen card.
+ * Preserves the user's per-group provider when they toggle within
+ * "cloud" or "local"; only resets to a sensible default when they
+ * switch *across* groups.
+ */
+function applyTierChoice(s: Settings, choice: TierChoice): Settings {
+  if (choice === "browser-native") return { ...s, tier: "browser-native" };
+  const inCloud = CLOUD_PROVIDERS.includes(s.networkProvider);
+  if (choice === "cloud") {
+    const provider = inCloud ? s.networkProvider : "anthropic";
+    return { ...s, tier: "network", networkProvider: provider };
+  }
+  const provider = inCloud ? "ollama" : s.networkProvider;
+  return { ...s, tier: "network", networkProvider: provider };
+}
 
 export function Options() {
   const [s, setS] = useState<Settings | null>(null);
@@ -62,6 +94,12 @@ export function Options() {
     setS({ ...s, [key]: value });
   };
 
+  const setTierChoice = (choice: TierChoice) => {
+    if (!s) return;
+    userTouched.current = true;
+    setS(applyTierChoice(s, choice));
+  };
+
   const onReset = async () => {
     userTouched.current = true;
     const next = await setSettings(DEFAULT_SETTINGS);
@@ -82,6 +120,8 @@ export function Options() {
   }
   if (!s) return <div className="p-8 text-ink dark:text-paper">Loading…</div>;
 
+  const tierChoice = tierChoiceOf(s);
+
   return (
     <div className="min-h-screen bg-paper px-6 py-10 text-ink dark:bg-ink dark:text-paper">
       <div className="mx-auto max-w-2xl">
@@ -95,24 +135,14 @@ export function Options() {
 
         <Section
           title="Language model"
-          help="Three options. Pick where you want analysis to run."
+          help="Pick where you want analysis to run."
         >
-          <TierPicker
-            value={s.tier}
-            onChange={(tier) => update("tier", tier)}
-          />
+          <TierPicker value={tierChoice} onChange={setTierChoice} />
 
-          {s.tier === "browser-native" && <BrowserNativePanel />}
+          {tierChoice === "browser-native" && <BrowserNativePanel />}
 
-          {s.tier === "local-bundle" && (
-            <LocalBundlePanel
-              modelId={s.localBundleModel}
-              onModelChange={(v) => update("localBundleModel", v)}
-            />
-          )}
-
-          {s.tier === "network" && (
-            <NetworkPanel
+          {tierChoice === "cloud" && (
+            <CloudPanel
               provider={s.networkProvider}
               onProviderChange={(p) => update("networkProvider", p)}
               anthropic={s.anthropic}
@@ -121,6 +151,13 @@ export function Options() {
               onOpenAIChange={(v) => update("openai", v)}
               google={s.google}
               onGoogleChange={(v) => update("google", v)}
+            />
+          )}
+
+          {tierChoice === "local" && (
+            <LocalServerPanel
+              provider={s.networkProvider}
+              onProviderChange={(p) => update("networkProvider", p)}
               ollama={s.ollama}
               onOllamaChange={(v) => update("ollama", v)}
               openaiCompatible={s.openaiCompatible}
@@ -297,7 +334,7 @@ export function Options() {
 
 /* ─── Tier picker (cards) ───────────────────────────────────────── */
 
-const ALL_TIER_CARDS: { id: Tier; title: string; subtitle: string }[] = [
+const ALL_TIER_CARDS: { id: TierChoice; title: string; subtitle: string }[] = [
   {
     id: "browser-native",
     title: "Browser built-in",
@@ -305,16 +342,14 @@ const ALL_TIER_CARDS: { id: Tier; title: string; subtitle: string }[] = [
       "Use the browser's own on-device AI. Free, private, no setup beyond enabling it.",
   },
   {
-    id: "local-bundle",
-    title: "In-browser bundle",
-    subtitle:
-      "Run a small LLM in the browser via transformers.js. Configurable model, no daemon, no API key.",
+    id: "cloud",
+    title: "Cloud APIs",
+    subtitle: "Anthropic, OpenAI, or Google. API key required.",
   },
   {
-    id: "network",
-    title: "Network",
-    subtitle:
-      "Talk to any HTTP-reachable LLM: Anthropic, OpenAI, Google, Ollama, or any OpenAI-compatible endpoint.",
+    id: "local",
+    title: "Local server",
+    subtitle: "Ollama or any OpenAI-compatible HTTP endpoint.",
   },
 ];
 
@@ -329,19 +364,19 @@ function TierPicker({
   value,
   onChange,
 }: {
-  value: Tier;
-  onChange: (t: Tier) => void;
+  value: TierChoice;
+  onChange: (t: TierChoice) => void;
 }) {
   const browserNativeAvailable = typeof LanguageModel !== "undefined";
   const cards = ALL_TIER_CARDS.filter(
     (c) => c.id !== "browser-native" || browserNativeAvailable,
   );
   // Auto-migrate: if the saved tier is `browser-native` but the API
-  // isn't here, nudge the user onto `local-bundle` so they don't
-  // sit on a tier that will only ever error.
+  // isn't here, nudge the user onto Cloud APIs so they don't sit on
+  // a tier that will only ever error.
   useEffect(() => {
     if (value === "browser-native" && !browserNativeAvailable) {
-      onChange("local-bundle");
+      onChange("cloud");
     }
   }, [value, browserNativeAvailable, onChange]);
 
@@ -401,376 +436,15 @@ function BrowserNativePanel() {
       <p className="mt-1 text-ink/55 dark:text-paper/55">
         Requires Chrome 138+ on a supported OS. Uses Gemini Nano on-device
         via the Prompt API. The model downloads on first use. Firefox has
-        no built-in chat-style LLM — pick <em>In-browser bundle</em> or{" "}
-        <em>Network</em> there.
+        no built-in chat-style LLM — pick <em>Network</em> there.
       </p>
     </div>
   );
 }
 
-/* ─── In-browser bundle: transformers.js with chosen model ───────── */
+/* ─── Cloud APIs: provider dropdown + per-provider form ─────────── */
 
-/**
- * Curated MLC web-llm prebuilt models. Inclusion rule:
- *
- *   **Drop a model only when it's been proven broken on both
- *   browsers.** Untested or browser-specific candidates stay so
- *   users can verify them with the Test button.
- *
- * Status annotations in the labels reflect what we've actually
- * observed in this project's testing — update them when a Test
- * verifies or refutes a row.
- *
- * Already disproved-on-both-and-removed:
- *   - `gemma3-1b-it-q4f16_1-MLC` — only q4f16 variant exists; OOM
- *     on Firefox WebGPU (Linux), `index_kernel` shader rejection
- *     on Chrome 147. No path forward without a different build.
- *
- * The two key axes:
- *
- *   - **q4f16_1**: smaller / faster, but needs WebGPU `shader-f16`.
- *     Some Chrome 147 builds on Linux don't enable that even with
- *     `--enable-unsafe-webgpu` — driver/adapter-dependent.
- *   - **q4f32_1**: larger weights (because activations are fp32),
- *     but no `shader-f16` requirement. The fallback for Chromes
- *     where f16 isn't available.
- */
-const LOCAL_MODEL_OPTIONS: { id: string; label: string; size: string; lang: string }[] = [
-  {
-    id: "SmolLM2-360M-Instruct-q4f16_1-MLC",
-    label: "SmolLM2 360M (✓ Firefox; ✗ Chrome — needs shader-f16)",
-    size: "~360 MB",
-    lang: "English-leaning",
-  },
-  {
-    id: "SmolLM2-360M-Instruct-q4f32_1-MLC",
-    label: "SmolLM2 360M fp32 (untested; Chrome candidate without shader-f16)",
-    size: "~480 MB",
-    lang: "English-leaning",
-  },
-  {
-    id: "SmolLM2-135M-Instruct-q0f32-MLC",
-    label: "SmolLM2 135M fp32 (untested; smallest, tightest VRAM)",
-    size: "~270 MB",
-    lang: "English-leaning",
-  },
-  {
-    id: "Qwen3-0.6B-q4f32_1-MLC",
-    label: "Qwen 3 0.6B fp32 (untested; multilingual, Chrome candidate)",
-    size: "~700 MB",
-    lang: "100+ languages",
-  },
-  {
-    id: "Phi-4-mini-instruct-q4f32_1-MLC",
-    label: "Phi-4 mini fp32 (untested; best quality, ~3 GB VRAM)",
-    size: "~3 GB",
-    lang: "English-leaning",
-  },
-];
-
-function LocalBundlePanel({
-  modelId,
-  onModelChange,
-}: {
-  modelId: string;
-  onModelChange: (v: string) => void;
-}) {
-  const isCustom = !LOCAL_MODEL_OPTIONS.some((o) => o.id === modelId);
-  const selected = LOCAL_MODEL_OPTIONS.find((o) => o.id === modelId);
-
-  // Test-state lives per (modelId, device). Changing either clears the
-  // cached result. We don't persist this — the test is meant as a
-  // pre-flight check before clicking Analyze, not a long-lived
-  // certification.
-  type TestState =
-    | { kind: "idle" }
-    | {
-        kind: "running";
-        progress: number;
-        message?: string;
-        abort: AbortController;
-      }
-    | {
-        kind: "ok";
-        sample: string;
-        durationMs: number;
-        backend?: string;
-      }
-    | { kind: "failed"; error: string };
-  const [test, setTest] = useState<TestState>({ kind: "idle" });
-  const lastKey = useRef(modelId);
-  if (lastKey.current !== modelId && test.kind !== "running") {
-    // user switched model → reset the verdict.
-    lastKey.current = modelId;
-    if (test.kind !== "idle") setTest({ kind: "idle" });
-  }
-
-  // Pre-fetch the current window id so the click handler can call
-  // `chrome.sidePanel.open({ windowId })` synchronously — the API
-  // discards calls made after an `await` because the user gesture is
-  // already consumed.
-  const windowIdRef = useRef<number | undefined>(undefined);
-  useEffect(() => {
-    getCurrentWindowId().then((id) => {
-      windowIdRef.current = id;
-    });
-  }, []);
-
-  const onTest = async () => {
-    if (test.kind === "running") return;
-    if (!modelId.trim()) return;
-    // SYNCHRONOUS inside the click gesture — must not be preceded by
-    // `await`. The probe's log events flow through the runtime relay
-    // → background → connected panel ports, so the panel needs to be
-    // the receiver. The background buffers any entries that arrive
-    // before the panel finishes mounting and flushes them on connect.
-    openSidePanel(windowIdRef.current);
-    const abort = new AbortController();
-    setTest({ kind: "running", progress: 0, message: "Starting…", abort });
-    const result = await probeLocalModel({
-      modelId,
-      signal: abort.signal,
-      onProgress: (progress, message) =>
-        setTest((s) =>
-          s.kind === "running" ? { ...s, progress, message } : s,
-        ),
-      // Detailed runtime events go to the side panel's debug log
-      // through the runtime relay. The options page itself shows
-      // only the concise verdict below.
-      onLog: (level, phase, message) =>
-        relayLogEntry({ at: Date.now(), level, phase, message }),
-    });
-    if (result.ok) {
-      setTest({
-        kind: "ok",
-        sample: result.sample,
-        durationMs: result.durationMs,
-        backend: result.backend,
-      });
-    } else {
-      setTest({ kind: "failed", error: result.error });
-    }
-  };
-
-  const onCancel = () => {
-    if (test.kind === "running") {
-      test.abort.abort();
-      setTest({ kind: "idle" });
-    }
-  };
-
-  return (
-    <div className="space-y-3">
-      <Field label="Model">
-        <select
-          className="select"
-          value={isCustom ? "__custom__" : modelId}
-          onChange={(e) => {
-            const v = e.target.value;
-            if (v === "__custom__") return;
-            onModelChange(v);
-          }}
-        >
-          {LOCAL_MODEL_OPTIONS.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label} — {o.size}, {o.lang}
-            </option>
-          ))}
-          <option value="__custom__">Custom…</option>
-        </select>
-        {selected && (
-          <p className="mt-1 text-xs text-ink/55 dark:text-paper/55">
-            <code>{selected.id}</code>
-          </p>
-        )}
-      </Field>
-      <Field label="Custom MLC model id (must be a key in `prebuiltAppConfig.model_list`)">
-        <input
-          className="input"
-          value={modelId}
-          onChange={(e) => onModelChange(e.target.value)}
-          placeholder="Phi-4-mini-instruct-q4f16_1-MLC"
-          spellCheck={false}
-        />
-      </Field>
-
-      <ModelTestRow
-        state={test}
-        onTest={onTest}
-        onCancel={onCancel}
-        modelIdEmpty={!modelId.trim()}
-      />
-
-      <div className="rounded-sm border border-ink/10 bg-ink/[0.03] p-3 text-xs leading-relaxed dark:border-paper/15 dark:bg-paper/[0.04]">
-        <p className="font-semibold text-ink dark:text-paper">How this runs</p>
-        <ul className="mt-1 list-disc space-y-1 pl-5 text-ink/75 dark:text-paper/70">
-          <li>
-            Runs MLC web-llm with WebGPU. Output is constrained by a JSON
-            schema at the sampler level (XGrammar) — claim extraction and
-            verdict comparison can't return malformed JSON.
-          </li>
-          <li>
-            <strong>Chrome</strong> hosts the engine in an offscreen
-            document; MV3 service workers can't use WebGPU.
-            <strong className="ml-1">Firefox</strong> runs it directly in
-            the background page (WebGPU is available from Firefox 141+;
-            set <code>dom.webgpu.enabled = true</code> in{" "}
-            <code>about:config</code> if needed on Linux).
-          </li>
-          <li>
-            First analysis downloads the model + WebGPU compile artifacts
-            (sizes above). Cached in IndexedDB forever after that.
-          </li>
-          <li>
-            Test the model here before clicking Analyze — Firefox WebGPU
-            in particular sometimes rejects shaders for specific ops, and
-            you'd rather find out at Test time than mid-analysis.
-          </li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function ModelTestRow({
-  state,
-  onTest,
-  onCancel,
-  modelIdEmpty,
-}: {
-  state:
-    | { kind: "idle" }
-    | {
-        kind: "running";
-        progress: number;
-        message?: string;
-        abort: AbortController;
-      }
-    | {
-        kind: "ok";
-        sample: string;
-        durationMs: number;
-        backend?: string;
-      }
-    | { kind: "failed"; error: string };
-  onTest: () => void;
-  onCancel: () => void;
-  modelIdEmpty: boolean;
-}) {
-  // Only show the "WebGPU unavailable" hint when the error is
-  // genuinely about adapter availability — not just any error that
-  // happens to mention "WebGPU" in passing. The OOM error rewrite,
-  // for instance, includes "WebGPU device ran out of memory", and
-  // we mustn't nudge the user to enable a feature that's already on.
-  const looksLikeNoAdapter =
-    state.kind === "failed" &&
-    /requestAdapter|GPU adapter|no available backend/i.test(state.error) &&
-    !/disposed|out of memory|Device was lost|Device destroyed/i.test(state.error);
-  const failureHint = looksLikeNoAdapter
-    ? "WebGPU isn't available in this browser. Pick Network or Browser-built-in in Settings, or enable WebGPU."
-    : null;
-  return (
-    <div>
-      <div className="flex items-center gap-2">
-        {state.kind === "running" ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="rounded-md border border-disagree/40 bg-disagree/10 px-3 py-1 text-sm text-disagree"
-          >
-            Cancel
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={onTest}
-            disabled={modelIdEmpty}
-            className="rounded-md border border-accent/40 bg-accent/10 px-3 py-1 text-sm text-accent disabled:opacity-40 dark:text-paper"
-          >
-            Test model
-          </button>
-        )}
-        <span className="text-xs text-ink/55 dark:text-paper/55">
-          Loads the model in this page (with progress) and runs a tiny
-          prompt.
-        </span>
-      </div>
-      {state.kind === "running" && (
-        <div className="mt-2 space-y-1 text-xs">
-          <div className="flex items-center gap-2">
-            <Spinner />
-            <span className="text-ink/70 dark:text-paper/70">
-              {state.message ?? "Loading…"}
-            </span>
-          </div>
-          <div className="h-1 w-full overflow-hidden rounded bg-ink/10 dark:bg-paper/15">
-            <div
-              className="h-full bg-accent transition-[width] duration-200"
-              style={{ width: `${Math.round(state.progress * 100)}%` }}
-            />
-          </div>
-        </div>
-      )}
-      {state.kind === "ok" && (
-        <p className="mt-2 text-xs text-agree">
-          ✓ Loaded on{" "}
-          <code className="rounded-sm bg-agree/10 px-1">
-            {state.backend ?? "unknown"}
-          </code>{" "}
-          in {(state.durationMs / 1000).toFixed(1)}s. Sample output:{" "}
-          <code className="rounded-sm bg-agree/10 px-1">{state.sample}</code>
-        </p>
-      )}
-      {state.kind === "failed" && (
-        <>
-          <p className="mt-2 break-words text-xs text-disagree">
-            ✗ {state.error}
-          </p>
-          {failureHint && (
-            <p className="mt-1 text-xs text-ink/70 dark:text-paper/70">
-              ↳ {failureHint}
-            </p>
-          )}
-        </>
-      )}
-      <p className="mt-1 text-[11px] text-ink/45 dark:text-paper/45">
-        Detailed transcript appears in the side panel's debug log
-        (the panel auto-opens when you click <em>Test model</em>; enable{" "}
-        <em>Show debug log</em> in <em>Behaviour</em> below if you don't
-        see it).
-      </p>
-    </div>
-  );
-}
-
-function Spinner() {
-  return (
-    <svg
-      className="h-3.5 w-3.5 animate-spin text-accent"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        cx="12"
-        cy="12"
-        r="9"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeOpacity="0.25"
-      />
-      <path
-        d="M21 12a9 9 0 0 0-9-9"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-/* ─── Network: provider dropdown + per-provider panels ──────────── */
-
-function NetworkPanel(props: {
+function CloudPanel(props: {
   provider: NetworkProvider;
   onProviderChange: (p: NetworkProvider) => void;
   anthropic: AnthropicConfig;
@@ -779,14 +453,10 @@ function NetworkPanel(props: {
   onOpenAIChange: (v: OpenAIConfig) => void;
   google: GoogleConfig;
   onGoogleChange: (v: GoogleConfig) => void;
-  ollama: OllamaConfig;
-  onOllamaChange: (v: OllamaConfig) => void;
-  openaiCompatible: OpenAICompatibleConfig;
-  onOpenAICompatChange: (v: OpenAICompatibleConfig) => void;
 }) {
   return (
-    <>
-      <Field label="Provider">
+    <div className="space-y-3">
+      <Field label="Cloud provider">
         <select
           className="select"
           value={props.provider}
@@ -797,10 +467,6 @@ function NetworkPanel(props: {
           <option value="anthropic">Anthropic Claude</option>
           <option value="openai">OpenAI</option>
           <option value="google">Google Gemini</option>
-          <option value="ollama">Ollama (native API, schema-constrained)</option>
-          <option value="openai-compatible">
-            OpenAI-compatible (OpenRouter, LM Studio, Groq, Together, vLLM, …)
-          </option>
         </select>
       </Field>
       {props.provider === "anthropic" && (
@@ -812,6 +478,77 @@ function NetworkPanel(props: {
       {props.provider === "google" && (
         <GoogleForm value={props.google} onChange={props.onGoogleChange} />
       )}
+    </div>
+  );
+}
+
+/* ─── Local server: provider dropdown + per-provider form ───────── */
+
+function LocalServerPanel(props: {
+  provider: NetworkProvider;
+  onProviderChange: (p: NetworkProvider) => void;
+  ollama: OllamaConfig;
+  onOllamaChange: (v: OllamaConfig) => void;
+  openaiCompatible: OpenAICompatibleConfig;
+  onOpenAICompatChange: (v: OpenAICompatibleConfig) => void;
+}) {
+  // Preset for the companion gemma-server: it exposes Ollama on
+  // localhost:11434 with `gemma4:e2b-it-q4_K_M` pre-installed (the
+  // E2B-Instruct, q4_K_M-quantised Gemma 4 build that ships with the
+  // installer). One click pre-fills the Ollama form below.
+  const applyGemmaServer = () => {
+    props.onProviderChange("ollama");
+    props.onOllamaChange({
+      baseUrl: "http://localhost:11434",
+      model: "gemma4:e2b-it-q4_K_M",
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-md border border-accent/30 bg-accent/[0.06] p-3 text-xs leading-relaxed">
+        <p className="font-semibold text-ink dark:text-paper">
+          Easiest local setup: <code>doppelcheck/gemma-server</code>
+        </p>
+        <p className="mt-1 text-ink/75 dark:text-paper/70">
+          A zero-config installer that runs Gemma 4 locally and exposes
+          it as an Ollama-compatible server on{" "}
+          <code>localhost:11434</code>. Install it from{" "}
+          <a
+            className="text-accent hover:underline"
+            href="https://github.com/doppelcheck/gemma-server"
+            target="_blank"
+            rel="noreferrer"
+          >
+            github.com/doppelcheck/gemma-server
+          </a>
+          , then click the button below to point DoppelCheck at it.
+        </p>
+        <button
+          type="button"
+          onClick={applyGemmaServer}
+          className="mt-2 rounded-md border border-accent/40 bg-accent/10 px-3 py-1 text-sm text-accent dark:text-paper"
+        >
+          Use gemma-server (localhost:11434)
+        </button>
+      </div>
+
+      <Field label="Local server type">
+        <select
+          className="select"
+          value={props.provider}
+          onChange={(e) =>
+            props.onProviderChange(e.target.value as NetworkProvider)
+          }
+        >
+          <option value="ollama">
+            Ollama — native API, schema-constrained (also: gemma-server)
+          </option>
+          <option value="openai-compatible">
+            OpenAI-compatible — LM Studio, llama.cpp server, vLLM, …
+          </option>
+        </select>
+      </Field>
       {props.provider === "ollama" && (
         <OllamaForm value={props.ollama} onChange={props.onOllamaChange} />
       )}
@@ -821,7 +558,7 @@ function NetworkPanel(props: {
           onChange={props.onOpenAICompatChange}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -1009,10 +746,6 @@ function OpenAICompatForm({
     { label: "Ollama (localhost)", baseUrl: "http://localhost:11434/v1" },
     { label: "LM Studio (localhost)", baseUrl: "http://localhost:1234/v1" },
     { label: "vLLM / llama.cpp (localhost)", baseUrl: "http://localhost:8000/v1" },
-    { label: "OpenRouter", baseUrl: "https://openrouter.ai/api/v1" },
-    { label: "Groq", baseUrl: "https://api.groq.com/openai/v1" },
-    { label: "Together AI", baseUrl: "https://api.together.xyz/v1" },
-    { label: "DeepInfra", baseUrl: "https://api.deepinfra.com/v1/openai" },
   ];
 
   const applyPreset = (label: string, baseUrl: string) =>
@@ -1056,7 +789,7 @@ function OpenAICompatForm({
           onChange={(e) =>
             onChange({ ...value, baseUrl: e.target.value, presetName: "" })
           }
-          placeholder="https://api.example.com/v1"
+          placeholder="http://localhost:8000/v1"
         />
       </Field>
       <Field label="API key (leave blank for keyless local servers)">
@@ -1139,10 +872,10 @@ OLLAMA_ORIGINS="*" ollama serve`}
   }
   return (
     <div className="mt-2 rounded-sm border border-ink/10 bg-ink/[0.03] p-2 text-xs leading-relaxed dark:border-paper/15 dark:bg-paper/[0.04]">
-      Most cloud providers (OpenRouter, Groq, Together, …) accept
-      browser-extension origins out of the box. Local servers (LM Studio,
-      vLLM, llama.cpp) usually need a CORS allow-list — check their docs
-      for an env var or flag.
+      Local servers (LM Studio, vLLM, llama.cpp) usually need a CORS
+      allow-list — check their docs for an env var or flag that
+      whitelists <code>chrome-extension://</code> and{" "}
+      <code>moz-extension://</code> origins.
     </div>
   );
 }
@@ -1282,3 +1015,4 @@ function humanize(status: string): string {
       return status;
   }
 }
+
