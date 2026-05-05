@@ -9,6 +9,14 @@ export default defineContentScript({
   main() {
     chrome.runtime.onMessage.addListener((msg: ContentRequest, _sender, sendResponse) => {
       switch (msg.kind) {
+        case "ping": {
+          // Liveness check used by the background to distinguish a tab
+          // whose content script is loaded from one whose script never
+          // injected (chrome:// URLs, Web Store) or got orphaned by an
+          // extension reload. The background re-injects on failure.
+          sendResponse({ ok: true });
+          return true;
+        }
         case "extract": {
           try {
             const { page, debug } = extractFromDocument();

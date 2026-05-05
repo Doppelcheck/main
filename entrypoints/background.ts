@@ -12,7 +12,7 @@ import type {
   Settings,
   Verdict,
 } from "@/types";
-import { PANEL_PORT, safePost, sendToContent } from "@/lib/messaging";
+import { PANEL_PORT, ensureContentScript, safePost, sendToContent } from "@/lib/messaging";
 import {
   addPanelPort,
   installRelayListener,
@@ -22,32 +22,10 @@ import { getSettings } from "@/lib/storage";
 import { getPipeline, type Pipeline, type PipelineCallOpts } from "@/lib/pipeline";
 import { searchAll, factCheckLookup } from "@/lib/search";
 import { fetchSourceText } from "@/lib/fetch-source";
-import { installEngineHostHandler } from "@/lib/llm/web-llm/host";
 
 export default defineBackground({
   type: "module",
   main() {
-    // Engine host: MLC web-llm has to live somewhere persistent that
-    // has `navigator.gpu` AND a real DOM context. Two cases:
-    //
-    //   - Firefox MV2: the background page runs forever in an HTML
-    //     context (has `window`) and has WebGPU. Install the handler.
-    //   - Chrome MV3: this file runs in a service worker. Recent
-    //     Chromium has started exposing `navigator.gpu` in workers
-    //     too, so a `navigator.gpu` check alone *isn't* enough — the
-    //     SW would register the handler and then crash inside MLC's
-    //     dynamic-import preloader (`window.dispatchEvent` in Vite's
-    //     `vite:preloadError` path) because the SW has no `window`.
-    //     The `typeof window !== "undefined"` check below excludes the
-    //     SW; offscreen.html installs the handler in the right context.
-    if (
-      typeof window !== "undefined" &&
-      typeof navigator !== "undefined" &&
-      (navigator as { gpu?: unknown }).gpu
-    ) {
-      installEngineHostHandler();
-    }
-
     // Toolbar-icon → side-panel/sidebar toggle.
     //
     // Chrome (MV3): the Side Panel API has a built-in "open when the
@@ -91,10 +69,8 @@ export default defineBackground({
 
     // Relay log entries that arrive via `runtime.sendMessage` from
     // *other* extension contexts (options page, side panel, content
-    // scripts, MV3 SW callers). Same-context callers (Firefox bg
-    // page, Chrome offscreen doc — when those are this very
-    // context) call `routeLogEntry` directly; runtime.sendMessage
-    // doesn't deliver to the sender.
+    // scripts). Same-context callers call `routeLogEntry` directly;
+    // runtime.sendMessage doesn't deliver to the sender.
     installRelayListener();
   },
 });
@@ -159,6 +135,19 @@ async function analyze(tabId: number, send: (e: ServerEvent) => void) {
   const settings = await getSettings();
 
   log("extracting", "Reading the page");
+  // Make sure the content script is reachable before talking to it.
+  // The most common failure here is an "orphaned" tab — one that was
+  // already open before the extension was installed/reloaded — whose
+  // manifest content script never got the chance to register. Other
+  // cases (chrome://, Web Store, …) yield a clean user-facing error.
+  try {
+    await ensureContentScript(tabId);
+  } catch (err) {
+    const msg = (err as Error).message;
+    log("error", msg, { level: "error" });
+    send({ kind: "error", message: msg });
+    return;
+  }
   const extractRes = await sendToTab<
     | {
         ok: true;
@@ -425,8 +414,6 @@ function tierLabel(s: Settings): string {
   switch (s.tier) {
     case "browser-native":
       return "browser built-in AI (Chrome Gemini Nano)";
-    case "local-bundle":
-      return `in-browser bundle → MLC ${s.localBundleModel}`;
     case "network":
       switch (s.networkProvider) {
         case "anthropic":

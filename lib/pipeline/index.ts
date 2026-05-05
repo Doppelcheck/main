@@ -2,17 +2,11 @@
  * High-level pipeline interface — what the background actually needs from
  * "the LLM" to drive the verify flow.
  *
- * Three tiers, all of which now resolve to a generative LLM and the
- * single `LLMPipeline` implementation:
+ * Two tiers, both of which resolve to a generative LLM and the single
+ * `LLMPipeline` implementation:
  *
  *   - **browser-native** → Chrome built-in AI (Gemini Nano)
- *   - **local-bundle**   → transformers.js text generation, in-browser
  *   - **network**        → Anthropic / OpenAI / Google / Ollama / OpenAI-compat
- *
- * The previous discriminative-NLI `LocalPipeline` is gone — small
- * generative models on transformers.js handle the same tasks (claim
- * extraction, query generation, comparison) end-to-end, with the same
- * prompts the network providers use.
  */
 
 import type { Alignment, Claim, ExtractedPage, LogLevel, Phase, Settings } from "@/types";
