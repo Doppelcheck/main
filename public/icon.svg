@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="#1a4d8c"/>
+  <g fill="#fafaf7" font-family="IBM Plex Sans, system-ui, sans-serif" font-weight="700">
+    <text x="64" y="78" font-size="56" text-anchor="middle" letter-spacing="-2">DC</text>
+    <circle cx="98" cy="30" r="8"/>
+  </g>
+</svg>

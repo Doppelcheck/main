@@ -1,2 +1,15 @@
-__pycache__
-.idea
+node_modules
+.output
+.wxt
+*.zip
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+
+# Claude Code session state and spawned-task worktrees.
+.claude/
+
+# Local diagnostic captures (logs + screenshots) the dev keeps for triage.
+debug_log/
