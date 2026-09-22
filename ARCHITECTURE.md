@@ -1,6 +1,6 @@
-# CLAUDE.md
+# Architecture
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Working notes on how DoppelCheck is put together: the runtime boundaries, the LLM tiering, and the conventions to keep to when changing it.
 
 ## What this project is
 
