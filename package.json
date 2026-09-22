@@ -2,6 +2,7 @@
   "name": "doppelcheck",
   "private": true,
   "version": "1.0.0",
+  "license": "MIT",
   "type": "module",
   "description": "Critical-thinking sidekick for the web. Extracts claims from any page, finds independent sources, surfaces contradictions.",
   "scripts": {
