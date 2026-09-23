@@ -88,7 +88,6 @@ Settings sync across your browsers via `chrome.storage.sync`. Keys never leave y
 │   ├── storage.ts            chrome.storage.sync wrapper for Settings
 │   ├── fetch-source.ts       service-worker side fetch + cheap HTML strip
 │   └── json.ts               LLM-output JSON tolerant parser + array streamer
-├── components/               (room for shared React components)
 ├── assets/globals.css        Tailwind + CSS Custom Highlight API styles
 ├── public/                   static assets copied to the extension root
 ├── wxt.config.ts             WXT build config (Chrome MV3 + Firefox MV2)
