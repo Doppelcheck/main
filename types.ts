@@ -96,7 +96,11 @@ export const DEFAULT_SETTINGS: Settings = SettingsSchema.parse({});
  */
 export function migrateSettings(raw: unknown): unknown {
   if (typeof raw !== "object" || raw === null) return raw;
-  const r = raw as Record<string, unknown>;
+  // Work on a copy. getSettings() inspects the ORIGINAL blob after calling
+  // this, to decide whether the migrated shape needs writing back to storage;
+  // mutating the caller's object made that check read the already-migrated
+  // value, so the write-back never fired and every read re-migrated.
+  const r = { ...(raw as Record<string, unknown>) };
 
   // Drop the retired in-browser-bundle fields wherever they appear.
   delete r.localBundleModel;

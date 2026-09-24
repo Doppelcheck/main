@@ -24,6 +24,9 @@ jobs:
       - name: Typecheck
         run: npm run compile
 
+      - name: Unit tests
+        run: npm run test
+
       - name: Build (Chrome MV3)
         run: npm run build
 

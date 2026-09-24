@@ -91,7 +91,10 @@ export function* readArrayElements(buffer: string): Iterable<string> {
     }
     if (c === "{" || c === "[") {
       depth++;
-      if (depth === 2 && elemStart === -1) elemStart = i - 1;
+      // The element starts AT this brace. (It used to be recorded as `i - 1`,
+      // which glued the preceding `[` or `,` onto every yielded element and
+      // made parseJSON reject all of them — no claim ever reached the UI.)
+      if (depth === 2 && elemStart === -1) elemStart = i;
       continue;
     }
     if (c === "}" || c === "]") {
