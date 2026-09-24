@@ -90,6 +90,7 @@ Settings sync across your browsers via `chrome.storage.sync`. Keys never leave y
 │   └── json.ts               LLM-output JSON tolerant parser + array streamer
 ├── assets/globals.css        Tailwind + CSS Custom Highlight API styles
 ├── public/                   static assets copied to the extension root
+├── tests/                    vitest unit tests for the pure-logic modules
 ├── wxt.config.ts             WXT build config (Chrome MV3 + Firefox MV2)
 └── legacy/                   the previous Python + bookmarklet implementation
 ```
@@ -100,6 +101,8 @@ Settings sync across your browsers via `chrome.storage.sync`. Keys never leave y
 npm run dev              # WXT dev server, auto-reloads on save (Chrome)
 npm run dev:firefox      # same, Firefox profile
 npm run compile          # tsc --noEmit
+npm run test             # vitest, unit tests for the pure-logic modules
+npm run test:watch       # same, re-running on save
 npm run zip              # produce a .zip ready for the Chrome Web Store
 ```
 
