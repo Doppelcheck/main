@@ -17,6 +17,7 @@ import {
   CLAIMS_SCHEMA,
   COMPARISON_SCHEMA,
   QUERY_SCHEMA,
+  SOURCE_CHAR_CAP,
   claimExtractionPrompt,
   comparisonPrompt,
   searchQueryPrompt,
@@ -142,13 +143,9 @@ export class LLMPipeline implements Pipeline {
     opts?: PipelineCallOpts,
   ): Promise<ComparisonResult> {
     // Cap source text so the comparison prompt fits in a small-context
-    // local model. SmolLM2-360M ships with `context_window_size: 4096`,
-    // and the rest of the prompt (system message + claim + JSON
-    // schema instructions) eats ~600 tokens. ~10 000 chars of source
-    // text is roughly 2500–3500 tokens depending on language, leaving
-    // headroom for the ~512-token reply. Larger remote models ignore
-    // this cap effectively (they comfortably handle the full source).
-    const SOURCE_CHAR_CAP = 10_000;
+    // local model. The number lives in `lib/llm/prompts.ts` beside the
+    // prompt it bounds, so there is one source of truth — it used to be
+    // declared here AND (at a different value) inside `comparisonPrompt`.
     const truncated =
       source.text.length > SOURCE_CHAR_CAP
         ? source.text.slice(0, SOURCE_CHAR_CAP) + "\n\n[…source truncated for context window]"

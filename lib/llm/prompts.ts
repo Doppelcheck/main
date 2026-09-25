@@ -16,6 +16,22 @@ import type { ExtractedPage } from "@/types";
 
 const ARTICLE_LIMIT = 16_000;
 
+/**
+ * How much of a fetched source's text the comparison prompt may carry.
+ *
+ * Sized for the smallest model this tool targets: SmolLM2-360M ships with
+ * `context_window_size: 4096`, and the rest of the comparison prompt
+ * (system message + claim + schema instructions) eats ~600 tokens. ~10 000
+ * chars is roughly 2500–3500 tokens depending on language, leaving headroom
+ * for the ~512-token reply. Larger remote models are unaffected in practice.
+ *
+ * This is the ONLY place the cap is defined. `compareToSource` applies it and
+ * appends a visible truncation marker, so `comparisonPrompt` must not slice
+ * again — a second, larger limit here would be dead code that silently
+ * disagreed with this one.
+ */
+export const SOURCE_CHAR_CAP = 10_000;
+
 export const CLAIMS_SCHEMA = {
   type: "array",
   minItems: 1,
@@ -101,7 +117,10 @@ export function comparisonPrompt(
   sourceText: string,
   language: string | undefined,
 ) {
-  const trimmed = sourceText.slice(0, 12_000);
+  // No slice here: `compareToSource` has already applied SOURCE_CHAR_CAP and
+  // appended its truncation marker. Slicing again at a DIFFERENT limit was
+  // unreachable code whose number disagreed with the real one.
+  const trimmed = sourceText;
   const lang = language || "the language of the claim";
   return {
     system:
