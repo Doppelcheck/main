@@ -177,10 +177,33 @@ export class LLMPipeline implements Pipeline {
 
 }
 
-function normalizeAlignment(s: string | undefined): Alignment {
+/**
+ * Map a model's alignment label onto the three-value `Alignment` union.
+ *
+ * Only two tiers actually enforce COMPARISON_SCHEMA's enum —
+ * `chrome-builtin` (`responseConstraint`) and `ollama` (`format`). The
+ * OpenAI-compatible tier sends `response_format: {type:"json_object"}`
+ * (any JSON, no enum) and the Google tier sends only
+ * `responseMimeType`, so those models' own phrasing arrives here
+ * verbatim (see the `schema` note in `lib/llm/index.ts`).
+ *
+ * Order matters: negation is tested BEFORE the affirmative prefix, because
+ * "does not agree" starts with neither "agree" nor "disagree" and a
+ * prefix-only test dropped it into `unrelated` — presenting a source that
+ * contradicts the claim as irrelevant to it, which is the one mistake a
+ * fact-checking tool must not make silently. An unrecognised label still
+ * falls back to `unrelated`: claiming nothing beats guessing a verdict.
+ */
+export function normalizeAlignment(s: string | undefined): Alignment {
   const v = (s ?? "").toLowerCase().trim();
-  if (v.startsWith("agree")) return "agrees";
-  if (v.startsWith("disagree") || v.startsWith("contradict")) return "disagrees";
+  // Negated agreement ("does not agree", "no agreement", "not supported").
+  if (/(\bnot\b|n't\b|\bno\b|\bnever\b|\bfails? to\b|\blacks?\b)[\s\w']*\b(agree|support|confirm|corroborat)/.test(v)) {
+    return "disagrees";
+  }
+  if (/^(disagree|contradict|refut|reject|den(y|ie)|dispute|conflict|oppos|unsupported|false)/.test(v)) {
+    return "disagrees";
+  }
+  if (/^(agree|support|confirm|corroborat|consistent|true)/.test(v)) return "agrees";
   return "unrelated";
 }
 
