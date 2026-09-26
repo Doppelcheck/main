@@ -74,7 +74,7 @@ All prompts are centralised in `lib/llm/prompts.ts`. Reply-format constraints (a
 
 ## Cross-cutting conventions
 
-- **Path alias:** WXT auto-generates `@/*` → project root. Don't add custom Vite aliases; they clash with WXT's. The legacy `src/` directory has been flattened (`lib/`, `components/`, `types.ts` all sit at the project root) so import paths match WXT's expectations.
+- **Path alias:** WXT auto-generates `@/*` → project root. Don't add custom Vite aliases; they clash with WXT's. The legacy `src/` directory has been flattened (`lib/`, `types.ts` and the entrypoint trees all sit at the project root) so import paths match WXT's expectations. Components live next to the entrypoint that owns them, under `entrypoints/*/components/`.
 - **Settings shape is owned by Zod** in `types.ts`. `lib/storage.ts` re-validates on read so a malformed `chrome.storage.sync` blob can't poison runtime.
 - **Don't do "best-effort" parallel fetches in `verify`.** Sources are processed sequentially so the side panel renders verdicts in the same order Brave returned hits — users find this much more readable than racing results. Cost is bounded anyway (5 hits × ~one LLM call each).
 - **MV3 service worker constraints:** no `XMLHttpRequest`, no `DOMParser`, no `localStorage`. Use `fetch`, regex string work, and `chrome.storage.*` respectively.
