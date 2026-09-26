@@ -13,7 +13,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { stripHtml } from "@/lib/fetch-source";
+import { extractTitle, stripHtml } from "@/lib/fetch-source";
 
 describe("stripHtml entity decoding", () => {
   it("does not resurrect markup from a double-encoded sequence", () => {
@@ -51,5 +51,26 @@ describe("stripHtml entity decoding", () => {
 
   it("collapses whitespace left behind by stripped tags", () => {
     expect(stripHtml("<div>\n  a\n\n  b\n</div>")).toBe("a b");
+  });
+});
+
+describe("extractTitle", () => {
+  it("decodes entities in the title, like the body text beside it", () => {
+    // The title is returned in the SAME object as the fully decoded body text and
+    // shown in the side panel as the source's name, so leaving it encoded put raw
+    // `&amp;` in the UI next to correctly decoded prose.
+    expect(extractTitle("<title> A &amp; B </title>")).toBe("A & B");
+  });
+
+  it("does not resurrect markup from a double-encoded title", () => {
+    expect(extractTitle("<title>&amp;lt;b&amp;gt;</title>")).toBe("&lt;b&gt;");
+  });
+
+  it("collapses whitespace in a multi-line title", () => {
+    expect(extractTitle("<title>\n  Spaced\n  Out\n</title>")).toBe("Spaced Out");
+  });
+
+  it("returns undefined when there is no title element", () => {
+    expect(extractTitle("<html><body>no title here</body></html>")).toBeUndefined();
   });
 });

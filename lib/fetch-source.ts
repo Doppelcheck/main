@@ -49,34 +49,54 @@ export async function fetchSourceText(
   };
 }
 
-function extractTitle(html: string): string | undefined {
+export function extractTitle(html: string): string | undefined {
   const m = /<title[^>]*>([\s\S]*?)<\/title>/i.exec(html);
-  return m?.[1]?.replace(/\s+/g, " ").trim();
+  if (!m?.[1]) return undefined;
+  // The title is returned in the same object as the fully decoded body text and is
+  // shown as the source's name, so it goes through the SAME decoder — it used to
+  // collapse whitespace only, putting raw `&amp;` in the UI beside decoded prose.
+  return decodeEntities(m[1]).replace(/\s+/g, " ").trim() || undefined;
 }
 
-export function stripHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style[\s\S]*?<\/style>/gi, " ")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
-    .replace(/<header[\s\S]*?<\/header>/gi, " ")
-    .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
-    .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
-    .replace(/<aside[\s\S]*?<\/aside>/gi, " ")
-    .replace(/<form[\s\S]*?<\/form>/gi, " ")
-    .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
-    .replace(/<[^>]+>/g, " ")
+/**
+ * Decode the HTML entity forms these fetched pages actually use.
+ *
+ * ORDER IS LOAD-BEARING: `&amp;` is decoded LAST, after every other form. Decoding
+ * it first made the chain decode twice — `&amp;lt;script&amp;gt;` became
+ * `&lt;script&gt;` and then `<script>`, markup reappearing *after* every
+ * tag-stripping pass had already run, straight into the comparison prompt.
+ *
+ * `String.fromCodePoint`, never `fromCharCode`: the latter truncates above U+FFFF,
+ * so `&#128512;` decoded to U+F600 (a Private Use Area glyph) instead of the emoji,
+ * silently corrupting text presented to the user as a verbatim quote.
+ *
+ * One function, because two copies of this chain drifted apart once already.
+ */
+function decodeEntities(text: string): string {
+  return text
     .replace(/&nbsp;/gi, " ")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
     .replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([\da-f]+);/gi, (_m, n) => String.fromCodePoint(parseInt(n, 16)))
-    // `&amp;` decodes LAST, after every other entity form. Decoding it first made
-    // this chain decode twice: `&amp;lt;script&amp;gt;` became `&lt;script&gt;`
-    // and then `<script>` — markup reappearing *after* every tag-stripping pass
-    // had already run, straight into the comparison prompt.
-    .replace(/&amp;/gi, "&")
+    .replace(/&amp;/gi, "&");
+}
+
+export function stripHtml(html: string): string {
+  return decodeEntities(
+    html
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+      .replace(/<header[\s\S]*?<\/header>/gi, " ")
+      .replace(/<nav[\s\S]*?<\/nav>/gi, " ")
+      .replace(/<footer[\s\S]*?<\/footer>/gi, " ")
+      .replace(/<aside[\s\S]*?<\/aside>/gi, " ")
+      .replace(/<form[\s\S]*?<\/form>/gi, " ")
+      .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
+      .replace(/<[^>]+>/g, " "),
+  )
     .replace(/\s+/g, " ")
     .trim();
 }
