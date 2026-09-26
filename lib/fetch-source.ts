@@ -54,7 +54,7 @@ function extractTitle(html: string): string | undefined {
   return m?.[1]?.replace(/\s+/g, " ").trim();
 }
 
-function stripHtml(html: string): string {
+export function stripHtml(html: string): string {
   return html
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -67,12 +67,16 @@ function stripHtml(html: string): string {
     .replace(/<svg[\s\S]*?<\/svg>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&quot;/gi, '"')
-    .replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(Number(n)))
-    .replace(/&#x([\da-f]+);/gi, (_m, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
+    .replace(/&#x([\da-f]+);/gi, (_m, n) => String.fromCodePoint(parseInt(n, 16)))
+    // `&amp;` decodes LAST, after every other entity form. Decoding it first made
+    // this chain decode twice: `&amp;lt;script&amp;gt;` became `&lt;script&gt;`
+    // and then `<script>` — markup reappearing *after* every tag-stripping pass
+    // had already run, straight into the comparison prompt.
+    .replace(/&amp;/gi, "&")
     .replace(/\s+/g, " ")
     .trim();
 }
