@@ -192,9 +192,9 @@ Honest trade-offs, not glossed over:
 - [Firefox sidebar_action manifest key](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/action)
 - [Firefox Manifest V3 migration guide](https://extensionworkshop.com/documentation/develop/manifest-v3-migration-guide/)
 - [WXT — Next-gen Web Extension Framework](https://wxt.dev/)
-- [WXT vs Plasmo vs CRXJS comparison (2026)](https://trybuildpilot.com/649-wxt-vs-plasmo-vs-crxjs-2026)
+- WXT vs Plasmo vs CRXJS comparison (2026) — `trybuildpilot.com/649-wxt-vs-plasmo-vs-crxjs-2026`, dead as of 2026-09-28 (host does not respond); kept as the record of what informed the framework choice
 - [Defuddle on GitHub](https://github.com/kepano/defuddle)
-- [Defuddle vs Readability writeup](https://biggo.com/news/202505240122_Defuddle_Web_Content_Extractor)
+- Defuddle vs Readability writeup — `biggo.com/news/202505240122_Defuddle_Web_Content_Extractor`, withdrawn as of 2026-09-28 (the URL now redirects to the site's news index, not the article)
 - [Mozilla Readability](https://github.com/mozilla/readability)
 - [WebLLM](https://github.com/mlc-ai/web-llm)
 - [transformers.js](https://github.com/huggingface/transformers.js)
