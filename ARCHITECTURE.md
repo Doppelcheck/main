@@ -20,7 +20,7 @@ npm run compile          # tsc --noEmit (type-check only)
 npm run zip              # zip a release build for the Chrome Web Store
 ```
 
-There is no test suite or linter wired up — `tsc --noEmit` is the only static check. Both Chrome and Firefox builds must succeed for cross-browser claims to hold; CI should run both.
+Static checks are `tsc --noEmit` (`npm run compile`) plus a vitest suite over the pure-logic modules (`npm run test`). No linter is wired up. `.github/workflows/ci.yml` runs the typecheck, the tests, and both the Chrome MV3 and Firefox MV2 builds on every push and pull request — both builds must succeed for the cross-browser claims to hold.
 
 ## Architecture
 
@@ -82,7 +82,7 @@ All prompts are centralised in `lib/llm/prompts.ts`. Reply-format constraints (a
 
 ## Things to know about the build
 
-- WXT 0.19, Vite 6 under the hood. Builds Chrome MV3 by default; Firefox build emits MV2 (Firefox MV3 sidebar APIs aren't a strict superset of Chromium's, so MV2 is currently the cleaner cross-browser target).
+- WXT 0.21, Vite 7 under the hood. Builds Chrome MV3 by default; Firefox build emits MV2 (Firefox MV3 sidebar APIs aren't a strict superset of Chromium's, so MV2 is currently the cleaner cross-browser target).
 - Icons: `public/icon/{16,48,128}.png` are committed and referenced by the manifest. They're regenerated from `public/icon.svg` by a small Pillow script if you change the source — there's no automatic SVG→PNG step in the build.
 - Public files in `public/` are copied verbatim into the extension. Don't put anything large there; it ships to every user.
 
