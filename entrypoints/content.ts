@@ -1,4 +1,4 @@
-import { defineContentScript } from "wxt/sandbox";
+import { defineContentScript } from "wxt/utils/define-content-script";
 import type { ContentRequest } from "@/types";
 import { extractFromDocument } from "@/lib/extract";
 import { clearHighlights, highlightRanges } from "@/lib/extract/highlight";

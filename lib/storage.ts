@@ -1,9 +1,9 @@
 import {
   DEFAULT_SETTINGS,
-  Settings,
   SettingsSchema,
   migrateSettings,
 } from "@/types";
+import type { Settings } from "@/types";
 import { browserApi } from "@/lib/browser-api";
 
 const KEY = "settings";

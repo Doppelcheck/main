@@ -92,9 +92,18 @@ export async function promptChromeBuiltin(
 
   const stream = session.promptStreaming(input.user, promptOpts);
   return (async function* () {
+    // Read through a reader rather than `for await`: Chrome's ReadableStream is
+    // async-iterable at runtime, but the DOM lib does not declare
+    // [Symbol.asyncIterator] on it, so the iteration form does not typecheck.
+    const reader = stream.getReader();
     try {
-      for await (const chunk of stream) yield chunk;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value !== undefined) yield value;
+      }
     } finally {
+      reader.releaseLock();
       session.destroy?.();
     }
   })();
