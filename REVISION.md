@@ -51,7 +51,7 @@ Replaces: FastAPI app, Jinja templates, the dual `bookmarklet.html` / `bookmarkl
 - **[WXT](https://wxt.dev)** — Vite-powered, file-based routing, single codebase compiles to Chrome MV3, Firefox MV3, and Edge. ~400 KB output. Plasmo is in maintenance mode as of 2026; CRXJS is too thin for a project this size; WXT is the consensus winner.
 - **React + TypeScript** for the side panel UI. Type safety matters more here than it did in `bookmarklet.js` (~80 KB of untyped JS).
 - **Tailwind + shadcn/ui** for the UI. Replaces the hand-rolled CSS in `server/static/css/`.
-- **Zod** for schema validation at the LLM/search-API boundary, mirroring the role pydantic plays in [server/models.py](server/models.py) today.
+- **Zod** for schema validation at the LLM/search-API boundary, mirroring the role pydantic plays in [server/models.py](legacy/server/models.py) today.
 
 ### Page extraction: Defuddle
 
@@ -97,7 +97,7 @@ This is the explicit replacement for "user must install Docker + Ollama + pull a
 
 ### Search: Brave Search API (primary), Tavily (LLM-optimized alternative)
 
-Replaces: `googlesearch-python`, `google-api-python-client`, the Google Custom Search Engine setup, the per-domain manual fan-out in [server/routes.py:187](server/routes.py:187).
+Replaces: `googlesearch-python`, `google-api-python-client`, the Google Custom Search Engine setup, the per-domain manual fan-out in [server/routes.py:187](legacy/server/routes.py#L187).
 
 - **[Brave Search API](https://brave.com/search/api/)** — independent 30B-page index, lowest latency in the AIMultiple agentic-search benchmark (669 ms avg), best agent-search score. $5/1k queries with 1k free monthly credits for new users — generous enough for typical individual use without ever paying. Privacy-aligned (no tracking), which matches the project's stated values better than Google CSE does.
 - **[Tavily](https://tavily.com)** as alternative when the calling code wants pre-ranked, citation-formatted snippets without post-processing. Free tier is 1,000 queries/month.
