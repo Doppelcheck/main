@@ -492,15 +492,15 @@ function LocalServerPanel(props: {
   openaiCompatible: OpenAICompatibleConfig;
   onOpenAICompatChange: (v: OpenAICompatibleConfig) => void;
 }) {
-  // Preset for the companion gemma-server: it exposes Ollama on
-  // localhost:11434 with `gemma4:e2b-it-q4_K_M` pre-installed (the
-  // E2B-Instruct, q4_K_M-quantised Gemma 4 build that ships with the
-  // installer). One click pre-fills the Ollama form below.
-  const applyGemmaServer = () => {
+  // One click pre-fills the Ollama form for a stock daemon on its
+  // default port. Nothing here is specific to any particular model or
+  // installer: Ollama's own `ollama pull <tag>` supplies the model, and
+  // the tag field below takes anything `ollama list` reports.
+  const applyStockOllama = () => {
     props.onProviderChange("ollama");
     props.onOllamaChange({
       baseUrl: "http://localhost:11434",
-      model: "gemma4:e2b-it-q4_K_M",
+      model: props.ollama.model || DEFAULT_SETTINGS.ollama.model,
     });
   };
 
@@ -508,28 +508,29 @@ function LocalServerPanel(props: {
     <div className="space-y-3">
       <div className="rounded-md border border-accent/30 bg-accent/[0.06] p-3 text-xs leading-relaxed">
         <p className="font-semibold text-ink dark:text-paper">
-          Easiest local setup: <code>doppelcheck/gemma-server</code>
+          Use any LLM running on your own machine
         </p>
         <p className="mt-1 text-ink/75 dark:text-paper/70">
-          A zero-config installer that runs Gemma 4 locally and exposes
-          it as an Ollama-compatible server on{" "}
-          <code>localhost:11434</code>. Install it from{" "}
+          DoppelCheck talks to local servers over two protocols, so
+          anything that speaks either one works —{" "}
           <a
             className="text-accent hover:underline"
-            href="https://github.com/doppelcheck/gemma-server"
+            href="https://ollama.com"
             target="_blank"
             rel="noreferrer"
           >
-            github.com/doppelcheck/gemma-server
+            Ollama
           </a>
-          , then click the button below to point DoppelCheck at it.
+          , LM Studio, llama.cpp&rsquo;s server, vLLM, LocalAI, Jan, or
+          your own. Install one, pull a model, then point the form below
+          at it. Nothing is sent to a third party.
         </p>
         <button
           type="button"
-          onClick={applyGemmaServer}
+          onClick={applyStockOllama}
           className="mt-2 rounded-md border border-accent/40 bg-accent/10 px-3 py-1 text-sm text-accent dark:text-paper"
         >
-          Use gemma-server (localhost:11434)
+          Ollama default (localhost:11434)
         </button>
       </div>
 
@@ -542,7 +543,7 @@ function LocalServerPanel(props: {
           }
         >
           <option value="ollama">
-            Ollama — native API, schema-constrained (also: gemma-server)
+            Ollama — native API, schema-constrained
           </option>
           <option value="openai-compatible">
             OpenAI-compatible — LM Studio, llama.cpp server, vLLM, …

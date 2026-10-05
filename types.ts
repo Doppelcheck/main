@@ -13,8 +13,8 @@ import { z } from "zod";
  *
  *       • Cloud APIs — Anthropic, OpenAI, Google Gemini.
  *       • Local server — Ollama (native API), or any OpenAI-compatible
- *         endpoint (LM Studio, llama.cpp server, vLLM, the companion
- *         `doppelcheck/gemma-server` zero-config Gemma 4 setup, …).
+ *         endpoint (LM Studio, llama.cpp server, vLLM, LocalAI, Jan,
+ *         …), running on the user's own machine.
  */
 type Tier = "browser-native" | "network";
 
