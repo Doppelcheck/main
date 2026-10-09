@@ -64,7 +64,7 @@ Settings sync across your browsers via `chrome.storage.sync`. Keys never leave y
 ## What's improved
 
 - One-click install instead of Docker + bookmarklet drag.
-- ~500 KB total extension size vs. ~10 GB Docker image.
+- ~190 KB zipped / ~630 KB unpacked vs. ~10 GB Docker image.
 - Persistent UI in the browser's side panel — no more sidebar getting re-injected on every click.
 - No CSP `/proxy` workaround — content scripts have access by default.
 - Single TypeScript codebase, cross-browser, fully typed.
