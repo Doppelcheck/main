@@ -5,6 +5,12 @@
  */
 
 import type { SearchHit } from "@/types";
+// The ONE tag-stripper/entity-decoder. Brave marks matched terms up in `title`
+// and `description`, so these fields carry both markup and entities, and
+// `title` is rendered to the user as the source's name. This module used to
+// carry its own tag-only copy; `fetch-source.ts` warns in its own comment that
+// duplicating that chain has caused drift once already.
+import { stripHtml } from "@/lib/fetch-source";
 
 const ENDPOINT = "https://api.search.brave.com/res/v1/web/search";
 
@@ -72,8 +78,4 @@ function safeHost(u: string): string {
   } catch {
     return "";
   }
-}
-
-function stripHtml(s: string): string {
-  return s.replace(/<[^>]+>/g, "").trim();
 }
